@@ -18,14 +18,14 @@ export function homeOfSockBytes(bytes: number, prefix = 'al-sock-'): string {
   return home;
 }
 
-/** Run `fn` with AGENT_LARK_HOME pointed at `home`, then put the variable back. */
+/** Run `fn` with LARK_CONNECTOR_HOME pointed at `home`, then put the variable back. */
 export function withHome<T>(home: string, fn: () => T): T {
-  const prev = process.env.AGENT_LARK_HOME;
-  process.env.AGENT_LARK_HOME = home;
+  const prev = process.env.LARK_CONNECTOR_HOME;
+  process.env.LARK_CONNECTOR_HOME = home;
   try {
     return fn();
   } finally {
-    if (prev === undefined) delete process.env.AGENT_LARK_HOME;
-    else process.env.AGENT_LARK_HOME = prev;
+    if (prev === undefined) delete process.env.LARK_CONNECTOR_HOME;
+    else process.env.LARK_CONNECTOR_HOME = prev;
   }
 }

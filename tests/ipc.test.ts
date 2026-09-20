@@ -8,7 +8,7 @@ import { platform, tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
 const home = mkdtempSync(join(tmpdir(), 'al-ipc-'));
-process.env.AGENT_LARK_HOME = home;
+process.env.LARK_CONNECTOR_HOME = home;
 after(() => rmSync(home, { recursive: true, force: true }));
 
 const { ipcEndpoint, SOCK_PATH_LIMIT, sockPathProblem } = await import('../src/paths.js');

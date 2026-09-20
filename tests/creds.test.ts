@@ -7,7 +7,7 @@ import { join } from 'node:path';
 
 // The keychain service name is read once at import time: point it at a
 // service that never holds anything before the module loads.
-process.env.AGENT_LARK_KEYCHAIN = 'agent-lark-test-never-stored';
+process.env.LARK_CONNECTOR_KEYCHAIN = 'agent-lark-test-never-stored';
 const { credsReport, resolveCreds, writeCreds } = await import('../src/creds.js');
 
 const scratch: string[] = [];
@@ -18,19 +18,19 @@ function isolated(): string {
   const dir = mkdtempSync(join(tmpdir(), 'al-creds-'));
   scratch.push(dir);
   process.env.XDG_CONFIG_HOME = dir;
-  process.env.AGENT_LARK_STORE = 'file';
-  process.env.AGENT_LARK_KEYCHAIN = 'agent-lark-test-never-stored';
-  for (const k of ['AGENT_LARK_APP_ID', 'AGENT_LARK_APP_SECRET', 'AGENT_LARK_OWNER_OPEN_ID', 'AGENT_LARK_ENV_FILE', 'LARK_APP_ID', 'LARK_APP_SECRET']) delete process.env[k];
+  process.env.LARK_CONNECTOR_STORE = 'file';
+  process.env.LARK_CONNECTOR_KEYCHAIN = 'agent-lark-test-never-stored';
+  for (const k of ['LARK_CONNECTOR_APP_ID', 'LARK_CONNECTOR_APP_SECRET', 'LARK_CONNECTOR_OWNER_OPEN_ID', 'LARK_CONNECTOR_ENV_FILE', 'LARK_APP_ID', 'LARK_APP_SECRET']) delete process.env[k];
   return dir;
 }
 
-test('an env file is no longer read, even when AGENT_LARK_ENV_FILE points at one; nor are LARK_APP_ID / LARK_APP_SECRET', () => {
+test('an env file is no longer read, even when LARK_CONNECTOR_ENV_FILE points at one; nor are LARK_APP_ID / LARK_APP_SECRET', () => {
   const dir = isolated();
   mkdirSync(join(dir, 'agent-lark'), { recursive: true });
-  writeFileSync(join(dir, 'agent-lark', '.env'), 'AGENT_LARK_APP_ID=cli_fromfile\nAGENT_LARK_APP_SECRET=s\n');
+  writeFileSync(join(dir, 'agent-lark', '.env'), 'LARK_CONNECTOR_APP_ID=cli_fromfile\nLARK_CONNECTOR_APP_SECRET=s\n');
   const other = join(dir, 'other.env');
-  writeFileSync(other, 'AGENT_LARK_APP_ID=cli_other\nAGENT_LARK_APP_SECRET=s\n');
-  process.env.AGENT_LARK_ENV_FILE = other;
+  writeFileSync(other, 'LARK_CONNECTOR_APP_ID=cli_other\nLARK_CONNECTOR_APP_SECRET=s\n');
+  process.env.LARK_CONNECTOR_ENV_FILE = other;
   process.env.LARK_APP_ID = 'cli_generic';
   process.env.LARK_APP_SECRET = 's';
   assert.equal(resolveCreds(), null);
@@ -47,8 +47,8 @@ test('the environment pair wins over the file store; the file store is 0600 and 
   if (platform() !== 'win32') assert.equal(statSync(where).mode & 0o777, 0o600);
   assert.equal(resolveCreds()?.appId, 'cli_stored');
   assert.equal(resolveCreds()?.source, 'file');
-  process.env.AGENT_LARK_APP_ID = 'cli_env';
-  process.env.AGENT_LARK_APP_SECRET = 'env-secret';
+  process.env.LARK_CONNECTOR_APP_ID = 'cli_env';
+  process.env.LARK_CONNECTOR_APP_SECRET = 'env-secret';
   assert.equal(resolveCreds()?.appId, 'cli_env');
   assert.equal(resolveCreds()?.source, 'env');
 });

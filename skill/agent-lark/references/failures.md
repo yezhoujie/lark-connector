@@ -126,10 +126,10 @@ Start it as described in [daemon.md](daemon.md) §2, then call again. A differen
 **State directory too deep for a Unix socket** (not sent; every command that talks to the daemon, `away off` excepted):
 
 ```
-agent-lark: socket path /very/deep/…/.agent-lark/daemon.sock is 112 bytes, over this platform's limit of 104; set AGENT_LARK_HOME to a shorter directory
+agent-lark: socket path /very/deep/…/.agent-lark/daemon.sock is 112 bytes, over this platform's limit of 104; set LARK_CONNECTOR_HOME to a shorter directory
 ```
 
-No daemon can listen there, so starting one does not help: the user has to point `AGENT_LARK_HOME` (or
+No daemon can listen there, so starting one does not help: the user has to point `LARK_CONNECTOR_HOME` (or
 `--home`) at a shorter directory (macOS and the BSDs allow 104 bytes for the socket path, Linux 108;
 Windows has no limit). `daemon` / `daemon --detach` / `away on` exit 4 with the same sentence (§5); `daemon --status`
 exits 1 with it; `status` prints `daemon: cannot run here (<the sentence>)` (rc 0); `away off` still switches the local state off (rc 0, `daemon is not running; local state cleared`).
@@ -177,7 +177,7 @@ failure line (`daemon started but did not answer within 10 s; see the log: <home
 followed by the command on its own line (`<node> <cli.mjs> --home <dir> setup --reuse`, absolute paths) — give
 the user that command. `<why>` is `pane split failed` or `pane run failed in <pane>`.
 
-**`setup` refused to go online** (rc 3): `agent-lark: offline: refusing to contact Feishu (AGENT_LARK_OFFLINE=1 is set)`
+**`setup` refused to go online** (rc 3): `agent-lark: offline: refusing to contact Feishu (LARK_CONNECTOR_OFFLINE=1 is set)`
 — the environment carries the test-suite guard ([daemon.md](daemon.md) §7); unset it.
 
 **Anything unexpected** ends with rc 3 and the error's stack on stderr; relay it.
@@ -196,9 +196,9 @@ agent-lark: this project is not bound yet; run agent-lark away on first
 Run `away on` in the project (SKILL.md, "Remote mode"); it may itself exit 4 with one of the next two.
 
 **State directory too deep for a Unix socket** (`daemon`, `daemon --detach`, `away on`; nothing started, no 10 s wait):
-`agent-lark: socket path <home>/daemon.sock is N bytes, over this platform's limit of M; set AGENT_LARK_HOME to a shorter directory`
+`agent-lark: socket path <home>/daemon.sock is N bytes, over this platform's limit of M; set LARK_CONNECTOR_HOME to a shorter directory`
 — checked before the credentials, so it is the first thing a fresh install on a deep path sees. The user
-sets `AGENT_LARK_HOME` (or passes `--home <dir>`) to a shorter directory; §4 has the client-side form.
+sets `LARK_CONNECTOR_HOME` (or passes `--home <dir>`) to a shorter directory; §4 has the client-side form.
 
 **No credentials** (`away on`): `agent-lark: No Feishu app credentials yet. Run once: agent-lark setup`
 — ask the user whether to scan a QR code for a new app or reuse an app they already have, then follow
@@ -247,7 +247,7 @@ to Feishu is rc 3 instead, and then nothing was touched (a plain `unbind` still 
 **`rename` with no live group**: `agent-lark: this project has no live group; run agent-lark away on first`.
 
 **Creating a group is impossible**: `agent-lark: nobody to invite into a new group (the app owner is not recorded). Use --chat <chat_id> to bind a group you created yourself.`
-(credentials came from the environment without `AGENT_LARK_OWNER_OPEN_ID`, or an old `setup`) — or
+(credentials came from the environment without `LARK_CONNECTOR_OWNER_OPEN_ID`, or an old `setup`) — or
 `creating the group failed: <error>` with `If this is a permission problem the app lacks the im:chat (create group) scope: run agent-lark setup --update, or bind an existing group with --chat <chat_id>.`
 when Feishu refused for a permission reason (any other reason is rc 3 with the same text).
 
@@ -290,8 +290,8 @@ Lines starting `note: ` on stderr while a command blocks are informational; the 
 
 | command | 0 | 1 | 3 | 4 |
 |---|---|---|---|---|
-| `setup` | on a terminal: the menu (`1) … QR code / 2) reuse …`), then the chosen branch; piped (an agent running it): the QR code straight away — app registered, credentials saved (`✅ …`), next steps printed. Credentials already stored and neither `--update` nor `--reset` given ⇒ only `Credentials already exist (from <origin>). Add --update … --reset …` (rc 0) | – | the scan-code registration failed (after up to 3 retries on network errors) · `AGENT_LARK_OFFLINE=1` | the QR code expired before it was scanned |
-| `setup --reuse` | on a terminal: App ID asked (must be `cli_` + letters and digits, asked again otherwise), App Secret asked with echo off, one probe against Feishu, `✅ Credentials work; app name "…"`, saved, the scopes / event / callback to enable by hand and `Publish a version afterwards` printed. Without a terminal: inside herdr, hands off to a new pane and prints `The interactive setup is running in herdr pane <id>: …` (rc 0) | three probes refused | `AGENT_LARK_OFFLINE=1` · the pane could not be opened or run (`could not open a herdr pane …`, with the command) | no terminal and no herdr (`setup --reuse asks for … interactively …`, with the command) |
+| `setup` | on a terminal: the menu (`1) … QR code / 2) reuse …`), then the chosen branch; piped (an agent running it): the QR code straight away — app registered, credentials saved (`✅ …`), next steps printed. Credentials already stored and neither `--update` nor `--reset` given ⇒ only `Credentials already exist (from <origin>). Add --update … --reset …` (rc 0) | – | the scan-code registration failed (after up to 3 retries on network errors) · `LARK_CONNECTOR_OFFLINE=1` | the QR code expired before it was scanned |
+| `setup --reuse` | on a terminal: App ID asked (must be `cli_` + letters and digits, asked again otherwise), App Secret asked with echo off, one probe against Feishu, `✅ Credentials work; app name "…"`, saved, the scopes / event / callback to enable by hand and `Publish a version afterwards` printed. Without a terminal: inside herdr, hands off to a new pane and prints `The interactive setup is running in herdr pane <id>: …` (rc 0) | three probes refused | `LARK_CONNECTOR_OFFLINE=1` · the pane could not be opened or run (`could not open a herdr pane …`, with the command) | no terminal and no herdr (`setup --reuse asks for … interactively …`, with the command) |
 | `setup --reuse --report-to <pane> [--close-pane]` | what the handed-off pane runs: as `setup --reuse` on a terminal, plus one `[agent-lark] setup:` line injected into `<pane>` at the end (below); `--close-pane` asks `Close this pane? [Y/n]` after success | as above | as above | – |
 | `daemon --detach` | started (pid printed), or `daemon is already running` | – | did not answer within 10 s | socket path over the limit (nothing spawned) |
 | `daemon` (foreground) | clean shutdown after a signal or `--stop` | – | already running | socket path over the limit · no credentials · `bindings.json` unreadable |
@@ -325,7 +325,7 @@ like any other prompt; the secret is masked as `***` wherever it could appear):
 | line | meaning |
 |---|---|
 | `[agent-lark] setup: credentials stored for cli_xxxxxxxx (<app name>); the scopes must be enabled in the developer console before use` | done (rc 0 in the pane); the human still has console work for a reused app |
-| `[agent-lark] setup: failed: <why>` | every end that is not success or Ctrl-C: three failed probes, refused or thrown (`3 probes refused (<error>)`, rc 1 in the pane), `offline: refusing to contact Feishu (AGENT_LARK_OFFLINE=1 is set)` (rc 3), any other failure (rc 3, `<why>` is the error text). The secret is masked as `***` wherever it could appear; relay `<why>`. The one end that sends no line: the pane closed by hand |
+| `[agent-lark] setup: failed: <why>` | every end that is not success or Ctrl-C: three failed probes, refused or thrown (`3 probes refused (<error>)`, rc 1 in the pane), `offline: refusing to contact Feishu (LARK_CONNECTOR_OFFLINE=1 is set)` (rc 3), any other failure (rc 3, `<why>` is the error text). The secret is masked as `***` wherever it could appear; relay `<why>`. The one end that sends no line: the pane closed by hand |
 | `[agent-lark] setup: interrupted before any credentials were stored` | Ctrl-C in the pane (rc 130); ask whether to try again |
 | `[agent-lark] setup: credentials already stored (<origin>); nothing changed. To switch apps run agent-lark setup --reset --reuse` | nothing was asked (rc 0) |
 

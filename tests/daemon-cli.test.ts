@@ -12,7 +12,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const cli = resolve(here, '..', '..', 'skill', 'agent-lark', 'dist', 'cli.mjs');
 const entry = join(here, 'fixtures', 'daemon-entry.js');
 const home = mkdtempSync(join(tmpdir(), 'al-cli-daemon-'));
-const env = { ...process.env, AGENT_LARK_HOME: home };
+const env = { ...process.env, LARK_CONNECTOR_HOME: home };
 
 let child: ChildProcess | undefined;
 after(() => {

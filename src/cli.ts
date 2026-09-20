@@ -212,7 +212,7 @@ export interface SetupDeps {
   /** Check a credential pair against Feishu (`getAppInfo`); resolves with what the app says about itself. */
   probe: (appId: string, appSecret: string) => Promise<{ appName?: string; ownerId?: string }>;
   register: typeof registerApp;
-  /** `AGENT_LARK_OFFLINE=1`: never contact Feishu — the test suite sets it, so no test can register an app or probe credentials by accident. */
+  /** `LARK_CONNECTOR_OFFLINE=1`: never contact Feishu — the test suite sets it, so no test can register an app or probe credentials by accident. */
   offline: boolean;
   herdr: {
     insideHerdr: typeof insideHerdr;
@@ -535,7 +535,7 @@ async function cmdSetup(args: string[]): Promise<void> {
       return { appName: info.appName, ownerId: info.ownerId };
     },
     register: registerApp,
-    offline: process.env.AGENT_LARK_OFFLINE === '1',
+    offline: process.env.LARK_CONNECTOR_OFFLINE === '1',
     herdr: { insideHerdr, currentPaneId, splitPane, runInPane, promptPane, closePane },
     out: (t) => process.stdout.write(t),
     err: (t) => process.stderr.write(t),
@@ -929,7 +929,7 @@ async function cmdStatus(): Promise<void> {
 
 /**
  * Global `--home <dir>`: taken out of argv once, here, and handed down as
- * AGENT_LARK_HOME — the daemon started with --detach inherits the environment,
+ * LARK_CONNECTOR_HOME — the daemon started with --detach inherits the environment,
  * so every process on this machine agrees on where the state lives.
  */
 function takeHome(argv: string[]): string[] {
@@ -938,7 +938,7 @@ function takeHome(argv: string[]): string[] {
   const joined = argv[i]!.startsWith('--home=');
   const dir = joined ? argv[i]!.slice('--home='.length) : argv[i + 1];
   if (!dir || (!joined && dir.startsWith('--'))) die(1, msg.homeNeedsDir);
-  process.env.AGENT_LARK_HOME = resolve(dir);
+  process.env.LARK_CONNECTOR_HOME = resolve(dir);
   return [...argv.slice(0, i), ...argv.slice(i + (joined ? 1 : 2))];
 }
 

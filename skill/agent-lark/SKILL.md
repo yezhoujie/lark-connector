@@ -197,7 +197,7 @@ agent-lark send-file ./shot.png --caption "Current layout"
 | 1 | Input rejected; stderr lists every problem | **no** | fix the JSON (or the argument) and call again |
 | 2 | No reply within the timeout | yes | decide yourself or ask again; a late reply still reaches you as an instruction |
 | 3 | Channel failure: daemon not running, not connected to Feishu, send failed, daemon stopping; stderr says which | see stderr | start the daemon or wait for the connection (below), retry once; still 3 → stop and tell the user |
-| 4 | A human must act: no credentials, project not bound, a question already pending, earlier groups to choose from, a state directory too deep for a Unix socket (`daemon` / `away on`: `set AGENT_LARK_HOME to a shorter directory`); for `unbind --dissolve`, Feishu refused to dissolve the group | no | relay stderr to the user in your own conversation, then retry (after `unbind --dissolve` there is nothing to retry: the record is gone, the group is the human's to dissolve) |
+| 4 | A human must act: no credentials, project not bound, a question already pending, earlier groups to choose from, a state directory too deep for a Unix socket (`daemon` / `away on`: `set LARK_CONNECTOR_HOME to a shorter directory`); for `unbind --dissolve`, Feishu refused to dissolve the group | no | relay stderr to the user in your own conversation, then retry (after `unbind --dissolve` there is nothing to retry: the record is gone, the group is the human's to dissolve) |
 | 130 | The `ask` client itself was interrupted (Ctrl-C); the card is cancelled, the daemon is unaffected — do not restart it | yes | call again |
 
 `notify` and `send-file` use 0 / 1 / 3 / 4 with the same meanings and never 2. Stderr text per case, what
@@ -303,14 +303,14 @@ agent-lark setup                                   # once per machine, on a term
   the command for the human to run themselves. The user must run it in a terminal window of their own (Terminal, iTerm, …). Never suggest running it inside this session — a `!`-prefixed command, a shell tool, a background job: none of them has a TTY, and the CLI refuses without one.
   The four report lines, verbatim:
   - `[agent-lark] setup: credentials stored for cli_xxxxxxxx (<app name>); the scopes must be enabled in the developer console before use` — done; remind the user of the console work if they have not done it, then `away on` again.
-  - `[agent-lark] setup: failed: <why>` — every end that is not success or Ctrl-C: three failed probes — refused or thrown — (`3 probes refused (<error>)`), the `AGENT_LARK_OFFLINE` guard, any other failure; relay `<why>` (the secret is masked as `***` wherever it could appear).
+  - `[agent-lark] setup: failed: <why>` — every end that is not success or Ctrl-C: three failed probes — refused or thrown — (`3 probes refused (<error>)`), the `LARK_CONNECTOR_OFFLINE` guard, any other failure; relay `<why>` (the secret is masked as `***` wherever it could appear).
   - `[agent-lark] setup: interrupted before any credentials were stored` — the human pressed Ctrl-C; ask whether to try again.
   - `[agent-lark] setup: credentials already stored (<origin>); nothing changed. To switch apps run agent-lark setup --reset --reuse` — there was nothing to do.
   `setup` in any form with credentials already stored only reports them — `Credentials already exist
   (from <origin>). …`, rc 0, no pane opened; `setup --update` rescans the QR code for the same app (adds
   scopes; on a terminal the menu comes first); `setup --reset` forgets the stored credentials first, so `setup --reset --reuse` switches to
   another app. Credentials live in the OS keychain (or a
-  0600 `credentials.json`); `AGENT_LARK_APP_ID` / `AGENT_LARK_APP_SECRET` in the environment override
+  0600 `credentials.json`); `LARK_CONNECTOR_APP_ID` / `LARK_CONNECTOR_APP_SECRET` in the environment override
   them for one process — that is the only way in besides `setup`.
 - `away on` does everything in one command: checks credentials, starts the daemon if needed, waits up to
   15 s for it to reach Feishu, binds this project to a group, and only then flips the switch. **Relay its
@@ -384,7 +384,7 @@ daemon keeps that on the binding.
   left as it was) and the next `ask` exits 4 as not bound. Nothing is forgotten while Feishu's group list
   cannot be read in full.
 - Attachments the human sent live under `~/.agent-lark/media/` and are deleted after 7 days
-  (`AGENT_LARK_MEDIA_TTL_DAYS`; `0` keeps everything). Copy what you need into the project.
+  (`LARK_CONNECTOR_MEDIA_TTL_DAYS`; `0` keeps everything). Copy what you need into the project.
 - Credentials are in the OS keychain (or a 0600 file), never in this skill's directory or in any output,
   and the App Secret is typed by the human in an interactive `setup` — it never passes through argv, a
   file you write, or your session; the group id appears in `state.json` and `bindings.json`, the

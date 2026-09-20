@@ -12,7 +12,7 @@ import { InputInterrupted } from '../src/tty.js';
 
 // The keychain service name is read once at import time: point it at a
 // service that never holds anything before the module loads.
-process.env.AGENT_LARK_KEYCHAIN = 'agent-lark-test-never-stored';
+process.env.LARK_CONNECTOR_KEYCHAIN = 'agent-lark-test-never-stored';
 const { runSetup } = await import('../src/cli.js');
 const { msg } = await import('../src/texts.js');
 type SetupDeps = Parameters<typeof runSetup>[1];
@@ -22,10 +22,10 @@ function isolate(): string {
   const dir = mkdtempSync(join(tmpdir(), 'al-setup-'));
   scratch.push(dir);
   process.env.XDG_CONFIG_HOME = dir;
-  process.env.AGENT_LARK_HOME = join(dir, 'home');
-  process.env.AGENT_LARK_STORE = 'file';
-  process.env.AGENT_LARK_KEYCHAIN = 'agent-lark-test-never-stored';
-  for (const k of ['AGENT_LARK_APP_ID', 'AGENT_LARK_APP_SECRET', 'AGENT_LARK_OWNER_OPEN_ID']) delete process.env[k];
+  process.env.LARK_CONNECTOR_HOME = join(dir, 'home');
+  process.env.LARK_CONNECTOR_STORE = 'file';
+  process.env.LARK_CONNECTOR_KEYCHAIN = 'agent-lark-test-never-stored';
+  for (const k of ['LARK_CONNECTOR_APP_ID', 'LARK_CONNECTOR_APP_SECRET', 'LARK_CONNECTOR_OWNER_OPEN_ID']) delete process.env[k];
   return dir;
 }
 process.on('exit', () => {
@@ -223,7 +223,7 @@ test('reuse without a terminal, inside herdr: a pane is split below the caller a
   const argv = run.slice(2);
   assert.deepEqual(argv.slice(0, 2), ['/usr/bin/node', '/skill/dist/cli.mjs']);
   assert.equal(argv[2], '--home');
-  assert.equal(argv[3], process.env.AGENT_LARK_HOME);
+  assert.equal(argv[3], process.env.LARK_CONNECTOR_HOME);
   assert.deepEqual(argv.slice(4), ['setup', '--reuse', '--report-to', 'w1:p2', '--close-pane']);
   assert.match(text(f.out), /pane w1:p9/);
   assert.match(text(f.out), /\[agent-lark\] setup:/);
@@ -307,7 +307,7 @@ test('existing stored credentials: setup (and setup --reuse) only says so and ex
   assert.equal(JSON.parse(readFileSync(credsFile(dir), 'utf8')).appId, 'cli_second');
 });
 
-test('AGENT_LARK_OFFLINE: both network paths are refused with exit 3 and the SDK is never called', async () => {
+test('LARK_CONNECTOR_OFFLINE: both network paths are refused with exit 3 and the SDK is never called', async () => {
   const dir = isolate();
   const qr = fake(scripted([], false), { offline: true });
   assert.equal(await runSetup([], qr.deps), 3);

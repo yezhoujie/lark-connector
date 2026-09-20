@@ -1,5 +1,5 @@
 // The binding store on disk: one live group per project plus the groups it
-// let go of, keyed by chat id, in a temporary AGENT_LARK_HOME.
+// let go of, keyed by chat id, in a temporary LARK_CONNECTOR_HOME.
 import { after, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -12,7 +12,7 @@ const homes: string[] = [];
 function freshHome(): string {
   const dir = mkdtempSync(join(tmpdir(), 'al-bindings-'));
   homes.push(dir);
-  process.env.AGENT_LARK_HOME = dir;
+  process.env.LARK_CONNECTOR_HOME = dir;
   return dir;
 }
 after(() => {

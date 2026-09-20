@@ -106,7 +106,7 @@ im:message   im:message:send_as_bot   im:message.group_msg   im:chat   im:resour
 
 ### 4.4 Credentials
 
-Three places, highest first: `AGENT_LARK_APP_ID` / `AGENT_LARK_APP_SECRET` in the environment (a runtime override), the OS keychain (what `setup` writes; macOS `security`, Linux `secret-tool`, a DPAPI-encrypted file on Windows), or `~/.config/agent-lark/credentials.json` with mode `0600`. Nothing else is read — no env file. `agent-lark status` shows which one is in use **and never prints a value**. Details and every variable: [references/daemon.md](references/daemon.md) §7.
+Three places, highest first: `LARK_CONNECTOR_APP_ID` / `LARK_CONNECTOR_APP_SECRET` in the environment (a runtime override), the OS keychain (what `setup` writes; macOS `security`, Linux `secret-tool`, a DPAPI-encrypted file on Windows), or `~/.config/agent-lark/credentials.json` with mode `0600`. Nothing else is read — no env file. `agent-lark status` shows which one is in use **and never prints a value**. Details and every variable: [references/daemon.md](references/daemon.md) §7.
 
 ## 5. Using it: what you say, what the agent does
 

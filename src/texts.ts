@@ -189,14 +189,14 @@ export const msg = {
   send-file <path> [--caption <t>]   Send an image or file to the project group
   status                             Daemon and binding overview
 
-Global: --home <dir>  state directory (same as AGENT_LARK_HOME; default ~/.agent-lark)
+Global: --home <dir>  state directory (same as LARK_CONNECTOR_HOME; default ~/.agent-lark)
 
 Exit codes: 0 ok · 1 bad input · 2 timed out, nobody answered · 3 channel failure · 4 a human must act
 `,
   prefix: 'agent-lark: ',
   homeNeedsDir: '--home needs a directory',
   unknownOption: 'unknown option {option}. See agent-lark --help.',
-  offline: 'offline: refusing to contact Feishu (AGENT_LARK_OFFLINE=1 is set)',
+  offline: 'offline: refusing to contact Feishu (LARK_CONNECTOR_OFFLINE=1 is set)',
   unknownCommand: 'Unknown command "{cmd}". See agent-lark --help.',
   needStdin: 'This command reads one JSON object from stdin. Feed it with a heredoc.',
   badJson: 'stdin is not valid JSON: {error}',
@@ -226,8 +226,8 @@ Exit codes: 0 ok · 1 bad input · 2 timed out, nobody answered · 3 channel fai
     'daemon: pid {pid}  connected {connected}  connection {connection}  pending questions {pending}  bound projects {bindings}  started {startedAt}',
   daemonLastError: '  last error: {error}',
   daemonMediaLine: 'media: ttl {ttl} days, {mb} MB in {files} files (as of last sweep {at})',
-  daemonMediaLineOff: 'media: no automatic cleanup (AGENT_LARK_MEDIA_TTL_DAYS=0), {mb} MB in {files} files (as of last sweep {at})',
-  mediaTtlInvalid: 'agent-lark: warning: AGENT_LARK_MEDIA_TTL_DAYS={value} is not a whole number of days; using {fallback}',
+  daemonMediaLineOff: 'media: no automatic cleanup (LARK_CONNECTOR_MEDIA_TTL_DAYS=0), {mb} MB in {files} files (as of last sweep {at})',
+  mediaTtlInvalid: 'agent-lark: warning: LARK_CONNECTOR_MEDIA_TTL_DAYS={value} is not a whole number of days; using {fallback}',
   daemonStopStuck: 'daemon: still answering 10 s after the stop request; see the log: {log}',
   daemonWasNotRunning: 'daemon: was not running',
   daemonStopRefused:
@@ -236,7 +236,7 @@ Exit codes: 0 ok · 1 bad input · 2 timed out, nobody answered · 3 channel fai
   daemonAlready: 'daemon is already running',
   daemonStarted: 'daemon: started in the background, pid {pid} (log {log})',
   daemonNoReply: 'daemon started but did not answer within 10 s; see the log: {log}',
-  daemonNoCreds: 'no Feishu app credentials found. Run agent-lark setup first (or set AGENT_LARK_APP_ID / AGENT_LARK_APP_SECRET)',
+  daemonNoCreds: 'no Feishu app credentials found. Run agent-lark setup first (or set LARK_CONNECTOR_APP_ID / LARK_CONNECTOR_APP_SECRET)',
   daemonReady: 'agent-lark daemon: pid {pid}, listening at {sock}, connecting to Feishu in the background',
   notConnected: 'not connected to Feishu ({error}); the daemon keeps retrying, try again shortly',
   reconnecting: 'the connection to Feishu dropped, reconnecting',
@@ -307,7 +307,7 @@ Exit codes: 0 ok · 1 bad input · 2 timed out, nobody answered · 3 channel fai
   ipcBadRequest: 'unparseable request',
   ipcUnknownRequest: 'unknown request',
   // the state directory
-  sockPathTooLong: "socket path {path} is {bytes} bytes, over this platform's limit of {limit}; set AGENT_LARK_HOME to a shorter directory",
+  sockPathTooLong: "socket path {path} is {bytes} bytes, over this platform's limit of {limit}; set LARK_CONNECTOR_HOME to a shorter directory",
   // daemon replies
   notBound: 'this project is not bound yet; run agent-lark away on first',
   askPending: 'this project already has a question pending on the phone; one at a time',
@@ -385,8 +385,8 @@ Exit codes: 0 ok · 1 bad input · 2 timed out, nobody answered · 3 channel fai
   keychainLinux: 'libsecret (secret-tool)',
   credsPermWarning: 'agent-lark: warning: {file} permissions are too open ({mode}); chmod 600 recommended',
   credsNotPersisted: 'not persisted (memory only for this run)',
-  originEnv: 'environment AGENT_LARK_APP_ID/SECRET',
-  reportEnv: 'environment AGENT_LARK_APP_ID / AGENT_LARK_APP_SECRET',
+  originEnv: 'environment LARK_CONNECTOR_APP_ID/SECRET',
+  reportEnv: 'environment LARK_CONNECTOR_APP_ID / LARK_CONNECTOR_APP_SECRET',
   reportUnavailable: ' (not available on this machine)',
 } as const;
 

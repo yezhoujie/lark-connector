@@ -11,8 +11,8 @@ import { agentEntry, createFakeHerdr, type FakeHerdr } from './fixtures/fake-her
 import { en as enText } from '../src/texts.js';
 import { homeOfSockBytes } from './fixtures/long-home.js';
 
-process.env.AGENT_LARK_APP_ID = 'cli_fake';
-process.env.AGENT_LARK_APP_SECRET = 'fake-secret';
+process.env.LARK_CONNECTOR_APP_ID = 'cli_fake';
+process.env.LARK_CONNECTOR_APP_SECRET = 'fake-secret';
 
 const { runDaemon, DaemonStartError } = await import('../src/daemon.js');
 type DaemonHandle = Awaited<ReturnType<typeof runDaemon>>;
@@ -26,7 +26,7 @@ const daemons: Daemon[] = [];
 function freshHome(): string {
   const dir = mkdtempSync(join(tmpdir(), 'al-daemon-'));
   homes.push(dir);
-  process.env.AGENT_LARK_HOME = dir;
+  process.env.LARK_CONNECTOR_HOME = dir;
   return dir;
 }
 // A failed assertion must not leave a daemon (IPC server, timers) holding the
@@ -60,8 +60,8 @@ async function start(channelOpts: FakeChannelOptions = {}, retryMs = 50, opts: {
   const home = freshHome();
   // The owner is read from the environment when the daemon starts; each test
   // says whether one is known.
-  if (opts.owner) process.env.AGENT_LARK_OWNER_OPEN_ID = opts.owner;
-  else delete process.env.AGENT_LARK_OWNER_OPEN_ID;
+  if (opts.owner) process.env.LARK_CONNECTOR_OWNER_OPEN_ID = opts.owner;
+  else delete process.env.LARK_CONNECTOR_OWNER_OPEN_ID;
   const fake = createFakeChannel(channelOpts);
   const herdr = createFakeHerdr();
   const daemon = await runDaemon({
@@ -904,10 +904,10 @@ test('setAway false with no live group is a no-op ack; setAway true still needs 
 test('a state directory whose socket path is over the limit stops the daemon with code 4 and the path sentence, before credentials are looked at', { ...PER_TEST, skip: platform() === 'win32' ? 'named pipes have no sun_path' : false }, async () => {
   const long = homeOfSockBytes(SOCK_PATH_LIMIT + 1, 'al-daemon-long-');
   homes.push(dirname(long));
-  process.env.AGENT_LARK_HOME = long;
-  const creds = { id: process.env.AGENT_LARK_APP_ID, secret: process.env.AGENT_LARK_APP_SECRET };
-  delete process.env.AGENT_LARK_APP_ID;
-  delete process.env.AGENT_LARK_APP_SECRET;
+  process.env.LARK_CONNECTOR_HOME = long;
+  const creds = { id: process.env.LARK_CONNECTOR_APP_ID, secret: process.env.LARK_CONNECTOR_APP_SECRET };
+  delete process.env.LARK_CONNECTOR_APP_ID;
+  delete process.env.LARK_CONNECTOR_APP_SECRET;
   try {
     await assert.rejects(
       runDaemon({ createChannel: () => createFakeChannel().channel, herdr: createFakeHerdr().deps, connectRetryMs: 50 }),
@@ -915,8 +915,8 @@ test('a state directory whose socket path is over the limit stops the daemon wit
     );
     assert.equal(existsSync(join(long, 'daemon.pid')), false);
   } finally {
-    process.env.AGENT_LARK_APP_ID = creds.id;
-    process.env.AGENT_LARK_APP_SECRET = creds.secret;
+    process.env.LARK_CONNECTOR_APP_ID = creds.id;
+    process.env.LARK_CONNECTOR_APP_SECRET = creds.secret;
   }
 });
 
@@ -1502,14 +1502,14 @@ const swept = (home: string): string | undefined =>
     .split('\n')
     .find((l) => l.includes('media.swept'));
 async function withTtl<T>(value: string | undefined, fn: () => Promise<T>): Promise<T> {
-  const prev = process.env.AGENT_LARK_MEDIA_TTL_DAYS;
-  if (value === undefined) delete process.env.AGENT_LARK_MEDIA_TTL_DAYS;
-  else process.env.AGENT_LARK_MEDIA_TTL_DAYS = value;
+  const prev = process.env.LARK_CONNECTOR_MEDIA_TTL_DAYS;
+  if (value === undefined) delete process.env.LARK_CONNECTOR_MEDIA_TTL_DAYS;
+  else process.env.LARK_CONNECTOR_MEDIA_TTL_DAYS = value;
   try {
     return await fn();
   } finally {
-    if (prev === undefined) delete process.env.AGENT_LARK_MEDIA_TTL_DAYS;
-    else process.env.AGENT_LARK_MEDIA_TTL_DAYS = prev;
+    if (prev === undefined) delete process.env.LARK_CONNECTOR_MEDIA_TTL_DAYS;
+    else process.env.LARK_CONNECTOR_MEDIA_TTL_DAYS = prev;
   }
 }
 
@@ -1667,7 +1667,7 @@ test('sweep: a list spread over several pages is merged before anything is judge
   assert.ok(pages.includes('2'), `the second page was never asked for: ${JSON.stringify(pages)}`);
 });
 
-test('sweep: with AGENT_LARK_MEDIA_TTL_DAYS=0 the bindings are still swept', PER_TEST, async (t) => {
+test('sweep: with LARK_CONNECTOR_MEDIA_TTL_DAYS=0 the bindings are still swept', PER_TEST, async (t) => {
   await withTtl('0', async () => {
     const { home } = await sweeper(t, pageOf([]));
     await connected();
@@ -1763,7 +1763,7 @@ test('media sweep at start: files older than the default 7 days go, the rest and
   });
 });
 
-test('AGENT_LARK_MEDIA_TTL_DAYS=0: nothing is swept, and the status says so', PER_TEST, async () => {
+test('LARK_CONNECTOR_MEDIA_TTL_DAYS=0: nothing is swept, and the status says so', PER_TEST, async () => {
   await withTtl('0', async () => {
     const home = freshHome();
     const m = seedMedia(home);
@@ -1779,7 +1779,7 @@ test('AGENT_LARK_MEDIA_TTL_DAYS=0: nothing is swept, and the status says so', PE
   });
 });
 
-test('an unusable AGENT_LARK_MEDIA_TTL_DAYS falls back to 7 days with a warning on stderr and in the log', PER_TEST, async () => {
+test('an unusable LARK_CONNECTOR_MEDIA_TTL_DAYS falls back to 7 days with a warning on stderr and in the log', PER_TEST, async () => {
   await withTtl('abc', async () => {
     const home = freshHome();
     const m = seedMedia(home);
@@ -1796,7 +1796,7 @@ test('an unusable AGENT_LARK_MEDIA_TTL_DAYS falls back to 7 days with a warning 
       process.stderr.write = realWrite;
     }
     daemons.push(daemon);
-    assert.ok(written.some((w) => /AGENT_LARK_MEDIA_TTL_DAYS/.test(w) && /abc/.test(w)), written.join(''));
+    assert.ok(written.some((w) => /LARK_CONNECTOR_MEDIA_TTL_DAYS/.test(w) && /abc/.test(w)), written.join(''));
     await waitFor(() => swept(home), 'the media.swept log line');
     assert.equal(existsSync(m.old), false);
     assert.equal(existsSync(m.recent), true);

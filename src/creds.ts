@@ -23,7 +23,7 @@ export interface ResolvedCreds extends AppCreds {
 
 export type StoreKind = 'keychain' | 'file' | 'none';
 
-const SERVICE = process.env.AGENT_LARK_KEYCHAIN?.trim() || 'agent-lark';
+const SERVICE = process.env.LARK_CONNECTOR_KEYCHAIN?.trim() || 'agent-lark';
 const ACCOUNT = 'app';
 
 /** `$XDG_CONFIG_HOME/agent-lark`, i.e. `~/.config/agent-lark` by default. */
@@ -37,10 +37,10 @@ export const credentialsFile = (): string => join(configDir(), 'credentials.json
 
 /**
  * Which secret store `setup` writes to. Defaults to the OS keychain where one
- * is reachable, a 0600 file otherwise. `AGENT_LARK_STORE` overrides.
+ * is reachable, a 0600 file otherwise. `LARK_CONNECTOR_STORE` overrides.
  */
 export function defaultStore(): StoreKind {
-  const forced = process.env.AGENT_LARK_STORE?.trim();
+  const forced = process.env.LARK_CONNECTOR_STORE?.trim();
   if (forced === 'keychain' || forced === 'file' || forced === 'none') return forced;
   return keychainAvailable() ? 'keychain' : 'file';
 }
@@ -205,16 +205,16 @@ function pair(id: string | undefined, secret: string | undefined): { appId: stri
  * Resolution order, highest first. Documented in README — users on a shared
  * machine need to know which layer wins.
  *
- *   1. AGENT_LARK_APP_ID / AGENT_LARK_APP_SECRET       (environment, a runtime override)
+ *   1. LARK_CONNECTOR_APP_ID / LARK_CONNECTOR_APP_SECRET       (environment, a runtime override)
  *   2. the OS keychain                                  (what `setup` writes)
- *   3. <config>/credentials.json, mode 0600             (what `AGENT_LARK_STORE=file`, or a platform without a keychain, writes)
+ *   3. <config>/credentials.json, mode 0600             (what `LARK_CONNECTOR_STORE=file`, or a platform without a keychain, writes)
  *
  * Nothing else is read: no env file, no unprefixed LARK_* names.
  */
 export function resolveCreds(): ResolvedCreds | null {
-  const prefixed = pair(process.env.AGENT_LARK_APP_ID, process.env.AGENT_LARK_APP_SECRET);
+  const prefixed = pair(process.env.LARK_CONNECTOR_APP_ID, process.env.LARK_CONNECTOR_APP_SECRET);
   if (prefixed)
-    return { ...prefixed, ownerOpenId: process.env.AGENT_LARK_OWNER_OPEN_ID?.trim(), source: 'env', origin: msg.originEnv };
+    return { ...prefixed, ownerOpenId: process.env.LARK_CONNECTOR_OWNER_OPEN_ID?.trim(), source: 'env', origin: msg.originEnv };
 
   const kc = keychainRead();
   if (kc?.appId && kc.appSecret) return { ...kc, source: 'keychain', origin: `${keychainName()} (service: ${SERVICE})` };
@@ -249,7 +249,7 @@ export function clearCreds(): void {
 export function credsReport(): string[] {
   const lines: string[] = [];
   const mark = (ok: boolean): string => (ok ? '✓' : '·');
-  lines.push(`${mark(!!pair(process.env.AGENT_LARK_APP_ID, process.env.AGENT_LARK_APP_SECRET))} ${msg.reportEnv}`);
+  lines.push(`${mark(!!pair(process.env.LARK_CONNECTOR_APP_ID, process.env.LARK_CONNECTOR_APP_SECRET))} ${msg.reportEnv}`);
   lines.push(`${mark(!!keychainRead())} ${keychainName()} (service: ${SERVICE})${keychainAvailable() ? '' : msg.reportUnavailable}`);
   lines.push(`${mark(!!fileRead())} ${credentialsFile()}`);
   return lines;

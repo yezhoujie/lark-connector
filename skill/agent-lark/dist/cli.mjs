@@ -136446,14 +136446,14 @@ var init_texts = __esm({
   send-file <path> [--caption <t>]   Send an image or file to the project group
   status                             Daemon and binding overview
 
-Global: --home <dir>  state directory (same as AGENT_LARK_HOME; default ~/.agent-lark)
+Global: --home <dir>  state directory (same as LARK_CONNECTOR_HOME; default ~/.agent-lark)
 
 Exit codes: 0 ok \xB7 1 bad input \xB7 2 timed out, nobody answered \xB7 3 channel failure \xB7 4 a human must act
 `,
       prefix: "agent-lark: ",
       homeNeedsDir: "--home needs a directory",
       unknownOption: "unknown option {option}. See agent-lark --help.",
-      offline: "offline: refusing to contact Feishu (AGENT_LARK_OFFLINE=1 is set)",
+      offline: "offline: refusing to contact Feishu (LARK_CONNECTOR_OFFLINE=1 is set)",
       unknownCommand: 'Unknown command "{cmd}". See agent-lark --help.',
       needStdin: "This command reads one JSON object from stdin. Feed it with a heredoc.",
       badJson: "stdin is not valid JSON: {error}",
@@ -136480,8 +136480,8 @@ Exit codes: 0 ok \xB7 1 bad input \xB7 2 timed out, nobody answered \xB7 3 chann
       daemonStatusLine: "daemon: pid {pid}  connected {connected}  connection {connection}  pending questions {pending}  bound projects {bindings}  started {startedAt}",
       daemonLastError: "  last error: {error}",
       daemonMediaLine: "media: ttl {ttl} days, {mb} MB in {files} files (as of last sweep {at})",
-      daemonMediaLineOff: "media: no automatic cleanup (AGENT_LARK_MEDIA_TTL_DAYS=0), {mb} MB in {files} files (as of last sweep {at})",
-      mediaTtlInvalid: "agent-lark: warning: AGENT_LARK_MEDIA_TTL_DAYS={value} is not a whole number of days; using {fallback}",
+      daemonMediaLineOff: "media: no automatic cleanup (LARK_CONNECTOR_MEDIA_TTL_DAYS=0), {mb} MB in {files} files (as of last sweep {at})",
+      mediaTtlInvalid: "agent-lark: warning: LARK_CONNECTOR_MEDIA_TTL_DAYS={value} is not a whole number of days; using {fallback}",
       daemonStopStuck: "daemon: still answering 10 s after the stop request; see the log: {log}",
       daemonWasNotRunning: "daemon: was not running",
       daemonStopRefused: '{n} question(s) still pending on the phone. Stopping the daemon now turns those cards into "\u26A0\uFE0F Cancelled" \u2014 a dead card for the human.\nWait for the answer, or do it anyway: agent-lark daemon --stop --force',
@@ -136489,7 +136489,7 @@ Exit codes: 0 ok \xB7 1 bad input \xB7 2 timed out, nobody answered \xB7 3 chann
       daemonAlready: "daemon is already running",
       daemonStarted: "daemon: started in the background, pid {pid} (log {log})",
       daemonNoReply: "daemon started but did not answer within 10 s; see the log: {log}",
-      daemonNoCreds: "no Feishu app credentials found. Run agent-lark setup first (or set AGENT_LARK_APP_ID / AGENT_LARK_APP_SECRET)",
+      daemonNoCreds: "no Feishu app credentials found. Run agent-lark setup first (or set LARK_CONNECTOR_APP_ID / LARK_CONNECTOR_APP_SECRET)",
       daemonReady: "agent-lark daemon: pid {pid}, listening at {sock}, connecting to Feishu in the background",
       notConnected: "not connected to Feishu ({error}); the daemon keeps retrying, try again shortly",
       reconnecting: "the connection to Feishu dropped, reconnecting",
@@ -136559,7 +136559,7 @@ Exit codes: 0 ok \xB7 1 bad input \xB7 2 timed out, nobody answered \xB7 3 chann
       ipcBadRequest: "unparseable request",
       ipcUnknownRequest: "unknown request",
       // the state directory
-      sockPathTooLong: "socket path {path} is {bytes} bytes, over this platform's limit of {limit}; set AGENT_LARK_HOME to a shorter directory",
+      sockPathTooLong: "socket path {path} is {bytes} bytes, over this platform's limit of {limit}; set LARK_CONNECTOR_HOME to a shorter directory",
       // daemon replies
       notBound: "this project is not bound yet; run agent-lark away on first",
       askPending: "this project already has a question pending on the phone; one at a time",
@@ -136632,8 +136632,8 @@ Exit codes: 0 ok \xB7 1 bad input \xB7 2 timed out, nobody answered \xB7 3 chann
       keychainLinux: "libsecret (secret-tool)",
       credsPermWarning: "agent-lark: warning: {file} permissions are too open ({mode}); chmod 600 recommended",
       credsNotPersisted: "not persisted (memory only for this run)",
-      originEnv: "environment AGENT_LARK_APP_ID/SECRET",
-      reportEnv: "environment AGENT_LARK_APP_ID / AGENT_LARK_APP_SECRET",
+      originEnv: "environment LARK_CONNECTOR_APP_ID/SECRET",
+      reportEnv: "environment LARK_CONNECTOR_APP_ID / LARK_CONNECTOR_APP_SECRET",
       reportUnavailable: " (not available on this machine)"
     };
     t = (lang = "zh") => lang === "en" ? en : zh;
@@ -136651,7 +136651,7 @@ function configDir() {
   return join(base, "agent-lark");
 }
 function defaultStore() {
-  const forced = process.env.AGENT_LARK_STORE?.trim();
+  const forced = process.env.LARK_CONNECTOR_STORE?.trim();
   if (forced === "keychain" || forced === "file" || forced === "none") return forced;
   return keychainAvailable() ? "keychain" : "file";
 }
@@ -136786,9 +136786,9 @@ function pair(id, secret) {
   return a && s ? { appId: a, appSecret: s } : null;
 }
 function resolveCreds() {
-  const prefixed = pair(process.env.AGENT_LARK_APP_ID, process.env.AGENT_LARK_APP_SECRET);
+  const prefixed = pair(process.env.LARK_CONNECTOR_APP_ID, process.env.LARK_CONNECTOR_APP_SECRET);
   if (prefixed)
-    return { ...prefixed, ownerOpenId: process.env.AGENT_LARK_OWNER_OPEN_ID?.trim(), source: "env", origin: msg.originEnv };
+    return { ...prefixed, ownerOpenId: process.env.LARK_CONNECTOR_OWNER_OPEN_ID?.trim(), source: "env", origin: msg.originEnv };
   const kc = keychainRead();
   if (kc?.appId && kc.appSecret) return { ...kc, source: "keychain", origin: `${keychainName()} (service: ${SERVICE})` };
   const f = fileRead();
@@ -136815,7 +136815,7 @@ function clearCreds() {
 function credsReport() {
   const lines = [];
   const mark = (ok) => ok ? "\u2713" : "\xB7";
-  lines.push(`${mark(!!pair(process.env.AGENT_LARK_APP_ID, process.env.AGENT_LARK_APP_SECRET))} ${msg.reportEnv}`);
+  lines.push(`${mark(!!pair(process.env.LARK_CONNECTOR_APP_ID, process.env.LARK_CONNECTOR_APP_SECRET))} ${msg.reportEnv}`);
   lines.push(`${mark(!!keychainRead())} ${keychainName()} (service: ${SERVICE})${keychainAvailable() ? "" : msg.reportUnavailable}`);
   lines.push(`${mark(!!fileRead())} ${credentialsFile()}`);
   return lines;
@@ -136825,7 +136825,7 @@ var init_creds = __esm({
   "src/creds.ts"() {
     "use strict";
     init_texts();
-    SERVICE = process.env.AGENT_LARK_KEYCHAIN?.trim() || "agent-lark";
+    SERVICE = process.env.LARK_CONNECTOR_KEYCHAIN?.trim() || "agent-lark";
     ACCOUNT = "app";
     credentialsFile = () => join(configDir(), "credentials.json");
     dpapiFile = () => join(configDir(), "credentials.dpapi");
@@ -136945,7 +136945,7 @@ import { existsSync as existsSync2, mkdirSync as mkdirSync2, readFileSync as rea
 import { homedir as homedir2, platform as platform2 } from "node:os";
 import { basename, join as join2, resolve } from "node:path";
 function homeDir() {
-  const override = process.env.AGENT_LARK_HOME?.trim();
+  const override = process.env.LARK_CONNECTOR_HOME?.trim();
   return override ? resolve(override) : join2(homedir2(), ".agent-lark");
 }
 function ensureHomeDir() {
@@ -137645,7 +137645,7 @@ import { createHash as createHash3, randomUUID as randomUUID2 } from "node:crypt
 import { basename as basename2, join as join3, sep } from "node:path";
 import { homedir as homedir3, platform as platform4, tmpdir } from "node:os";
 function mediaTtlDays() {
-  const raw = process.env.AGENT_LARK_MEDIA_TTL_DAYS?.trim();
+  const raw = process.env.LARK_CONNECTOR_MEDIA_TTL_DAYS?.trim();
   if (raw === void 0 || raw === "") return { days: MEDIA_TTL_DAYS };
   if (/^\d+$/.test(raw)) return { days: Number(raw) };
   return { days: MEDIA_TTL_DAYS, invalid: raw };
@@ -139363,7 +139363,7 @@ async function cmdSetup(args) {
       return { appName: info.appName, ownerId: info.ownerId };
     },
     register: import_node_sdk.registerApp,
-    offline: process.env.AGENT_LARK_OFFLINE === "1",
+    offline: process.env.LARK_CONNECTOR_OFFLINE === "1",
     herdr: { insideHerdr, currentPaneId, splitPane, runInPane, promptPane, closePane },
     out: (t2) => process.stdout.write(t2),
     err: (t2) => process.stderr.write(t2),
@@ -139719,7 +139719,7 @@ function takeHome(argv2) {
   const joined = argv2[i].startsWith("--home=");
   const dir = joined ? argv2[i].slice("--home=".length) : argv2[i + 1];
   if (!dir || !joined && dir.startsWith("--")) die(1, msg.homeNeedsDir);
-  process.env.AGENT_LARK_HOME = resolve2(dir);
+  process.env.LARK_CONNECTOR_HOME = resolve2(dir);
   return [...argv2.slice(0, i), ...argv2.slice(i + (joined ? 1 : 2))];
 }
 async function main() {

@@ -53,11 +53,11 @@ in the log and `--detach` reports `daemon started but did not answer within 10 s
 
 | stderr / log line | rc | meaning |
 |---|---|---|
-| `socket path <home>/daemon.sock is N bytes, over this platform's limit of M; set AGENT_LARK_HOME to a shorter directory` | 4 (foreground and `--detach` alike; `--detach` says it before spawning anything, no 10 s wait) | the state directory is too deep for a Unix socket path (M = 104 on macOS and the BSDs, 108 on Linux; never on Windows, where the endpoint is a named pipe). Checked before the credentials, so it shows with no credentials too (§7) |
-| `no Feishu app credentials found. Run agent-lark setup first (or set AGENT_LARK_APP_ID / AGENT_LARK_APP_SECRET)` | 4 | nothing in any credential layer (§7) |
+| `socket path <home>/daemon.sock is N bytes, over this platform's limit of M; set LARK_CONNECTOR_HOME to a shorter directory` | 4 (foreground and `--detach` alike; `--detach` says it before spawning anything, no 10 s wait) | the state directory is too deep for a Unix socket path (M = 104 on macOS and the BSDs, 108 on Linux; never on Windows, where the endpoint is a named pipe). Checked before the credentials, so it shows with no credentials too (§7) |
+| `no Feishu app credentials found. Run agent-lark setup first (or set LARK_CONNECTOR_APP_ID / LARK_CONNECTOR_APP_SECRET)` | 4 | nothing in any credential layer (§7) |
 | `daemon is already running` | 3 (foreground) · 0 (`--detach`, nothing started) | something already answers on the endpoint |
 | `cannot read the bindings file <home>/bindings.json: <error>` + `Fix or move it; it is left untouched.` | 4 | the file exists but is not readable JSON; the daemon never replaces it with an empty one |
-| `agent-lark: warning: AGENT_LARK_MEDIA_TTL_DAYS=<value> is not a whole number of days; using 7` | (warning only) | the retention setting was ignored, §6 |
+| `agent-lark: warning: LARK_CONNECTOR_MEDIA_TTL_DAYS=<value> is not a whole number of days; using 7` | (warning only) | the retention setting was ignored, §6 |
 
 ## 3. Status, stop, lifecycle
 
@@ -91,7 +91,7 @@ agent-lark daemon --stop     # rc 0 "daemon: stopped" (or "daemon: was not runni
   rc 3 `the daemon is stopping; the question was sent but no answer will arrive this time`, each card is
   rewritten to `⚠️ … · Cancelled` (3 s allowed per card, then it is left as it was), Feishu is
   disconnected, open IPC connections get 2 s to drain, and `daemon.sock` / `daemon.pid` are removed.
-- Files under `AGENT_LARK_HOME` (default `~/.agent-lark/`, directory mode 0700):
+- Files under `LARK_CONNECTOR_HOME` (default `~/.agent-lark/`, directory mode 0700):
 
   | file | content |
   |---|---|
@@ -292,7 +292,7 @@ tenant, which cannot call speech recognition at all); when the call succeeds but
 there in every case.
 
 Retention: at start and every 24 h the daemon deletes files under `media/` older than 7 days
-(`AGENT_LARK_MEDIA_TTL_DAYS=<days>`; `0` keeps every file), then the directories left empty;
+(`LARK_CONNECTOR_MEDIA_TTL_DAYS=<days>`; `0` keeps every file), then the directories left empty;
 symlinks are never followed. `daemon --status` reports the setting and what the directory held at the
 last sweep. `send-file` may send anything from this directory back (the media directory is on its
 allowlist), which is how a file the human sent can be returned edited.
@@ -320,13 +320,13 @@ between two daily sweeps (§4). `daemon --status` does not report the bindings s
 
 | variable | default | effect |
 |---|---|---|
-| `AGENT_LARK_HOME` | `~/.agent-lark` | the daemon's state directory (§3). `--home <dir>` (or `--home=<dir>`, anywhere on the command line) sets it for that command and for a daemon it starts, and the interactive `setup --reuse` handed to a new pane is given it explicitly. With the Unix-socket transport the path has a limit (`<home>/daemon.sock` at most 104 bytes on macOS and the BSDs, 108 on Linux): the daemon refuses to start over it (rc 4, `socket path … is N bytes, over this platform's limit of M; set AGENT_LARK_HOME to a shorter directory`, §2 — on Node 22 the platform would otherwise silently truncate the path to the limit and bind a different file, which is why this check runs before anything else; Node 23+ fails with `EINVAL`), `daemon --detach` and `away on` say the same before spawning anything, and every other command answers rc 3 with the same sentence instead of `connect EINVAL` (`status` shows it as `daemon: cannot run here (…)`); `away off` still switches the local state off. Windows (named pipe) has no such limit |
-| `AGENT_LARK_APP_ID` / `AGENT_LARK_APP_SECRET` | – | app credentials from the environment, for one process: a runtime override that wins over the stores (below). The only way to supply credentials besides `setup` |
-| `AGENT_LARK_OWNER_OPEN_ID` | – | the app owner's `open_id` when credentials come from the environment; needed to create groups and for `--urgent` (`setup` records it in the store on its own, from the QR registration or from the probe of a reused app) |
-| `AGENT_LARK_STORE` | `keychain` where one is usable, else `file` | where `setup` writes: `keychain` (macOS Keychain · Windows DPAPI-encrypted file `<config>/credentials.dpapi` · Linux `secret-tool`), `file` (`<config>/credentials.json`, mode 0600), `none` (this run only) |
-| `AGENT_LARK_KEYCHAIN` | `agent-lark` | the keychain service name (`security` on macOS, `secret-tool` on Linux) |
-| `AGENT_LARK_MEDIA_TTL_DAYS` | `7` | retention of `<home>/media/`; `0` = keep everything (§6) |
-| `AGENT_LARK_OFFLINE` | – | testing / offline only: `1` makes `setup` refuse to contact Feishu (rc 3 `offline: refusing to contact Feishu (AGENT_LARK_OFFLINE=1 is set)`) before the QR registration or the credential probe; the test runner sets it so no test can register an app by accident. Not for normal use |
+| `LARK_CONNECTOR_HOME` | `~/.agent-lark` | the daemon's state directory (§3). `--home <dir>` (or `--home=<dir>`, anywhere on the command line) sets it for that command and for a daemon it starts, and the interactive `setup --reuse` handed to a new pane is given it explicitly. With the Unix-socket transport the path has a limit (`<home>/daemon.sock` at most 104 bytes on macOS and the BSDs, 108 on Linux): the daemon refuses to start over it (rc 4, `socket path … is N bytes, over this platform's limit of M; set LARK_CONNECTOR_HOME to a shorter directory`, §2 — on Node 22 the platform would otherwise silently truncate the path to the limit and bind a different file, which is why this check runs before anything else; Node 23+ fails with `EINVAL`), `daemon --detach` and `away on` say the same before spawning anything, and every other command answers rc 3 with the same sentence instead of `connect EINVAL` (`status` shows it as `daemon: cannot run here (…)`); `away off` still switches the local state off. Windows (named pipe) has no such limit |
+| `LARK_CONNECTOR_APP_ID` / `LARK_CONNECTOR_APP_SECRET` | – | app credentials from the environment, for one process: a runtime override that wins over the stores (below). The only way to supply credentials besides `setup` |
+| `LARK_CONNECTOR_OWNER_OPEN_ID` | – | the app owner's `open_id` when credentials come from the environment; needed to create groups and for `--urgent` (`setup` records it in the store on its own, from the QR registration or from the probe of a reused app) |
+| `LARK_CONNECTOR_STORE` | `keychain` where one is usable, else `file` | where `setup` writes: `keychain` (macOS Keychain · Windows DPAPI-encrypted file `<config>/credentials.dpapi` · Linux `secret-tool`), `file` (`<config>/credentials.json`, mode 0600), `none` (this run only) |
+| `LARK_CONNECTOR_KEYCHAIN` | `agent-lark` | the keychain service name (`security` on macOS, `secret-tool` on Linux) |
+| `LARK_CONNECTOR_MEDIA_TTL_DAYS` | `7` | retention of `<home>/media/`; `0` = keep everything (§6) |
+| `LARK_CONNECTOR_OFFLINE` | – | testing / offline only: `1` makes `setup` refuse to contact Feishu (rc 3 `offline: refusing to contact Feishu (LARK_CONNECTOR_OFFLINE=1 is set)`) before the QR registration or the credential probe; the test runner sets it so no test can register an app by accident. Not for normal use |
 | `XDG_CONFIG_HOME` | `~/.config` (`%AppData%` on Windows) | `<config>` above is `$XDG_CONFIG_HOME/agent-lark` |
 | `CLAUDE_CONFIG_DIR` | `~/.claude` | where the daemon looks for Claude Code session transcripts (`projects/*/<session id>.jsonl`, §5), read from the **daemon's** environment: a claude started with another `CLAUDE_CONFIG_DIR` is not found, and its ✈️ is swapped for `Get` only on the idle fallback |
 | `HERDR_ENV`, `HERDR_PANE_ID` | set by herdr | detected, not configured: `HERDR_PANE_ID` is recorded on the binding as the injection target and is the pane a handed-off `setup --reuse` reports back to; `HERDR_ENV=1` is what `status`, `away on` and `setup --reuse` mean by "inside herdr" |
@@ -334,9 +334,9 @@ between two daily sweeps (§4). `daemon --status` does not report the bindings s
 Credentials are resolved in this order, highest first; `status` shows which layer won and marks every
 layer (`✓` present, `·` absent):
 
-1. `AGENT_LARK_APP_ID` / `AGENT_LARK_APP_SECRET` in the environment
+1. `LARK_CONNECTOR_APP_ID` / `LARK_CONNECTOR_APP_SECRET` in the environment
 2. the OS keychain (what `setup` writes by default)
-3. `<config>/credentials.json` (what `AGENT_LARK_STORE=file`, or a platform without a keychain, writes; a warning is printed when its mode is looser than 0600)
+3. `<config>/credentials.json` (what `LARK_CONNECTOR_STORE=file`, or a platform without a keychain, writes; a warning is printed when its mode is looser than 0600)
 
 Nothing else is read: no env file, no unprefixed `LARK_*` names. The App Secret is typed by the human
 into the interactive `setup` (echo off) and never travels through argv (`ps` shows argv to every user on

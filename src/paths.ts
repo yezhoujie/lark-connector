@@ -7,7 +7,7 @@ import { fill, msg } from './texts.js';
 
 /** Daemon-side state directory. Everything the daemon owns lives here. */
 export function homeDir(): string {
-  const override = process.env.AGENT_LARK_HOME?.trim();
+  const override = process.env.LARK_CONNECTOR_HOME?.trim();
   return override ? resolve(override) : join(homedir(), '.agent-lark');
 }
 

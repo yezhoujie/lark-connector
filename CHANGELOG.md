@@ -91,14 +91,14 @@ pin (`npx skills add 'yezhoujie/agent-remote-communication-skills#v0.1.2' --skil
   `state.json` (the `away` switch is left as it was, so the next `ask` exits 4 as not bound).
 - A state directory too deep for a Unix socket is reported as such: `daemon`, `daemon --detach` and
   `away on` exit 4 with `socket path <home>/daemon.sock is N bytes, over this platform's limit of M; set
-  AGENT_LARK_HOME to a shorter directory` before anything is spawned (no 10 s wait, and before the
+  LARK_CONNECTOR_HOME to a shorter directory` before anything is spawned (no 10 s wait, and before the
   credentials are looked at), every other command answers rc 3 with the same sentence instead of
   `connect EINVAL`, `status` shows it as `daemon: cannot run here (…)`, and `away off` still switches the
   local state off. The limit is 104 bytes on macOS and the BSDs, 108 on Linux; Windows (named pipe) has none.
 
 #### Changed
 
-- The daily sweep timer is always armed: `AGENT_LARK_MEDIA_TTL_DAYS=0` keeps every attachment as before
+- The daily sweep timer is always armed: `LARK_CONNECTOR_MEDIA_TTL_DAYS=0` keeps every attachment as before
   but no longer switches off the sweep of stale group records.
 
 #### Fixed
@@ -131,7 +131,7 @@ pin (`npx skills add 'yezhoujie/agent-remote-communication-skills#v0.1.2' --skil
 - `/agent-lark setup`, `/agent-lark on`, `/agent-lark off`: three arguments the agent understands
   (SKILL.md, "Invoked with an argument") — guided setup, remote mode on (through setup when there are no
   credentials yet), remote mode off.
-- `AGENT_LARK_OFFLINE=1` makes `setup` refuse both of its network calls (exit 3); the test runner sets it, so
+- `LARK_CONNECTOR_OFFLINE=1` makes `setup` refuse both of its network calls (exit 3); the test runner sets it, so
   no test can register an app or probe credentials by accident.
 
 #### Changed
@@ -155,9 +155,9 @@ pin (`npx skills add 'yezhoujie/agent-remote-communication-skills#v0.1.2' --skil
 
 #### Removed
 
-- `setup --app-id` and `setup --store` (the reuse branch and `AGENT_LARK_STORE` replace them).
-- The env file (`~/.config/agent-lark/.env`, `AGENT_LARK_ENV_FILE`) and the unprefixed `LARK_APP_ID` /
-  `LARK_APP_SECRET` names: credentials come from `AGENT_LARK_APP_ID` / `AGENT_LARK_APP_SECRET`, the OS
+- `setup --app-id` and `setup --store` (the reuse branch and `LARK_CONNECTOR_STORE` replace them).
+- The env file (`~/.config/agent-lark/.env`, `LARK_CONNECTOR_ENV_FILE`) and the unprefixed `LARK_APP_ID` /
+  `LARK_APP_SECRET` names: credentials come from `LARK_CONNECTOR_APP_ID` / `LARK_CONNECTOR_APP_SECRET`, the OS
   keychain, or `credentials.json`, and from nowhere else. Credentials that lived only in an env file need one
   `setup --reuse`.
 
@@ -188,7 +188,7 @@ Feishu custom app of your own instead of a public notification service.
   card says why when delivery is impossible; a Feishu reply to one of the skill's cards arrives as
   `(reply to: "<card title>")`; photos and files are downloaded and listed as `[saved: <path>]`; voice notes are
   transcribed (a failure is reported with Feishu's code and message instead of a placeholder). Attachments are kept
-  under `~/.agent-lark/media/` and swept after `AGENT_LARK_MEDIA_TTL_DAYS` (7) days.
+  under `~/.agent-lark/media/` and swept after `LARK_CONNECTOR_MEDIA_TTL_DAYS` (7) days.
 - The 🔔 *waiting for you* card: pushed while remote mode is on and herdr reports the session stuck on a prompt
   only a human can answer, at most once a minute per project.
 - The daemon opens its local endpoint before the Feishu handshake and retries the handshake with backoff, so an

@@ -22,7 +22,7 @@ rmSync(outDir, { recursive: true, force: true });
 
 // No test may reach Feishu, whatever it spawns: the CLI refuses both of
 // setup's network paths (QR registration, credential probe) under this.
-process.env.AGENT_LARK_OFFLINE = '1';
+process.env.LARK_CONNECTOR_OFFLINE = '1';
 
 // Run tsc through the current Node binary rather than `npx`/`tsc` so no shell
 // lookup (or `.cmd` shim on Windows) is involved.

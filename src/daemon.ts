@@ -22,7 +22,7 @@ const CONNECT_RETRY_MAX_MS = 60_000;
 const CLOSE_GRACE_MS = 2_000;
 /** How long stop() waits for Feishu to accept a cancelled card before moving on. */
 const CANCEL_CARD_MS = 3_000;
-/** Inbound attachments are kept this many days unless AGENT_LARK_MEDIA_TTL_DAYS says otherwise (0 keeps them all). */
+/** Inbound attachments are kept this many days unless LARK_CONNECTOR_MEDIA_TTL_DAYS says otherwise (0 keeps them all). */
 const MEDIA_TTL_DAYS = 7;
 /** Media and bindings are swept this often (the first media sweep runs at start, the first bindings sweep on the first handshake). */
 const SWEEP_MS = 24 * 60 * 60 * 1000;
@@ -38,7 +38,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
  * rather than silently keeping or deleting everything.
  */
 function mediaTtlDays(): { days: number; invalid?: string } {
-  const raw = process.env.AGENT_LARK_MEDIA_TTL_DAYS?.trim();
+  const raw = process.env.LARK_CONNECTOR_MEDIA_TTL_DAYS?.trim();
   if (raw === undefined || raw === '') return { days: MEDIA_TTL_DAYS };
   if (/^\d+$/.test(raw)) return { days: Number(raw) };
   return { days: MEDIA_TTL_DAYS, invalid: raw };

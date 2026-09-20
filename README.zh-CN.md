@@ -106,7 +106,7 @@ im:message   im:message:send_as_bot   im:message.group_msg   im:chat   im:resour
 
 ### 4.4 凭据
 
-三个来源，高到低：环境变量 `AGENT_LARK_APP_ID` / `AGENT_LARK_APP_SECRET`（运行时覆盖）、系统钥匙串（`setup` 默认写这里：macOS `security`、Linux `secret-tool`、Windows 上是 DPAPI 加密文件）、`~/.config/agent-lark/credentials.json`（权限 `0600`）。别的一概不读——没有 env 文件。`agent-lark status` 会标出用的是哪一个，**但不打印值**。细节与全部环境变量：[references/daemon.md](references/daemon.md) §7。
+三个来源，高到低：环境变量 `LARK_CONNECTOR_APP_ID` / `LARK_CONNECTOR_APP_SECRET`（运行时覆盖）、系统钥匙串（`setup` 默认写这里：macOS `security`、Linux `secret-tool`、Windows 上是 DPAPI 加密文件）、`~/.config/agent-lark/credentials.json`（权限 `0600`）。别的一概不读——没有 env 文件。`agent-lark status` 会标出用的是哪一个，**但不打印值**。细节与全部环境变量：[references/daemon.md](references/daemon.md) §7。
 
 ## 5. 怎么用：你说什么，agent 做什么
 

@@ -1,20 +1,20 @@
 // A daemon process that never talks to Feishu or herdr: the CLI tests spawn
-// this instead of the real thing. State lives wherever AGENT_LARK_HOME says.
+// this instead of the real thing. State lives wherever LARK_CONNECTOR_HOME says.
 //
-// AGENT_LARK_FAKE_CONNECT shapes the fake handshake for the paths that wait
+// LARK_CONNECTOR_FAKE_CONNECT shapes the fake handshake for the paths that wait
 // on `connected`: `fail` keeps every attempt failing, `fail:<n>` only the
 // first n (the retry interval is 50 ms). Unset, the first attempt succeeds.
-// AGENT_LARK_FAKE_CHAT_DELETE=ok makes `im.v1.chat.delete` succeed; unset,
+// LARK_CONNECTOR_FAKE_CHAT_DELETE=ok makes `im.v1.chat.delete` succeed; unset,
 // the raw client has no such call and `unbind --dissolve` takes the failure path.
 import { runDaemon } from '../../src/daemon.js';
 import { createFakeChannel, type FakeChannelOptions } from './fake-channel.js';
 import { createFakeHerdr } from './fake-herdr.js';
 
-process.env.AGENT_LARK_APP_ID ??= 'cli_fake';
-process.env.AGENT_LARK_APP_SECRET ??= 'fake-secret';
+process.env.LARK_CONNECTOR_APP_ID ??= 'cli_fake';
+process.env.LARK_CONNECTOR_APP_SECRET ??= 'fake-secret';
 
 const channelOpts: FakeChannelOptions = {};
-const shape = process.env.AGENT_LARK_FAKE_CONNECT;
+const shape = process.env.LARK_CONNECTOR_FAKE_CONNECT;
 if (shape) {
   const failures = shape === 'fail' ? Infinity : Number(shape.replace(/^fail:/, ''));
   let attempts = 0;
@@ -24,7 +24,7 @@ if (shape) {
   };
 }
 
-if (process.env.AGENT_LARK_FAKE_CHAT_DELETE === 'ok') channelOpts.chatDelete = async () => ({ code: 0 });
+if (process.env.LARK_CONNECTOR_FAKE_CHAT_DELETE === 'ok') channelOpts.chatDelete = async () => ({ code: 0 });
 
 const daemon = await runDaemon({
   createChannel: () => createFakeChannel(channelOpts).channel,

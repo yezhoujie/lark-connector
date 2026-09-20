@@ -15,7 +15,7 @@ function tmp(prefix: string): string {
   scratch.push(dir);
   return dir;
 }
-process.env.AGENT_LARK_HOME = tmp('al-paths-home-');
+process.env.LARK_CONNECTOR_HOME = tmp('al-paths-home-');
 after(() => {
   for (const dir of scratch) rmSync(dir, { recursive: true, force: true });
 });
@@ -101,7 +101,7 @@ test('sockPathProblem: null for the usual short path', () => {
   assert.equal(sockPathProblem(), null);
 });
 
-test('sockPathProblem: a socket path over the limit names the path, its length, the limit and AGENT_LARK_HOME; win32 has no limit', () => {
+test('sockPathProblem: a socket path over the limit names the path, its length, the limit and LARK_CONNECTOR_HOME; win32 has no limit', () => {
   const home = homeOfSockBytes(SOCK_PATH_LIMIT + 40);
   const problem = withHome(home, () => sockPathProblem());
   if (platform() === 'win32') {
@@ -109,7 +109,7 @@ test('sockPathProblem: a socket path over the limit names the path, its length, 
     return;
   }
   assert.ok(problem, 'no problem reported');
-  assert.equal(problem, `socket path ${join(home, 'daemon.sock')} is ${SOCK_PATH_LIMIT + 40} bytes, over this platform's limit of ${SOCK_PATH_LIMIT}; set AGENT_LARK_HOME to a shorter directory`);
+  assert.equal(problem, `socket path ${join(home, 'daemon.sock')} is ${SOCK_PATH_LIMIT + 40} bytes, over this platform's limit of ${SOCK_PATH_LIMIT}; set LARK_CONNECTOR_HOME to a shorter directory`);
 });
 
 test('the limit is real: a socket path of exactly the limit listens and connects; one byte more is EINVAL or silently truncated — and sockPathProblem agrees on both', { skip: platform() === 'win32' ? 'named pipes have no sun_path' : false }, async () => {
