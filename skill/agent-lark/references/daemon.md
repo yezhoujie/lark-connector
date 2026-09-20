@@ -1,6 +1,6 @@
 # The daemon, groups and bindings, environment
 
-`agent-lark` below means `node <skill dir>/dist/cli.mjs`.
+`lark-connector` below means `node <skill dir>/dist/cli.mjs`.
 
 ## Contents
 
@@ -34,15 +34,15 @@ once. No silent hang. Only `setup` never talks to the daemon.
 `ask`, `notify` and `send-file` exit 3 and name the start command when the daemon is not running:
 
 ```
-agent-lark: daemon is not running. Start it first: agent-lark daemon --detach
+lark-connector: daemon is not running. Start it first: lark-connector daemon --detach
 ```
 
 You may start it for the user. The only rule: **it must outlive you.**
 
 | where you are | do this |
 |---|---|
-| anywhere (macOS, Linux, Windows, inside or outside herdr) | `agent-lark daemon --detach`: starts the daemon in its own session with stdout and stderr appended to `<home>/daemon.log`, waits up to 10 s for the endpoint to answer, prints `daemon: started in the background, pid N (log <home>/daemon.log)` (rc 0). `away on` runs exactly this for you when nothing is listening |
-| a terminal the human keeps open | `agent-lark daemon` (foreground): prints `agent-lark daemon: pid N, listening at <endpoint>, connecting to Feishu in the background` and stays; Ctrl-C stops it cleanly |
+| anywhere (macOS, Linux, Windows, inside or outside herdr) | `lark-connector daemon --detach`: starts the daemon in its own session with stdout and stderr appended to `<home>/daemon.log`, waits up to 10 s for the endpoint to answer, prints `daemon: started in the background, pid N (log <home>/daemon.log)` (rc 0). `away on` runs exactly this for you when nothing is listening |
+| a terminal the human keeps open | `lark-connector daemon` (foreground): prints `lark-connector daemon: pid N, listening at <endpoint>, connecting to Feishu in the background` and stays; Ctrl-C stops it cleanly |
 
 **Never** start it as a background job of your own shell, under a Monitor, in a subagent, or with `&`
 in a tool call: those die with your session, and every message the human sends afterwards is lost
@@ -54,22 +54,22 @@ in the log and `--detach` reports `daemon started but did not answer within 10 s
 | stderr / log line | rc | meaning |
 |---|---|---|
 | `socket path <home>/daemon.sock is N bytes, over this platform's limit of M; set LARK_CONNECTOR_HOME to a shorter directory` | 4 (foreground and `--detach` alike; `--detach` says it before spawning anything, no 10 s wait) | the state directory is too deep for a Unix socket path (M = 104 on macOS and the BSDs, 108 on Linux; never on Windows, where the endpoint is a named pipe). Checked before the credentials, so it shows with no credentials too (§7) |
-| `no Feishu app credentials found. Run agent-lark setup first (or set LARK_CONNECTOR_APP_ID / LARK_CONNECTOR_APP_SECRET)` | 4 | nothing in any credential layer (§7) |
+| `no Feishu app credentials found. Run lark-connector setup first (or set LARK_CONNECTOR_APP_ID / LARK_CONNECTOR_APP_SECRET)` | 4 | nothing in any credential layer (§7) |
 | `daemon is already running` | 3 (foreground) · 0 (`--detach`, nothing started) | something already answers on the endpoint |
 | `cannot read the bindings file <home>/bindings.json: <error>` + `Fix or move it; it is left untouched.` | 4 | the file exists but is not readable JSON; the daemon never replaces it with an empty one |
-| `agent-lark: warning: LARK_CONNECTOR_MEDIA_TTL_DAYS=<value> is not a whole number of days; using 7` | (warning only) | the retention setting was ignored, §6 |
+| `lark-connector: warning: LARK_CONNECTOR_MEDIA_TTL_DAYS=<value> is not a whole number of days; using 7` | (warning only) | the retention setting was ignored, §6 |
 
 ## 3. Status, stop, lifecycle
 
 ```
-agent-lark daemon --status   # rc 0 + two lines:
-                             #   daemon: pid N  connected true  connection connected  pending questions 0  bound projects 1  started 2026-09-15T04:03:11.902Z
-                             #   media: ttl 7 days, 0.0 MB in 0 files (as of last sweep 2026-09-15T04:03:12.010Z)
-                             # a third line "  last error: <reason>" while Feishu is not reachable
-                             # rc 1 (on stderr): "agent-lark: daemon: not running", or "agent-lark: daemon: no answer (<reason>)"
-agent-lark daemon --stop     # rc 0 "daemon: stopped" (or "daemon: was not running", which also removes a stale pid file)
-                             # rc 4 while a question is pending (see below); --force overrides
-                             # rc 3 "daemon: still answering 10 s after the stop request; see the log: <home>/daemon.log"
+lark-connector daemon --status   # rc 0 + two lines:
+                                 #   daemon: pid N  connected true  connection connected  pending questions 0  bound projects 1  started 2026-09-15T04:03:11.902Z
+                                 #   media: ttl 7 days, 0.0 MB in 0 files (as of last sweep 2026-09-15T04:03:12.010Z)
+                                 # a third line "  last error: <reason>" while Feishu is not reachable
+                                 # rc 1 (on stderr): "lark-connector: daemon: not running", or "lark-connector: daemon: no answer (<reason>)"
+lark-connector daemon --stop     # rc 0 "daemon: stopped" (or "daemon: was not running", which also removes a stale pid file)
+                                 # rc 4 while a question is pending (see below); --force overrides
+                                 # rc 3 "daemon: still answering 10 s after the stop request; see the log: <home>/daemon.log"
 ```
 
 - **The daemon is up before it reaches Feishu.** It opens the IPC endpoint first and runs the Feishu
@@ -84,8 +84,8 @@ agent-lark daemon --stop     # rc 0 "daemon: stopped" (or "daemon: was not runni
   (`connecting` until the first handshake, then `connected`, …); `connected` is the daemon's yes/no.
 - **`--stop` refuses while a question is pending** (rc 4):
   ```
-  agent-lark: 1 question(s) still pending on the phone. Stopping the daemon now turns those cards into "⚠️ Cancelled" — a dead card for the human.
-  Wait for the answer, or do it anyway: agent-lark daemon --stop --force
+  lark-connector: 1 question(s) still pending on the phone. Stopping the daemon now turns those cards into "⚠️ Cancelled" — a dead card for the human.
+  Wait for the answer, or do it anyway: lark-connector daemon --stop --force
   ```
   With `--force` (or on SIGINT / SIGTERM / SIGHUP, which stop it the same way) every waiting `ask` gets
   rc 3 `the daemon is stopping; the question was sent but no answer will arrive this time`, each card is
@@ -197,7 +197,7 @@ Feishu to dissolve the group (`im.v1.chat.delete`) and forgets the record either
   the group was released, not dissolved, and the state file is written as after a plain `unbind`.
 
 Both forms write `chatId: null, away: false` to the project's state file (§8). `rename "<task>"` renames the live group (rc 4
-`this project has no live group; run agent-lark away on first`; rc 3 with Feishu's code when refused —
+`this project has no live group; run lark-connector away on first`; rc 3 with Feishu's code when refused —
 only the bot's own groups can be renamed freely, a human-made group only when its settings let every
 member edit group info; codes 232002 / 232016 / 232011 get that hint appended).
 
@@ -222,7 +222,7 @@ When it cannot be delivered, the human gets an orange **`⚠️ [<dir>] Not deli
 |---|---|
 | no pane on record and none found | `No herdr pane is recorded for this project, so there is nowhere to deliver the message.` |
 | herdr answered `agent_blocked` (your session sits on a prompt only a human can answer) | `The agent in the terminal is stuck on a prompt only you can answer and cannot take new input. Deal with it when you are back at the computer.` |
-| herdr answered `agent_not_found` / `pane_not_found` | `The recorded herdr pane is gone. Run agent-lark away on (or any agent-lark command) inside the project to record the pane again.` |
+| herdr answered `agent_not_found` / `pane_not_found` | `The recorded herdr pane is gone. Run lark-connector away on (or any lark-connector command) inside the project to record the pane again.` |
 | `herdr` is not installed or not running | `This machine has no herdr, or herdr is not running; messages from the phone have nowhere to go.` |
 | any other herdr error | `herdr refused the injection: <code> <message>` |
 
@@ -359,7 +359,7 @@ The directory carries its own `.gitignore` (`*`), so git never sees it and the p
 
 `bind` and `away on` create the directory; `away off`, `unbind` and the daemon's sweep only update a
 file that already exists, so a project that never used the channel gets no directory. `away status` prints the file in
-words (`remote mode: on  group: oc_…`; `This project has never used agent-lark (no .lark-connector/state.json)`
+words (`remote mode: on  group: oc_…`; `This project has never used lark-connector (no .lark-connector/state.json)`
 when there is none); `away status --json` prints it verbatim, or `{"away":false,"chatId":null,"target":"<root>","updated":""}`
 when there is none. The file is not checked against the daemon: `status` is the command that asks the
 daemon. Writes are atomic (temp file + rename) but unlocked. No credential and no pane id is ever

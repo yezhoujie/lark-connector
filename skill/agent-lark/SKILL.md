@@ -1,6 +1,6 @@
 ---
 name: agent-lark
-description: Pushes a decision that needs a human to their phone as a Feishu/Lark card and blocks until the verdict comes back on stdout; messages, images, files and voice notes the human sends in the project's Feishu group arrive in the agent session as instructions. For choices the agent cannot settle on its own (unaligned requirements, a real disagreement, a technology choice) while the human may be away from the keyboard. When to ask is the caller's policy — this skill provides the call, not the trigger. It can also push one-way notifications (notify) and send files (send-file) to the same group.
+description: Pushes a decision that needs a human to their phone as a Feishu/Lark card and blocks until the verdict comes back on stdout; messages, images, files and voice notes the human sends in the project's Feishu group arrive in the agent session as instructions. For choices the agent cannot settle on its own (unaligned requirements, a real disagreement, a technology choice) while the human may be away from the keyboard. When to ask is the caller's policy — this skill provides the call, not the trigger. It can also push one-way notifications (notify) and send files (send-file) to the same group. The CLI it drives is lark-connector, shipped as dist/cli.mjs in this skill.
 license: MIT
 compatibility: "Node >= 22, single self-contained file, nothing to install. Needs a Feishu/Lark custom app, created by scanning a QR code (no workspace-admin approval). herdr is optional: phone -> terminal injection and the stuck-on-a-prompt alert need it; everything else works without it. Exercised end-to-end on macOS inside herdr only; Windows (named pipes) has unit tests in CI, no real-device run."
 ---
@@ -14,9 +14,9 @@ interprets content. `notify` pushes a one-way card and returns at once; `send-fi
 file into the same group.
 
 Every command below is `dist/cli.mjs` in this skill's directory (`node <skill dir>/dist/cli.mjs …`);
-the CLI calls itself `agent-lark` in its own messages, and that always means this file. Node 22 or
+the CLI calls itself `lark-connector` in its own messages, and that always means this file. Node 22 or
 newer; one self-contained file, no `npm install`, no build step. A symlink saves typing, if the human
-wants one: `ln -sf "<skill dir>/dist/cli.mjs" ~/.local/bin/agent-lark`. The shell forms in this file
+wants one: `ln -sf "<skill dir>/dist/cli.mjs" ~/.local/bin/lark-connector`. The shell forms in this file
 are POSIX (`$(…)`, quoted heredocs).
 
 ## When to use
@@ -37,13 +37,13 @@ same words in a sentence). Each maps to one flow:
 - **`setup`** — guided setup, the human at the keyboard. First ask which way: **create a new app by QR
   code**, or **reuse an app they already have** (they know its App ID and App Secret). Never pick for
   them, never run `setup` unasked: it creates or binds a Feishu app under their account.
-  - QR code ⇒ run `agent-lark setup </dev/null` yourself (stdin closed explicitly: the menu only appears
+  - QR code ⇒ run `lark-connector setup </dev/null` yourself (stdin closed explicitly: the menu only appears
     on a terminal, so this goes straight to the QR code whatever your harness gives a child process). It draws the code as ANSI art and prints the URL as a plain line right under it;
     hand over that line, or render it into a PNG yourself and open it. Run it in the background: it waits
     for the scan (the code expires after 60 minutes; rc 4 then, rerun). An expired or refused link ⇒ kill
     the waiting setup, rerun, hand the new line over at once (`references/failures.md` §8 for the phone
     hand-over and `setup --update`).
-  - Reuse ⇒ run `agent-lark setup --reuse`. **The secret never passes through you.** Inside herdr the
+  - Reuse ⇒ run `lark-connector setup --reuse`. **The secret never passes through you.** Inside herdr the
     command opens a pane below yours, runs the interactive setup there (App ID typed, App Secret typed
     with echo off) and exits 0 at once with `The interactive setup is running in herdr pane <id>: …`;
     when the human is done, one line prefixed `[lark-connector] setup:` arrives in your session (the four
@@ -69,7 +69,7 @@ Feed one JSON object on stdin through a quoted heredoc (the fields contain quote
 argv would mangle them). The call blocks until the human answers, the wait times out, or the channel fails.
 
 ```bash
-ANSWER=$(agent-lark ask <<'JSON'
+ANSWER=$(lark-connector ask <<'JSON'
 {
   "title":       "Keep or delete the scratch directory when no checkout exists",
   "doing":       "Letting the requirements assistant run before the project code is checked out",
@@ -156,7 +156,7 @@ Field-by-field guidance, the caps, what the card looks like on the phone, and a 
 accepted it. `send-file` sends one image or file into the group, with an optional caption.
 
 ```bash
-agent-lark notify <<'JSON'
+lark-connector notify <<'JSON'
 {
   "title": "Tests green, starting the migration",
   "body":  "All tests pass on the three CI runners.\n\nNext: **schema migration** on the staging database (about 10 minutes). I will notify again when it is done.",
@@ -164,7 +164,7 @@ agent-lark notify <<'JSON'
 }
 JSON
 
-agent-lark send-file ./shot.png --caption "Current layout"
+lark-connector send-file ./shot.png --caption "Current layout"
 ```
 
 - `title` and `body` are required and non-empty; `lang` is optional (it sets the language of later
@@ -197,7 +197,7 @@ agent-lark send-file ./shot.png --caption "Current layout"
 | 1 | Input rejected; stderr lists every problem | **no** | fix the JSON (or the argument) and call again |
 | 2 | No reply within the timeout | yes | decide yourself or ask again; a late reply still reaches you as an instruction |
 | 3 | Channel failure: daemon not running, not connected to Feishu, send failed, daemon stopping; stderr says which | see stderr | start the daemon or wait for the connection (below), retry once; still 3 → stop and tell the user |
-| 4 | A human must act: no credentials, project not bound, a question already pending, earlier groups to choose from, a state directory too deep for a Unix socket (`daemon` / `away on`: `set LARK_CONNECTOR_HOME to a shorter directory`); for `unbind --dissolve`, Feishu refused to dissolve the group | no | relay stderr to the user in your own conversation, then retry (after `unbind --dissolve` there is nothing to retry: the record is gone, the group is the human's to dissolve) |
+| 4 | A human must act: no credentials, project not bound, a question already pending, earlier groups to choose from, a state directory too deep for a Unix socket (`daemon` / `away on`: `set LARK_CONNECTOR_HOME to a shorter directory`); for `unbind --dissolve`, Feishu refused to dissolve the group; on the first run after upgrading from `agent-lark` 0.1.x, the old daemon still listening (`stop it first with the old CLI (daemon --stop)`) | no | relay stderr to the user in your own conversation, then retry (after `unbind --dissolve` there is nothing to retry: the record is gone, the group is the human's to dissolve) |
 | 130 | The `ask` client itself was interrupted (Ctrl-C); the card is cancelled, the daemon is unaffected — do not restart it | yes | call again |
 
 `notify` and `send-file` use 0 / 1 / 3 / 4 with the same meanings and never 2. Stderr text per case, what
@@ -223,12 +223,12 @@ nothing is pending arrives with `(reply to: "<that card's title>")` on its first
 One resident process holds the Feishu connection (a WebSocket the SDK keeps open; no public URL, no
 webhook) for every bound project; `ask`, `notify`, `send-file` and the rest only talk to it over a local
 IPC endpoint (a Unix socket, `~/.lark-connector/daemon.sock`, or a named pipe on Windows). If it is not
-running they exit 3 without sending: `agent-lark: daemon is not running. Start it first: agent-lark daemon --detach`.
+running they exit 3 without sending: `lark-connector: daemon is not running. Start it first: lark-connector daemon --detach`.
 
 You may start it yourself, but **never from your own shell as a background job, a Monitor, or a
 subagent**: it dies with you, and every message the human sends afterwards is lost silently.
 
-- `agent-lark daemon --detach` starts it in its own session (inside herdr as well: there is no pane to
+- `lark-connector daemon --detach` starts it in its own session (inside herdr as well: there is no pane to
   open) and prints `daemon: started in the background, pid N (log ~/.lark-connector/daemon.log)`. `away on`
   does this for you.
 - The daemon comes up **before** it reaches Feishu: IPC first, the handshake in the background with
@@ -281,7 +281,7 @@ the message, then decide what of the interrupted work to redo. ✈️ becomes `G
 read the entry. A kimi session is woken with `ctrl+s` instead. Details: `references/daemon.md` §5.
 
 Injection needs herdr (the daemon calls `herdr agent prompt <pane>`); the target pane is the one your
-last `agent-lark` command ran from. Outside herdr the human only ever gets the receipt card; `ask` and
+last `lark-connector` command ran from. Outside herdr the human only ever gets the receipt card; `ask` and
 `notify` work the same everywhere.
 
 ## Remote mode and the per-project state file
@@ -290,11 +290,11 @@ Whether to route decisions to the phone is the caller's policy (a rule in the us
 this skill). The human sets the channel up once per machine and once per project:
 
 ```bash
-agent-lark setup                                   # once per machine, on a terminal: menu — 1) new app by QR code  2) reuse an app (App ID + Secret typed there)
+lark-connector setup                               # once per machine, on a terminal: menu — 1) new app by QR code  2) reuse an app (App ID + Secret typed there)
 # once per project: tell the agent to turn remote mode on (or type /agent-lark on); it runs away on from its own pane so that pane is recorded
 ```
 
-- **No credentials yet** (`away on` exits 4 with `No Feishu app credentials yet. Run once: agent-lark setup`):
+- **No credentials yet** (`away on` exits 4 with `No Feishu app credentials yet. Run once: lark-connector setup`):
   do not just tell the user to run `setup` — ask them first whether to **scan a QR code for a new app**
   or **reuse an app they already have**, then follow the `setup` flow in "Invoked with an argument": QR
   code ⇒ you run `setup` and hand over the URL line (or a PNG of it); reuse ⇒ you run `setup --reuse`,
@@ -305,7 +305,7 @@ agent-lark setup                                   # once per machine, on a term
   - `[lark-connector] setup: credentials stored for cli_xxxxxxxx (<app name>); the scopes must be enabled in the developer console before use` — done; remind the user of the console work if they have not done it, then `away on` again.
   - `[lark-connector] setup: failed: <why>` — every end that is not success or Ctrl-C: three failed probes — refused or thrown — (`3 probes refused (<error>)`), the `LARK_CONNECTOR_OFFLINE` guard, any other failure; relay `<why>` (the secret is masked as `***` wherever it could appear).
   - `[lark-connector] setup: interrupted before any credentials were stored` — the human pressed Ctrl-C; ask whether to try again.
-  - `[lark-connector] setup: credentials already stored (<origin>); nothing changed. To switch apps run agent-lark setup --reset --reuse` — there was nothing to do.
+  - `[lark-connector] setup: credentials already stored (<origin>); nothing changed. To switch apps run lark-connector setup --reset --reuse` — there was nothing to do.
   `setup` in any form with credentials already stored only reports them — `Credentials already exist
   (from <origin>). …`, rc 0, no pane opened; `setup --update` rescans the QR code for the same app (adds
   scopes; on a terminal the menu comes first); `setup --reset` forgets the stored credentials first, so `setup --reset --reuse` switches to
@@ -325,7 +325,7 @@ agent-lark setup                                   # once per machine, on a term
 - **Exit 4 with earlier groups on offer**: when the project has no live group but groups it let go of
   earlier exist (on record, or found in Feishu by their description), `away on` refuses to pick for you:
   ```
-  agent-lark: this project has no live group, but 1 earlier group(s) could be taken back (renamed) instead of creating another:
+  lark-connector: this project has no live group, but 1 earlier group(s) could be taken back (renamed) instead of creating another:
   old task [proj]  released 2026-01-02T03:04:05.000Z  oc_xxxxxxxx
   ask the user which to reuse (rename) or create new; rerun with --reuse <chatId> or --new
   ```
@@ -365,7 +365,7 @@ daemon keeps that on the binding.
 - The unit is the **project** (git toplevel, else the cwd): one group, one pending question at a time,
   shared by every pane and session in it. The group is named `<task> [<dir>]`, so the human can tell
   projects apart on the phone.
-- The pane your last `agent-lark` command ran from is remembered as the injection target; `ask`,
+- The pane your last `lark-connector` command ran from is remembered as the injection target; `ask`,
   `notify`, `send-file`, `bind`, `rename` and `away on|off` refresh it. **Run them from your own pane**, not from a
   helper process elsewhere, or the user's next phone message lands in the wrong pane.
 - When your task ends, ask the human whether the group should stay. Keep it: `unbind` (the group stays

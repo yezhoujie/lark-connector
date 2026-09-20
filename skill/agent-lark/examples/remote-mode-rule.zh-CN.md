@@ -57,4 +57,4 @@
 - 不 `bind --chat` 别的项目的群；不复用用户没选过的群。
 
 ## 两个 skill 都装了（agent-ntfy 与 agent-lark）
-两个 skill 互不知道对方，也都不决定一件事该走哪边。**每台机器（或每个项目）只让一条远程模式规则生效**，由它点名调用哪个 CLI：agent-lark 用本文件，ntfy 用 `agent-ntfy` 的 `examples/remote-mode-rule.md`。想按项目分流就两条都留，各自开头加一句「本规则只在项目有 `.lark-connector/state.json` 时适用」/「…`.agent-ntfy/state.json`…」，由对应 CLI 的 `away status --json` 决定。两个 daemon 可以并存，互不相干。
+两个 skill 互不知道对方，也都不决定一件事该走哪边。**每台机器（或每个项目）只让一条远程模式规则生效**，由它点名调用哪个 CLI：agent-lark 用本文件，ntfy 用 `agent-ntfy` 的 `examples/remote-mode-rule.md`。想按项目分流就两条都留，各自开头加一句「本规则只在项目有 `.lark-connector/state.json` 时适用」/「…`.ntfy-connector/state.json`…」，由对应 CLI 的 `away status --json` 决定。两个 daemon 可以并存，互不相干。

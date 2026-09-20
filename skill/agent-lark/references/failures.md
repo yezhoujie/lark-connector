@@ -1,10 +1,10 @@
 # Exit codes, stderr, and what to tell the user
 
-Every failure is loud: a non-zero exit plus a stderr line, prefixed `agent-lark: `, that says what
+Every failure is loud: a non-zero exit plus a stderr line, prefixed `lark-connector: `, that says what
 happened — and for `ask`, whether the question is on the phone. Never treat an empty stdout as "no
 answer yet": read `rc` first.
 
-`agent-lark` in the quoted text is the CLI's own name for itself; on disk it is `dist/cli.mjs`.
+`lark-connector` in the quoted text is the CLI's own name for itself; on disk it is `dist/cli.mjs`.
 
 ## Contents
 
@@ -26,7 +26,7 @@ answer yet": read `rc` first.
 | 1 | input rejected (validation, bad JSON, bad argument, file refused) | **no** | empty |
 | 2 | `ask` only: no reply within the timeout | yes | empty |
 | 3 | channel failure: daemon not running / not connected to Feishu / send failed / daemon stopping / connection lost | stderr says which | empty |
-| 4 | needs a human: project not bound · a question already pending · (`away on`) no credentials or earlier groups to choose from | no | empty |
+| 4 | needs a human: project not bound · a question already pending · (`away on`) no credentials or earlier groups to choose from · (first run after upgrading from `agent-lark` 0.1.x) the old daemon still listening | no | empty |
 | 130 | Ctrl-C on the `ask` client; the card is cancelled by the daemon | it was, now cancelled | empty |
 
 Codes 2, 3, 4 and 130 are distinct on purpose: the right next step differs for each. `notify` and
@@ -37,7 +37,7 @@ Codes 2, 3, 4 and 130 are distinct on purpose: the right next step differs for e
 All problems of a question are reported in one run; fix them all before calling again. Nothing was sent.
 
 ```
-agent-lark: This question card has 7 problem(s); nothing was sent:
+lark-connector: This question card has 7 problem(s); nothing was sent:
   description: required (background for someone who has seen none of the work)
   blocker: required (exactly what is blocked)
   reasoning: required (your leaning plus the strongest objection)
@@ -59,29 +59,29 @@ Other lines you may see, and the fix:
 | `recommend: "wipe" is marked danger; an irreversible or high-cost option cannot be the recommendation — list it and let the human choose` | recommend something else, or drop `danger` if it was wrong |
 | `recommend: with select "single" (the default) it must be one option id, a string — set select: "multi" to recommend several` · `recommend: with select "multi" it must be an array of option ids (strings)` · `recommend: with select "multi" the array must be non-empty — at least one option to tick by default` · `recommend: "keep" is listed twice` | match `recommend`'s shape to `select` |
 | `select: must be "single" or "multi", got "x"` | one of the two, or omit it |
-| `agent-lark: stdin is not valid JSON: <parser message>` | the heredoc is not valid JSON; check quotes and commas |
-| `agent-lark: This command reads one JSON object from stdin. Feed it with a heredoc.` | stdin was a terminal; pipe the JSON in |
-| `agent-lark: --timeout must be a positive integer (seconds)` | a number of seconds greater than 0 |
+| `lark-connector: stdin is not valid JSON: <parser message>` | the heredoc is not valid JSON; check quotes and commas |
+| `lark-connector: This command reads one JSON object from stdin. Feed it with a heredoc.` | stdin was a terminal; pipe the JSON in |
+| `lark-connector: --timeout must be a positive integer (seconds)` | a number of seconds greater than 0 |
 
-The same report for `notify` starts `agent-lark: This notification has N problem(s); nothing was sent:`
+The same report for `notify` starts `lark-connector: This notification has N problem(s); nothing was sent:`
 and knows `title` (as above), `body: required and non-empty`, `body: over 8000 characters` and `lang`.
 
-Other rc 1 cases, one line each: `Unknown command "x". See agent-lark --help.` · `--home needs a directory`
-· `Usage: agent-lark send-file <path> [--caption <text>]` · `Usage: agent-lark rename "<task name>"` ·
-`Usage: agent-lark away on [--name <task>] [--reuse <chat_id> | --new] | off | status [--json]` ·
+Other rc 1 cases, one line each: `Unknown command "x". See lark-connector --help.` · `--home needs a directory`
+· `Usage: lark-connector send-file <path> [--caption <text>]` · `Usage: lark-connector rename "<task name>"` ·
+`Usage: lark-connector away on [--name <task>] [--reuse <chat_id> | --new] | off | status [--json]` ·
 `task name: over 60 characters (code points), got N` · `--reuse and --new cannot be combined` ·
 `--reuse oc_…: not one of the groups this project could take back` · `group oc_… is the live group of another project (<root>); unbind it there first` ·
-`this project is not bound` (`unbind`) · `unknown option --xxx. See agent-lark --help.` (any command: an
+`this project is not bound` (`unbind`) · `unknown option --xxx. See lark-connector --help.` (any command: an
 option it does not know, including a `--name=value` spelling — every option takes its value as the next
 argument, `--home=<dir>` is the one exception) · `setup --reuse` after three refused credential probes:
-`连续 3 次没通过，先到开发者后台核对 App ID / App Secret，再跑一次 agent-lark setup --reuse。　/　3 attempts failed; check the App ID / App Secret in the developer console, then run agent-lark setup --reuse again.`
+`连续 3 次没通过，先到开发者后台核对 App ID / App Secret，再跑一次 lark-connector setup --reuse。　/　3 attempts failed; check the App ID / App Secret in the developer console, then run lark-connector setup --reuse again.`
 (on the terminal, so in both languages).
 
 `send-file` rc 1: `file not found: <absolute path>` (a relative path is resolved against the directory the command runs in) · `not a regular file: <real path>` · `file too large: 12.3 MB, limit 10 MB`
 (images: `png jpg jpeg gif webp bmp` up to 10 MB; anything else 30 MB) · and, for a path outside the allowlist:
 
 ```
-agent-lark: refusing to send /etc/hosts
+lark-connector: refusing to send /etc/hosts
 Only files under these directories can be sent:
   this project /Users/me/work/my-project
   /Users/me/.lark-connector/media
@@ -92,7 +92,7 @@ Only files under these directories can be sent:
 ## 3. rc 2: timeout
 
 ```
-agent-lark: no answer after 43200 s
+lark-connector: no answer after 43200 s
 ```
 
 The card on the phone is rewritten to `⌛ … · Timed out` (grey header, buttons gone). If the human
@@ -117,7 +117,7 @@ message. The human sees a cancelled card and may not answer at all. Two safe pat
 **Daemon not running** (not sent):
 
 ```
-agent-lark: daemon is not running. Start it first: agent-lark daemon --detach
+lark-connector: daemon is not running. Start it first: lark-connector daemon --detach
 ```
 
 Start it as described in [daemon.md](daemon.md) §2, then call again. A different connect error reads
@@ -126,7 +126,7 @@ Start it as described in [daemon.md](daemon.md) §2, then call again. A differen
 **State directory too deep for a Unix socket** (not sent; every command that talks to the daemon, `away off` excepted):
 
 ```
-agent-lark: socket path /very/deep/…/.lark-connector/daemon.sock is 112 bytes, over this platform's limit of 104; set LARK_CONNECTOR_HOME to a shorter directory
+lark-connector: socket path /very/deep/…/.lark-connector/daemon.sock is 112 bytes, over this platform's limit of 104; set LARK_CONNECTOR_HOME to a shorter directory
 ```
 
 No daemon can listen there, so starting one does not help: the user has to point `LARK_CONNECTOR_HOME` (or
@@ -137,7 +137,7 @@ exits 1 with it; `status` prints `daemon: cannot run here (<the sentence>)` (rc 
 **Daemon up, Feishu not reached yet** (not sent):
 
 ```
-agent-lark: not connected to Feishu (<reason>); the daemon keeps retrying, try again shortly
+lark-connector: not connected to Feishu (<reason>); the daemon keeps retrying, try again shortly
 ```
 
 The daemon opens its endpoint before the Feishu handshake and retries the handshake with backoff (5 s
@@ -146,38 +146,38 @@ doubling to 60 s). `<reason>` is the last handshake error (`still connecting` ri
 `connected false` + `last error:`. Wait and retry; if it never connects, the reason (credentials,
 network) is for the user.
 
-**Send failed** (not sent): `agent-lark: send failed: <SDK error>` — Feishu refused or the request
+**Send failed** (not sent): `lark-connector: send failed: <SDK error>` — Feishu refused or the request
 failed after the connection was up. Report it to the user; retrying immediately rarely helps.
 
 **`unbind --dissolve` answered by a daemon from before the flag** (the group was released, not dissolved; the
 state file is written as after a plain `unbind`):
-`agent-lark: the running daemon predates --dissolve and has only let the group go (it stays in Feishu, on record as released). Restart the daemon (agent-lark daemon --stop, then agent-lark daemon --detach), bind the group back (away on --reuse <chat_id>) and run unbind --dissolve again`
+`lark-connector: the running daemon predates --dissolve and has only let the group go (it stays in Feishu, on record as released). Restart the daemon (lark-connector daemon --stop, then lark-connector daemon --detach), bind the group back (away on --reuse <chat_id>) and run unbind --dissolve again`
 — do what the line says; the group is offered back by `away on` as usual.
 
-**Daemon stopped while you were waiting** (sent, then cancelled): `agent-lark: the daemon is stopping; the question was sent but no answer will arrive this time`
+**Daemon stopped while you were waiting** (sent, then cancelled): `lark-connector: the daemon is stopping; the question was sent but no answer will arrive this time`
 — someone ran `daemon --stop --force` or the daemon got a signal. The card is rewritten to
 `⚠️ … · Cancelled`. Ask again once it is back.
 
-**Connection lost** (`ask`: sent; the reply can no longer reach this call): `agent-lark: the daemon dropped the connection before answering (it may have crashed or been stopped)`
+**Connection lost** (`ask`: sent; the reply can no longer reach this call): `lark-connector: the daemon dropped the connection before answering (it may have crashed or been stopped)`
 — check `daemon --status`, restart if needed, ask again. A late typed reply is injected as an
 instruction, as after a timeout.
 
-**Daemon accepted the connection but never answered**: `agent-lark: the daemon did not respond in time`
+**Daemon accepted the connection but never answered**: `lark-connector: the daemon did not respond in time`
 — only the commands with a client-side limit give this line (`daemon --status` / `status` / `away on`'s
 pings, 2–5 s); `ask` and `notify` wait without a limit. Check `daemon --status`; restart it if that
 hangs too.
 
 **`away on` could not get a connection** (rc 3, remote mode not enabled, nothing written):
-`agent-lark: daemon is up but not connected to Feishu: <reason>` after 15 s of waiting, or the `--detach`
+`lark-connector: daemon is up but not connected to Feishu: <reason>` after 15 s of waiting, or the `--detach`
 failure line (`daemon started but did not answer within 10 s; see the log: <home>/daemon.log`).
 
-**`rename` refused by Feishu** (rc 3): `agent-lark: renaming the group failed: Feishu error <code> <msg>` (§9).
+**`rename` refused by Feishu** (rc 3): `lark-connector: renaming the group failed: Feishu error <code> <msg>` (§9).
 
-**`setup --reuse` could not hand off** (rc 3, inside herdr without a terminal): `agent-lark: could not open a herdr pane for the interactive setup (<why>). Ask the user to run it in their own terminal:`
+**`setup --reuse` could not hand off** (rc 3, inside herdr without a terminal): `lark-connector: could not open a herdr pane for the interactive setup (<why>). Ask the user to run it in their own terminal:`
 followed by the command on its own line (`<node> <cli.mjs> --home <dir> setup --reuse`, absolute paths) — give
 the user that command. `<why>` is `pane split failed` or `pane run failed in <pane>`.
 
-**`setup` refused to go online** (rc 3): `agent-lark: offline: refusing to contact Feishu (LARK_CONNECTOR_OFFLINE=1 is set)`
+**`setup` refused to go online** (rc 3): `lark-connector: offline: refusing to contact Feishu (LARK_CONNECTOR_OFFLINE=1 is set)`
 — the environment carries the test-suite guard ([daemon.md](daemon.md) §7); unset it.
 
 **Anything unexpected** ends with rc 3 and the error's stack on stderr; relay it.
@@ -187,20 +187,33 @@ the user that command. `<why>` is `pane split failed` or `pane run failed in <pa
 The channel never asks the human anything itself (stdout is captured, so a prompt would hang). It exits
 4 and you relay the situation to the user **in your own conversation**, then retry once they have acted.
 
+**A daemon of the earlier name, `agent-lark`, is still listening** (any command but `help`, on the first run
+after upgrading from 0.1.x; nothing is moved, nothing is sent):
+
+```
+lark-connector: the daemon of the old agent-lark is still running at /home/me/.agent-lark/daemon.sock; stop it first with the old CLI (daemon --stop), then try again
+```
+
+The carry-over of `~/.agent-lark` (see §7) is refused while that daemon could still be writing there.
+Ask the user to stop it with the CLI it belongs to — `agent-lark daemon --stop` if that alias is still
+there, otherwise `node <old skill dir>/dist/cli.mjs daemon --stop`; when the old files are already
+replaced and nothing answers, `kill -TERM <pid>` with the pid from `~/.agent-lark/daemon.pid`. Then rerun
+the command: the carry-over runs and reports what it moved.
+
 **Project not bound** (`ask` / `notify` / `send-file`; not sent):
 
 ```
-agent-lark: this project is not bound yet; run agent-lark away on first
+lark-connector: this project is not bound yet; run lark-connector away on first
 ```
 
 Run `away on` in the project (SKILL.md, "Remote mode"); it may itself exit 4 with one of the next two.
 
 **State directory too deep for a Unix socket** (`daemon`, `daemon --detach`, `away on`; nothing started, no 10 s wait):
-`agent-lark: socket path <home>/daemon.sock is N bytes, over this platform's limit of M; set LARK_CONNECTOR_HOME to a shorter directory`
+`lark-connector: socket path <home>/daemon.sock is N bytes, over this platform's limit of M; set LARK_CONNECTOR_HOME to a shorter directory`
 — checked before the credentials, so it is the first thing a fresh install on a deep path sees. The user
 sets `LARK_CONNECTOR_HOME` (or passes `--home <dir>`) to a shorter directory; §4 has the client-side form.
 
-**No credentials** (`away on`): `agent-lark: No Feishu app credentials yet. Run once: agent-lark setup`
+**No credentials** (`away on`): `lark-connector: No Feishu app credentials yet. Run once: lark-connector setup`
 — ask the user whether to scan a QR code for a new app or reuse an app they already have, then follow
 SKILL.md "Invoked with an argument", `setup`: QR code ⇒ run `setup` yourself and hand over the URL line
 (or a PNG of it); reuse ⇒ run `setup --reuse`, which opens its own herdr pane for the human to type the
@@ -211,7 +224,7 @@ app under their account.
 **Earlier groups to choose from** (`away on` / `bind` without `--reuse` / `--new`):
 
 ```
-agent-lark: this project has no live group, but 2 earlier group(s) could be taken back (renamed) instead of creating another:
+lark-connector: this project has no live group, but 2 earlier group(s) could be taken back (renamed) instead of creating another:
 old task [proj]  released 2026-01-02T03:04:05.000Z  oc_xxxxxxxx
 (unnamed)  released -  oc_yyyyyyyy
 ask the user which to reuse (rename) or create new; rerun with --reuse <chatId> or --new
@@ -221,10 +234,10 @@ One line per candidate: name, when it was released (`-` for a group found in Fei
 record), group id. Relay the list; the human decides; rerun with their choice. This is the normal path
 for a project that had a group before.
 
-**A question is already pending** (`ask`): `agent-lark: this project already has a question pending on the phone; one at a time`
+**A question is already pending** (`ask`): `lark-connector: this project already has a question pending on the phone; one at a time`
 — wait for it (or for its timeout). `notify` and `send-file` may still be sent.
 
-**`unbind` / switching groups while a question is pending**: `agent-lark: a question is still pending on the phone; answer it or wait for the timeout`.
+**`unbind` / switching groups while a question is pending**: `lark-connector: a question is still pending on the phone; answer it or wait for the timeout`.
 
 **`unbind --dissolve` when Feishu will not dissolve the group** (the record is removed all the same, and
 `state.json` cleared, so there is nothing to retry — the group is the human's to dissolve). A group the
@@ -232,10 +245,10 @@ bot created itself (`away on`, `bind --new`) is owned by the bot and dissolves w
 this happens for a human-made group adopted with `bind --chat`:
 
 ```
-agent-lark: the Feishu group "<name>" was not dissolved: Feishu answered 232002 <msg>. Dissolve it by hand in Feishu (the app can only dissolve a group it owns, or one it created if it has the im:chat:operate_as_owner scope). The local record is removed.
+lark-connector: the Feishu group "<name>" was not dissolved: Feishu answered 232002 <msg>. Dissolve it by hand in Feishu (the app can only dissolve a group it owns, or one it created if it has the im:chat:operate_as_owner scope). The local record is removed.
 ```
 
-or, when the call itself failed, `agent-lark: the Feishu group "<name>" was not dissolved: <error>. Dissolve it by hand in Feishu. The local record is removed.`
+or, when the call itself failed, `lark-connector: the Feishu group "<name>" was not dissolved: <error>. Dissolve it by hand in Feishu. The local record is removed.`
 The line ends with what became of the group's marker: `The group's marker was cleared, so it will not be offered back.`
 or `The group's marker could not be cleared (<why>), so it will be offered back until it is dissolved.`
 Tell the user the group is still there and why; whether they dissolve it, or grant the scope and let the
@@ -244,18 +257,18 @@ to Feishu is rc 3 instead, and then nothing was touched (a plain `unbind` still 
 
 **`daemon --stop` while questions are pending**: see [daemon.md](daemon.md) §3 (`--force` overrides).
 
-**`rename` with no live group**: `agent-lark: this project has no live group; run agent-lark away on first`.
+**`rename` with no live group**: `lark-connector: this project has no live group; run lark-connector away on first`.
 
-**Creating a group is impossible**: `agent-lark: nobody to invite into a new group (the app owner is not recorded). Use --chat <chat_id> to bind a group you created yourself.`
+**Creating a group is impossible**: `lark-connector: nobody to invite into a new group (the app owner is not recorded). Use --chat <chat_id> to bind a group you created yourself.`
 (credentials came from the environment without `LARK_CONNECTOR_OWNER_OPEN_ID`, or an old `setup`) — or
-`creating the group failed: <error>` with `If this is a permission problem the app lacks the im:chat (create group) scope: run agent-lark setup --update, or bind an existing group with --chat <chat_id>.`
+`creating the group failed: <error>` with `If this is a permission problem the app lacks the im:chat (create group) scope: run lark-connector setup --update, or bind an existing group with --chat <chat_id>.`
 when Feishu refused for a permission reason (any other reason is rc 3 with the same text).
 
 **`setup --reuse` with no terminal and no herdr** (rc 4, nothing stored):
 
 ```
-agent-lark: setup --reuse asks for the App ID and App Secret interactively, and there is no terminal here (and no herdr to open one). Ask the user to run it in their own terminal:
-  /path/to/node /path/to/skills/agent-lark/dist/cli.mjs --home /home/me/.lark-connector setup --reuse
+lark-connector: setup --reuse asks for the App ID and App Secret interactively, and there is no terminal here (and no herdr to open one). Ask the user to run it in their own terminal:
+  /path/to/node <skill dir>/dist/cli.mjs --home /home/me/.lark-connector setup --reuse
 ```
 
 Give the user the second line as is (absolute paths, the `--home` of this run); they run it, type the App
@@ -263,7 +276,7 @@ ID and the App Secret (not echoed), and tell you when it is done — nothing com
 The user must run it in a terminal window of their own (Terminal, iTerm, …). Never suggest running it inside this session — a `!`-prefixed command, a shell tool, a background job: none of them has a TTY, and the CLI refuses without one.
 
 **QR code expired** before it was scanned:
-`The QR code expired before it was scanned. Run again: agent-lark setup (original error: …)` (rc 4) — the user reruns `setup`
+`The QR code expired before it was scanned. Run again: lark-connector setup (original error: …)` (rc 4) — the user reruns `setup`
 (every `setup` line is printed in Chinese and English side by side).
 
 ## 6. rc 130: interrupted
@@ -286,6 +299,16 @@ Lines starting `note: ` on stderr while a command blocks are informational; the 
   `note: bound, but renaming the group failed: <error>` · `note: not connected to Feishu; the group's name and description were left as they are` ·
   `note: could not look through the Feishu groups for earlier ones of this project (<error>); only local records were considered`.
 
+**Upgrade carry-over lines.** The first commands run after upgrading from `agent-lark` 0.1.x may also print
+`lark-connector: note: …` and `lark-connector: warning: …` lines on stderr before their own output — with
+rc 0, so they are not a failure. A `note:` says what was moved on its own (`moved the old directory
+~/.agent-lark to ~/.lark-connector`; the config directory; `credentials in the keychain copied from service
+agent-lark to service lark-connector`; a project's `.agent-lark/` directory); a `warning:` names something
+left for the user — both the old and the new directory exist, a keychain entry that could not be copied or
+removed (with what to do by hand), `AGENT_LARK_*` environment variables still set (`environment variables
+were renamed: AGENT_LARK_HOME → LARK_CONNECTOR_HOME …`; the old names are never read). Relay a `warning:`
+to the user once; a `note:` needs nothing. Every line is English, whatever the environment says.
+
 ## 8. Other subcommands
 
 | command | 0 | 1 | 3 | 4 |
@@ -302,9 +325,9 @@ Lines starting `note: ` on stderr while a command blocks are informational; the 
 | `unbind --dissolve` | `Dissolved Feishu group "…"; the local record is removed.` | not bound | daemon not running · not connected to Feishu (nothing touched) · a daemon from before the flag answered (§4: the group was released, not dissolved) | a question is pending (nothing touched) · Feishu refused to dissolve or the call failed (§5: record removed, group still there) |
 | `rename "<task>"` | `Renamed the Feishu group to "<task> [<dir>]"` | empty or over-long name | not connected · Feishu refused (§9) | no live group |
 | `away on` | remote mode enabled (daemon line, group line, `Remote mode is on: …`; outside herdr one more line) | task name too long · `--reuse` + `--new` · `--reuse` not a candidate | daemon did not come up · not connected within 15 s · group creation failed | no credentials · socket path over the limit (nothing started) · candidates to choose from · no owner · creation refused for permissions |
-| `away off` | `Remote mode is off.` (also when nothing is bound). Daemon not running, or the socket path over the limit ⇒ still rc 0: the state file is written locally and a second line says `daemon is not running; local state cleared` (no state file ⇒ `This project has never used agent-lark (no .lark-connector/state.json)`) | – | an IPC error other than "not running" / "path over the limit" | – |
+| `away off` | `Remote mode is off.` (also when nothing is bound). Daemon not running, or the socket path over the limit ⇒ still rc 0: the state file is written locally and a second line says `daemon is not running; local state cleared` (no state file ⇒ `This project has never used lark-connector (no .lark-connector/state.json)`) | – | an IPC error other than "not running" / "path over the limit" | – |
 | `away status [--json]` | printed, whatever the state | – | – | – |
-| `status` | printed: credentials and their layers, herdr, daemon (or `daemon: not running (agent-lark daemon --detach)`), bindings | – | – | – |
+| `status` | printed: credentials and their layers, herdr, daemon (or `daemon: not running (lark-connector daemon --detach)`), bindings | – | – | – |
 | `help` / no command | the command summary | unknown command | – | – |
 
 `away on` stops at the first failure and leaves the switch off: a failed step never leaves remote mode
@@ -327,15 +350,15 @@ like any other prompt; the secret is masked as `***` wherever it could appear):
 | `[lark-connector] setup: credentials stored for cli_xxxxxxxx (<app name>); the scopes must be enabled in the developer console before use` | done (rc 0 in the pane); the human still has console work for a reused app |
 | `[lark-connector] setup: failed: <why>` | every end that is not success or Ctrl-C: three failed probes, refused or thrown (`3 probes refused (<error>)`, rc 1 in the pane), `offline: refusing to contact Feishu (LARK_CONNECTOR_OFFLINE=1 is set)` (rc 3), any other failure (rc 3, `<why>` is the error text). The secret is masked as `***` wherever it could appear; relay `<why>`. The one end that sends no line: the pane closed by hand |
 | `[lark-connector] setup: interrupted before any credentials were stored` | Ctrl-C in the pane (rc 130); ask whether to try again |
-| `[lark-connector] setup: credentials already stored (<origin>); nothing changed. To switch apps run agent-lark setup --reset --reuse` | nothing was asked (rc 0) |
+| `[lark-connector] setup: credentials already stored (<origin>); nothing changed. To switch apps run lark-connector setup --reset --reuse` | nothing was asked (rc 0) |
 
-If the line cannot be delivered, the pane prints `agent-lark: the result could not be reported to pane <pane> (<why>)` and
+If the line cannot be delivered, the pane prints `lark-connector: the result could not be reported to pane <pane> (<why>)` and
 its own exit code stands; the human sees the outcome on that pane.
 
 ## 9. Feishu-specific: urgent flag, renaming, group creation, voice notes, "Read 0/0"
 
 - **`--urgent` never fails the question.** The card is sent first; the in-app urgent flag is a second
-  call, and any refusal is only a `note:` (§7): `the app owner is not recorded, so there is nobody to flag; rerun agent-lark setup --update to record it`,
+  call, and any refusal is only a `note:` (§7): `the app owner is not recorded, so there is nobody to flag; rerun lark-connector setup --update to record it`,
   or `Feishu error <code> <msg>` — typically the app lacks the `im:message.urgent` scope (`setup --update`
   asks for it). Flag only what deserves it: an irreversible action, a short timeout.
 - **Renaming a group** goes through Feishu's chat update. The bot may rename groups it created freely; a
