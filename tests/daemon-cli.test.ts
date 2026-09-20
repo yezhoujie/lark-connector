@@ -12,12 +12,16 @@ const here = dirname(fileURLToPath(import.meta.url));
 const cli = resolve(here, '..', '..', 'skill', 'agent-lark', 'dist', 'cli.mjs');
 const entry = join(here, 'fixtures', 'daemon-entry.js');
 const home = mkdtempSync(join(tmpdir(), 'al-cli-daemon-'));
-const env = { ...process.env, LARK_CONNECTOR_HOME: home };
+// A throwaway home directory and the file store, so the CLI's carry-over from
+// the earlier name finds nothing of the developer's own (see cli.test.ts).
+const fakeHome = mkdtempSync(join(tmpdir(), 'lc-home-'));
+const env = { ...process.env, LARK_CONNECTOR_HOME: home, HOME: fakeHome, USERPROFILE: fakeHome, LARK_CONNECTOR_STORE: 'file' };
 
 let child: ChildProcess | undefined;
 after(() => {
   if (child && child.exitCode === null && !child.killed) child.kill();
   rmSync(home, { recursive: true, force: true });
+  rmSync(fakeHome, { recursive: true, force: true });
 });
 
 function run(args: string[]) {

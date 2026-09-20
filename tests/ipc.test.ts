@@ -2,7 +2,7 @@
 // named pipe) with a hand-written handler on the daemon side.
 import { after, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createConnection } from 'node:net';
+import { createConnection, createServer, type Server } from 'node:net';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { platform, tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -11,7 +11,7 @@ const home = mkdtempSync(join(tmpdir(), 'al-ipc-'));
 process.env.LARK_CONNECTOR_HOME = home;
 after(() => rmSync(home, { recursive: true, force: true }));
 
-const { ipcEndpoint, SOCK_PATH_LIMIT, sockPathProblem } = await import('../src/paths.js');
+const { ipcEndpoint, ipcEndpointFor, SOCK_PATH_LIMIT, sockPathProblem } = await import('../src/paths.js');
 const { isDaemonListening, request, serve } = await import('../src/ipc.js');
 const { msg } = await import('../src/texts.js');
 const { homeOfSockBytes, withHome } = await import('./fixtures/long-home.js');
@@ -47,6 +47,32 @@ test('ping is answered with pong and isDaemonListening becomes true', async () =
       assert.equal(await isDaemonListening(), true);
     },
   );
+});
+
+test('request / isDaemonListening aimed at another endpoint reach what listens there, not the state directory\'s daemon', async () => {
+  const other = mkdtempSync(join(tmpdir(), 'al-ipc-other-'));
+  const endpoint = ipcEndpointFor(other);
+  const server = await new Promise<Server>((resolve, reject) => {
+    const s = createServer((sock) => {
+      sock.on('data', () => {
+        sock.write(`${JSON.stringify({ frame: 'result', body: pong })}\n`);
+        sock.end();
+      });
+    });
+    s.on('error', reject);
+    s.listen(endpoint, () => resolve(s));
+  });
+  try {
+    assert.equal(await isDaemonListening(1000), false);
+    assert.equal(await isDaemonListening(1000, { endpoint }), true);
+    assert.deepEqual(await request({ type: 'ping' }, { timeoutMs: 1000, endpoint }), pong);
+    const down = await request({ type: 'ping' }, { timeoutMs: 1000, endpoint: ipcEndpointFor(join(other, 'nowhere')) });
+    assert.equal(down.ok, false);
+    if (!down.ok) assert.equal(down.reason, 'down');
+  } finally {
+    await new Promise<void>((r) => server.close(() => r()));
+    rmSync(other, { recursive: true, force: true });
+  }
 });
 
 test('note frames arrive before the result, in order', async () => {

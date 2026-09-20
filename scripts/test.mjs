@@ -29,12 +29,15 @@ process.env.LARK_CONNECTOR_OFFLINE = '1';
 // command carries over what the earlier name (agent-lark) left in the home
 // directory and in the keychain, and a spawned CLI would find the real ones.
 // A throwaway home directory for the whole run (HOME on Unix, USERPROFILE on
-// Windows — whichever homedir() reads), and credentials kept in a file
-// rather than the keychain.
-const fakeHome = mkdtempSync(join(tmpdir(), 'lark-connector-test-home-'));
+// Windows — whichever homedir() reads; a short prefix, since
+// `<home>/.lark-connector/daemon.sock` has to fit a Unix socket path),
+// credentials kept in a file rather than the keychain, and a keychain
+// service that never holds anything, for any path that reads one regardless.
+const fakeHome = mkdtempSync(join(tmpdir(), 'lc-home-'));
 process.env.HOME = fakeHome;
 process.env.USERPROFILE = fakeHome;
 process.env.LARK_CONNECTOR_STORE = 'file';
+process.env.LARK_CONNECTOR_KEYCHAIN = 'lark-connector-test-never-stored';
 
 // Run tsc through the current Node binary rather than `npx`/`tsc` so no shell
 // lookup (or `.cmd` shim on Windows) is involved.
@@ -92,5 +95,9 @@ const run = spawnSync(process.execPath, ['--test', '--test-timeout=30000', ...fo
   stdio: 'inherit',
 });
 if (run.error) console.error(run.error);
-rmSync(fakeHome, { recursive: true, force: true });
+try {
+  rmSync(fakeHome, { recursive: true, force: true });
+} catch {
+  // a file still open in it (Windows EBUSY) must not turn a green run red
+}
 process.exit(run.status ?? 1);

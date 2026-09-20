@@ -3,6 +3,7 @@
 import { after, before, describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
+import { createServer, type Server } from 'node:net';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { platform, tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
@@ -10,6 +11,7 @@ import { fileURLToPath } from 'node:url';
 
 import { argv, isTransientNetworkError, waitConnected } from '../src/cli.js';
 import { serve, type Response } from '../src/ipc.js';
+import { legacyIpcEndpoint } from '../src/migrate.js';
 import { SOCK_PATH_LIMIT } from '../src/paths.js';
 import { homeOfSockBytes } from './fixtures/long-home.js';
 
@@ -26,12 +28,24 @@ after(() => {
   for (const dir of scratch) rmSync(dir, { recursive: true, force: true });
 });
 
-// Every spawned CLI is pointed away from the machine's real credentials: a
-// keychain service that never holds anything, a throwaway config dir, and the
-// file store — the carry-over from the earlier name would otherwise read the
-// keychain entry of that name, which a developer's machine may still hold.
+// Every spawned CLI is pointed away from the machine's real state: a throwaway
+// home directory (HOME on Unix, USERPROFILE on Windows — whichever homedir()
+// reads; a short prefix so `<home>/.lark-connector/daemon.sock` fits a Unix
+// socket path), a keychain service that never holds anything, a throwaway
+// config dir, and the file store — the carry-over from the earlier name would
+// otherwise find the real `~/.agent-lark` and read the keychain entry of that
+// name, which a developer's machine may still hold. This holds on its own,
+// whether or not the runner (scripts/test.mjs) isolated the process the same way.
 const isolatedEnv = (): NodeJS.ProcessEnv => {
-  const env: NodeJS.ProcessEnv = { ...process.env, LARK_CONNECTOR_KEYCHAIN: 'lark-connector-test-never-stored', XDG_CONFIG_HOME: tmp('lark-connector-cfg-'), LARK_CONNECTOR_STORE: 'file' };
+  const home = tmp('lc-home-');
+  const env: NodeJS.ProcessEnv = {
+    ...process.env,
+    HOME: home,
+    USERPROFILE: home,
+    LARK_CONNECTOR_KEYCHAIN: 'lark-connector-test-never-stored',
+    XDG_CONFIG_HOME: tmp('lark-connector-cfg-'),
+    LARK_CONNECTOR_STORE: 'file',
+  };
   for (const k of ['LARK_CONNECTOR_APP_ID', 'LARK_CONNECTOR_APP_SECRET', 'LARK_CONNECTOR_OWNER_OPEN_ID']) delete env[k];
   return env;
 };
@@ -167,6 +181,118 @@ test('--home=<dir> is accepted too', () => {
   const r = run([`--home=${dirname(pid)}`, 'daemon', '--stop'], { home: tmp('lark-connector-other-') });
   assert.equal(r.status, 0, r.stderr);
   assert.equal(existsSync(pid), false, 'stale daemon.pid under --home= was not removed');
+});
+
+// ---- what the earlier name left behind ---------------------------------------
+// A state directory under the earlier name, found in the home directory, is
+// carried over on the first run of any command — to its default place, never
+// to wherever that one run's --home points; help does not touch it.
+
+describe('a state directory under the earlier name in the home directory', () => {
+  // A short prefix: `<home>/.agent-lark/daemon.sock` has to fit a Unix socket path.
+  const legacyHome = (): { home: string; old: string } => {
+    const home = tmp('al-legacy-');
+    const old = join(home, '.agent-lark');
+    mkdirSync(old);
+    writeFileSync(join(old, 'bindings.json'), '{"bindings":[]}\n');
+    return { home, old };
+  };
+  // HOME and USERPROFILE both: whichever this platform's homedir() reads.
+  const inHome = (home: string, args: string[]) =>
+    spawnSync(process.execPath, [cli, ...args], {
+      encoding: 'utf8',
+      env: { ...isolatedEnv(), HOME: home, USERPROFILE: home, LARK_CONNECTOR_STORE: 'file' },
+      input: '',
+      timeout: 10_000,
+    });
+
+  test('status --home <dir> moves it to <home>/.lark-connector, not under --home, and says so on stderr', () => {
+    const { home, old } = legacyHome();
+    const r = inHome(home, ['--home', join(home, 'state'), 'status']);
+    assert.equal(r.status, 0, r.stdout + r.stderr);
+    assert.equal(existsSync(old), false, 'the old directory is still there');
+    assert.ok(existsSync(join(home, '.lark-connector', 'bindings.json')), 'bindings.json did not arrive at the default state directory');
+    assert.equal(existsSync(join(home, 'state', 'bindings.json')), false, 'the old directory went under --home');
+    assert.match(r.stderr, /moved/);
+  });
+
+  test('what the carry-over prints is agent-facing: English only, as `lark-connector: note:` lines on stderr', () => {
+    const { home } = legacyHome();
+    const r = inHome(home, ['--home', join(home, 'state'), 'status']);
+    assert.equal(r.status, 0, r.stdout + r.stderr);
+    assert.match(r.stderr, /^lark-connector: note: .*moved/m);
+    assert.equal(hasHan(r.stderr), false, r.stderr);
+    assert.equal(hasHan(r.stdout), false, r.stdout);
+  });
+
+  test('help leaves it where it is', () => {
+    const { home, old } = legacyHome();
+    const r = inHome(home, ['--home', join(home, 'state'), '--help']);
+    assert.equal(r.status, 0, r.stderr);
+    assert.ok(existsSync(old), 'help moved the old directory');
+    assert.doesNotMatch(r.stderr, /moved/);
+  });
+
+  // A fake daemon of the earlier name, answering `ping` on the old endpoint.
+  const legacyDaemon = (old: string): Promise<Server> => {
+    const pong = { ok: true, kind: 'pong', status: { pid: 1, connection: 'fake', connected: true, lastError: null, pendingAsks: 0, bindings: 0, startedAt: '', media: { ttlDays: 7, files: 0, bytes: 0, at: '' } } };
+    return new Promise<Server>((resolve, reject) => {
+      const s = createServer((sock) => {
+        sock.on('data', () => {
+          sock.write(`${JSON.stringify({ frame: 'result', body: pong })}\n`);
+          sock.end();
+        });
+      });
+      s.on('error', reject);
+      s.listen(legacyIpcEndpoint(old), () => resolve(s));
+    });
+  };
+  // The fake daemon lives in this process, so the CLI must run asynchronously:
+  // a spawnSync would block the loop the server answers from.
+  const inHomeAsync = (home: string, args: string[]) =>
+    new Promise<{ status: number | null; stdout: string; stderr: string }>((resolve, reject) => {
+      const child = spawn(process.execPath, [cli, ...args], {
+        env: { ...isolatedEnv(), HOME: home, USERPROFILE: home, LARK_CONNECTOR_STORE: 'file' },
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
+      let stdout = '';
+      let stderr = '';
+      child.stdout.on('data', (d: Buffer) => (stdout += d.toString()));
+      child.stderr.on('data', (d: Buffer) => (stderr += d.toString()));
+      child.on('error', reject);
+      child.on('close', (status) => resolve({ status, stdout, stderr }));
+    });
+
+  test('while a daemon of the earlier name still answers on its endpoint: exit 4 telling to stop it first, in English, nothing moved', async () => {
+    const { home, old } = legacyHome();
+    const server = await legacyDaemon(old);
+    try {
+      const r = await inHomeAsync(home, ['--home', join(home, 'state'), 'status']);
+      assert.equal(r.status, 4, r.stdout + r.stderr);
+      assert.match(r.stderr, /^lark-connector: .*daemon --stop/m);
+      assert.equal(hasHan(r.stderr), false, r.stderr);
+      assert.ok(existsSync(join(old, 'bindings.json')), 'the old directory was moved although its daemon is up');
+      assert.equal(existsSync(join(home, '.lark-connector')), false);
+      assert.equal(existsSync(join(home, 'state')), false);
+    } finally {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    }
+  });
+
+  test('an unknown command is refused (exit 1) before anything is carried over: the old directory stays, its daemon is not consulted', async () => {
+    const { home, old } = legacyHome();
+    const server = await legacyDaemon(old);
+    try {
+      const r = await inHomeAsync(home, ['--home', join(home, 'state'), 'nosuchcmd']);
+      assert.equal(r.status, 1, r.stdout + r.stderr);
+      assert.match(r.stderr, /^lark-connector: .*nosuchcmd/m);
+      assert.equal(hasHan(r.stderr), false, r.stderr);
+      assert.ok(existsSync(join(old, 'bindings.json')), 'the old directory was moved for a command that does not exist');
+      assert.equal(existsSync(join(home, '.lark-connector')), false);
+    } finally {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    }
+  });
 });
 
 // ---- against a daemon process running on fakes ------------------------------

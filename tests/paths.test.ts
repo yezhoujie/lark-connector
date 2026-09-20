@@ -6,7 +6,7 @@ import { createConnection, createServer } from 'node:net';
 import { platform, tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
-import { SOCK_PATH_LIMIT, projectLabel, projectStatePath, readProjectState, sockPath, sockPathProblem, writeProjectState } from '../src/paths.js';
+import { SOCK_PATH_LIMIT, ipcEndpoint, ipcEndpointFor, projectLabel, projectStatePath, readProjectState, sockPath, sockPathProblem, writeProjectState } from '../src/paths.js';
 import { homeOfSockBytes as longHome, withHome } from './fixtures/long-home.js';
 
 const scratch: string[] = [];
@@ -101,9 +101,24 @@ test('sockPathProblem: null for the usual short path', () => {
   assert.equal(sockPathProblem(), null);
 });
 
+test('ipcEndpointFor: the endpoint of any directory, under any pipe prefix; ipcEndpoint() is the state directory\'s', () => {
+  const home = tmp('al-paths-ep-');
+  if (platform() === 'win32') {
+    assert.match(ipcEndpointFor(home), /^\\\\\.\\pipe\\lark-connector-[0-9a-f]{12}$/);
+    assert.match(ipcEndpointFor(home, 'other-'), /^\\\\\.\\pipe\\other-[0-9a-f]{12}$/);
+    assert.notEqual(ipcEndpointFor(home), ipcEndpointFor(tmp('al-paths-ep-')));
+  } else {
+    assert.equal(ipcEndpointFor(home), join(home, 'daemon.sock'));
+    assert.equal(ipcEndpointFor(home, 'other-'), join(home, 'daemon.sock'));
+  }
+  assert.equal(withHome(home, () => ipcEndpoint()), ipcEndpointFor(home));
+});
+
 test('sockPathProblem: a socket path over the limit names the path, its length, the limit and LARK_CONNECTOR_HOME; win32 has no limit', () => {
   const home = homeOfSockBytes(SOCK_PATH_LIMIT + 40);
   const problem = withHome(home, () => sockPathProblem());
+  // the same verdict when the path is handed over instead of taken from the state directory
+  assert.equal(sockPathProblem(join(home, 'daemon.sock')), problem);
   if (platform() === 'win32') {
     assert.equal(problem, null);
     return;

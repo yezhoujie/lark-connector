@@ -381,6 +381,30 @@ test('bind --reuse of a group known only to Feishu records it locally as the liv
   await daemon.stop();
 });
 
+test('a group whose description carries the marker of the earlier name is offered back too; taking it rewrites the description to the current marker', PER_TEST, async () => {
+  // An owner is known, so a scan that missed the group would create a new one instead of refusing.
+  const { daemon, fake } = await start(
+    {
+      chatUpdate: async () => ({ code: 0 }),
+      chatList: pageOf(['oc_legacy', 'oc_other']),
+      getChatInfo: async (id) => ({ chatId: id, chatType: 'group', name: id === 'oc_legacy' ? 'old task [p]' : 'someone else', description: id === 'oc_legacy' ? 'agent-lark · /p' : 'not ours' }),
+      createChat: async () => ({ chatId: 'oc_new' }),
+    },
+    50,
+    { owner: 'ou_owner' },
+  );
+  await connected();
+  const res = await request({ type: 'bind', root: '/p', label: 'p', paneId: null });
+  assert.equal(res.ok, false, `the group under the earlier marker was not offered back: ${JSON.stringify(res)}`);
+  if (res.ok) return;
+  assert.equal(res.code, 4);
+  assert.deepEqual(res.candidates, [{ chatId: 'oc_legacy', name: 'old task [p]', releasedAt: null }]);
+  const taken = await request({ type: 'bind', root: '/p', label: 'p', paneId: null, mode: 'reuse', reuseChatId: 'oc_legacy' });
+  assert.deepEqual(taken, { ok: true, kind: 'bind', chatId: 'oc_legacy', how: 'reused', name: '[p]' });
+  assert.deepEqual(fake.renames.at(-1), { chatId: 'oc_legacy', name: '[p]', description: MARKER });
+  await daemon.stop();
+});
+
 test('bind --new creates a group carrying the marker even though candidates exist', PER_TEST, async () => {
   const { daemon, fake, created } = await seedReleasedAndRemote(undefined, 'ou_owner');
   const updatesBefore = fake.renames.length;

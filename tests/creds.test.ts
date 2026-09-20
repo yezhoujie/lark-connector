@@ -8,7 +8,7 @@ import { join } from 'node:path';
 // The keychain service name is read once at import time: point it at a
 // service that never holds anything before the module loads.
 process.env.LARK_CONNECTOR_KEYCHAIN = 'lark-connector-test-never-stored';
-const { credsReport, resolveCreds, writeCreds } = await import('../src/creds.js');
+const { configDir, configDirFor, credsReport, resolveCreds, writeCreds } = await import('../src/creds.js');
 
 const scratch: string[] = [];
 after(() => {
@@ -37,6 +37,12 @@ test('an env file is no longer read, even when LARK_CONNECTOR_ENV_FILE points at
   const report = credsReport();
   assert.equal(report.length, 3, report.join('\n'));
   assert.ok(report.every((l) => !/env file|(^|[^_])LARK_APP_ID/.test(l)), report.join('\n'));
+});
+
+test('configDirFor: another name under the same base directory as configDir', () => {
+  const dir = isolated();
+  assert.equal(configDirFor('agent-lark'), join(dir, 'agent-lark'));
+  assert.equal(configDir(), configDirFor('lark-connector'));
 });
 
 test('the environment pair wins over the file store; the file store is 0600 and is what setup --reuse writes on a keychain-less box', () => {
