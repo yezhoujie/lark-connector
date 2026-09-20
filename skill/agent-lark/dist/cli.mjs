@@ -136262,7 +136262,7 @@ var require_lib3 = __commonJS({
   }
 });
 
-// skills/agent-lark/src/texts.ts
+// src/texts.ts
 function fill(template, vars = {}) {
   return template.replace(/\{([a-zA-Z_]+)\}/g, (whole, name) => name in vars ? String(vars[name]) : whole);
 }
@@ -136274,7 +136274,7 @@ ${e}` : `${z}\u3000/\u3000${e}`;
 }
 var zh, en, msg, t;
 var init_texts = __esm({
-  "skills/agent-lark/src/texts.ts"() {
+  "src/texts.ts"() {
     "use strict";
     zh = {
       // ask card
@@ -136640,7 +136640,7 @@ Exit codes: 0 ok \xB7 1 bad input \xB7 2 timed out, nobody answered \xB7 3 chann
   }
 });
 
-// skills/agent-lark/src/creds.ts
+// src/creds.ts
 import { execFileSync } from "node:child_process";
 import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { homedir, platform } from "node:os";
@@ -136822,7 +136822,7 @@ function credsReport() {
 }
 var SERVICE, ACCOUNT, credentialsFile, dpapiFile;
 var init_creds = __esm({
-  "skills/agent-lark/src/creds.ts"() {
+  "src/creds.ts"() {
     "use strict";
     init_texts();
     SERVICE = process.env.AGENT_LARK_KEYCHAIN?.trim() || "agent-lark";
@@ -136832,7 +136832,7 @@ var init_creds = __esm({
   }
 });
 
-// skills/agent-lark/src/herdr.ts
+// src/herdr.ts
 import { execFile, execFileSync as execFileSync2 } from "node:child_process";
 import { promisify } from "node:util";
 function insideHerdr() {
@@ -136923,7 +136923,7 @@ async function closePane(pane, run = runHerdr) {
 }
 var execFileAsync, runHerdr;
 var init_herdr = __esm({
-  "skills/agent-lark/src/herdr.ts"() {
+  "src/herdr.ts"() {
     "use strict";
     execFileAsync = promisify(execFile);
     runHerdr = async (args, timeoutMs = 1e4) => {
@@ -136938,7 +136938,7 @@ var init_herdr = __esm({
   }
 });
 
-// skills/agent-lark/src/paths.ts
+// src/paths.ts
 import { execFileSync as execFileSync3 } from "node:child_process";
 import { createHash as createHash2 } from "node:crypto";
 import { existsSync as existsSync2, mkdirSync as mkdirSync2, readFileSync as readFileSync2, renameSync as renameSync2, writeFileSync as writeFileSync2 } from "node:fs";
@@ -137020,7 +137020,7 @@ function writeProjectState(root, patch, opts = {}) {
 }
 var sockPath, SOCK_PATH_LIMIT, pidPath, logPath, bindingsPath, mediaDir, projectStateDir, projectStatePath;
 var init_paths = __esm({
-  "skills/agent-lark/src/paths.ts"() {
+  "src/paths.ts"() {
     "use strict";
     init_texts();
     sockPath = () => join2(homeDir(), "daemon.sock");
@@ -137034,7 +137034,7 @@ var init_paths = __esm({
   }
 });
 
-// skills/agent-lark/src/bindings.ts
+// src/bindings.ts
 import { readFileSync as readFileSync3, renameSync as renameSync3, writeFileSync as writeFileSync3 } from "node:fs";
 function groupName(task, label) {
   const t2 = task?.trim();
@@ -137066,7 +137066,7 @@ function normalize2(raw) {
 }
 var MAX_TASK_NAME, BindingsFileError, BindingStore;
 var init_bindings = __esm({
-  "skills/agent-lark/src/bindings.ts"() {
+  "src/bindings.ts"() {
     "use strict";
     init_paths();
     init_texts();
@@ -137213,7 +137213,7 @@ var init_bindings = __esm({
   }
 });
 
-// skills/agent-lark/src/ipc.ts
+// src/ipc.ts
 import { createConnection, createServer } from "node:net";
 import { unlinkSync as unlinkSync2 } from "node:fs";
 import { platform as platform3 } from "node:os";
@@ -137340,14 +137340,14 @@ function serve(handlers) {
   });
 }
 var init_ipc = __esm({
-  "skills/agent-lark/src/ipc.ts"() {
+  "src/ipc.ts"() {
     "use strict";
     init_paths();
     init_texts();
   }
 });
 
-// skills/agent-lark/src/validate.ts
+// src/validate.ts
 function str2(v) {
   return typeof v === "string" && v.trim() ? v.trim() : null;
 }
@@ -137471,7 +137471,7 @@ function validateNotify(raw) {
 }
 var LIMITS, ValidationError;
 var init_validate = __esm({
-  "skills/agent-lark/src/validate.ts"() {
+  "src/validate.ts"() {
     "use strict";
     init_texts();
     LIMITS = {
@@ -137493,7 +137493,7 @@ var init_validate = __esm({
   }
 });
 
-// skills/agent-lark/src/cards.ts
+// src/cards.ts
 function card(header, elements) {
   return {
     schema: "2.0",
@@ -137613,7 +137613,7 @@ function statusCard(projectLabel2, detail, lang = "en") {
 }
 var md, hr, note, HEADER, checkerName, optionIdOf;
 var init_cards = __esm({
-  "skills/agent-lark/src/cards.ts"() {
+  "src/cards.ts"() {
     "use strict";
     init_texts();
     md = (content) => ({ tag: "markdown", content });
@@ -137634,7 +137634,7 @@ var init_cards = __esm({
   }
 });
 
-// skills/agent-lark/src/daemon.ts
+// src/daemon.ts
 var daemon_exports = {};
 __export(daemon_exports, {
   DaemonStartError: () => DaemonStartError,
@@ -138862,7 +138862,7 @@ ${msg.renamePermissionHint}` : text;
 }
 var INJECT_PREFIX, POLL_MS, STATUS_COOLDOWN_MS, CONNECT_RETRY_MS, CONNECT_RETRY_MAX_MS, CLOSE_GRACE_MS, CANCEL_CARD_MS, MEDIA_TTL_DAYS, SWEEP_MS, CHAT_LIST_MAX_PAGES, MARKER_CLEARED, DAY_MS, DaemonStartError, MAX_IMAGE_BYTES, MAX_FILE_BYTES, CLOSED_KEEP, SENT_CARDS_KEEP, QUEUED_KEEP, QUEUED_MAX_AGE_MS, QUEUE_EMOJI, TRANSCRIPT_READ_MAX;
 var init_daemon = __esm({
-  "skills/agent-lark/src/daemon.ts"() {
+  "src/daemon.ts"() {
     "use strict";
     init_dist4();
     init_bindings();
@@ -138903,7 +138903,7 @@ var init_daemon = __esm({
   }
 });
 
-// skills/agent-lark/src/cli.ts
+// src/cli.ts
 init_dist4();
 var import_qrcode = __toESM(require_lib3(), 1);
 init_creds();
@@ -138913,7 +138913,7 @@ import { existsSync as existsSync4, openSync as openSync2, realpathSync as realp
 import { resolve as resolve2 } from "node:path";
 import { fileURLToPath } from "node:url";
 
-// skills/agent-lark/src/tty.ts
+// src/tty.ts
 import { createInterface } from "node:readline/promises";
 var InputInterrupted = class extends Error {
   constructor() {
@@ -138985,7 +138985,7 @@ function terminalIO(input = process.stdin, output = process.stdout) {
   };
 }
 
-// skills/agent-lark/src/cli.ts
+// src/cli.ts
 init_bindings();
 init_ipc();
 init_paths();
