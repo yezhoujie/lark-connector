@@ -4,5 +4,5 @@
     "rootDir": ".",
     "outDir": ".test-out"
   },
-  "include": ["skills/agent-lark/src/**/*.ts", "tests/lark/**/*.ts"]
+  "include": ["src/**/*.ts", "tests/**/*.ts"]
 }

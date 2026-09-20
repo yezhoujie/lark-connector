@@ -1,4 +1,4 @@
-// Test runner: compile the skill's src/ plus the repository's tests/lark/ with
+// Test runner: compile the skill's src/ plus the repository's tests/ with
 // tsc, then hand every compiled test file to `node --test` as an explicit path.
 // Two things a bare `tsc && node --test "<glob>"` script gets wrong:
 //   - a glob that matches nothing is reported by `node --test` as "0 tests,
@@ -16,7 +16,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const outDir = join(root, '.test-out');
-const testsDir = join(outDir, 'tests', 'lark');
+const testsDir = join(outDir, 'tests');
 
 rmSync(outDir, { recursive: true, force: true });
 
@@ -48,14 +48,14 @@ try {
     .sort()
     .map((rel) => join(testsDir, rel));
 } catch (err) {
-  // tsc emitted nothing under tests/lark/ — same outcome as an empty list. Any
+  // tsc emitted nothing under tests/ — same outcome as an empty list. Any
   // other failure to read the directory is a real error.
   if (err?.code !== 'ENOENT') throw err;
   files = [];
 }
 if (files.length === 0) {
   process.stderr.write(
-    `scripts/test.mjs: no test files under ${testsDir} — tsc compiled nothing from tests/lark/**/*.test.ts; check the include list in tsconfig.test.json and the test file names\n`,
+    `scripts/test.mjs: no test files under ${testsDir} — tsc compiled nothing from tests/**/*.test.ts; check the include list in tsconfig.test.json and the test file names\n`,
   );
   process.exit(1);
 }

@@ -8,17 +8,17 @@ import { fileURLToPath } from 'node:url';
 
 import { createFakeChannel, pageOf, type FakeChannel, type FakeChannelOptions } from './fixtures/fake-channel.js';
 import { agentEntry, createFakeHerdr, type FakeHerdr } from './fixtures/fake-herdr.js';
-import { en as enText } from '../../skills/agent-lark/src/texts.js';
+import { en as enText } from '../src/texts.js';
 import { homeOfSockBytes } from './fixtures/long-home.js';
 
 process.env.AGENT_LARK_APP_ID = 'cli_fake';
 process.env.AGENT_LARK_APP_SECRET = 'fake-secret';
 
-const { runDaemon, DaemonStartError } = await import('../../skills/agent-lark/src/daemon.js');
+const { runDaemon, DaemonStartError } = await import('../src/daemon.js');
 type DaemonHandle = Awaited<ReturnType<typeof runDaemon>>;
-const { request } = await import('../../skills/agent-lark/src/ipc.js');
-const { fill, msg, t } = await import('../../skills/agent-lark/src/texts.js');
-const { readProjectState, writeProjectState, SOCK_PATH_LIMIT, sockPathProblem } = await import('../../skills/agent-lark/src/paths.js');
+const { request } = await import('../src/ipc.js');
+const { fill, msg, t } = await import('../src/texts.js');
+const { readProjectState, writeProjectState, SOCK_PATH_LIMIT, sockPathProblem } = await import('../src/paths.js');
 
 type Daemon = Awaited<ReturnType<typeof runDaemon>>;
 const homes: string[] = [];
@@ -707,7 +707,7 @@ test('ask and notify remember the payload language on the live binding', PER_TES
 // checked here is what the daemon lets through for whatever path a request
 // names. Everything under tmpdir() is allowed, so a target outside the
 // allowlist has to live elsewhere: this package's own checkout.
-const outsideFile = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'package.json');
+const outsideFile = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', 'package.json');
 const MB = 1024 * 1024;
 const rx = (s: string): string => s.replace(/[\\^$.*+?()[\]{}|]/g, '\\$&');
 /** An empty file grown to `bytes` without writing them (sparse where the file system allows). */
