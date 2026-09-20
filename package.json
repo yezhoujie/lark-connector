@@ -1,6 +1,6 @@
 {
-  "name": "agent-remote-communication-skills",
-  "description": "Build, type-check and test toolchain for the skills under skills/ — nothing in this package ships",
+  "name": "lark-connector",
+  "description": "Build, type-check and test toolchain for lark-connector — nothing in this package ships",
   "type": "module",
   "engines": {
     "node": ">=22"
