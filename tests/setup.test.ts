@@ -195,7 +195,7 @@ test('reuse: three refused probes exit 1 with the Feishu code and message shown,
   assert.match(all, /10003/);
   assert.match(all, /invalid app_secret/);
   assert.doesNotMatch(all, /s1|s2|s3/);
-  assert.match(text(f.err), /^agent-lark: .*3/m);
+  assert.match(text(f.err), /^lark-connector: .*3/m);
 });
 
 test('reuse: a probe that fails twice then succeeds stores the third pair', async () => {
@@ -237,7 +237,7 @@ test('reuse without a terminal, outside herdr: exit 4 and stderr carries the com
   assert.equal(await runSetup(['--reuse'], f.deps), 4);
   assert.equal(f.herdr.length, 0);
   const err = text(f.err);
-  assert.match(err, /^agent-lark: /m);
+  assert.match(err, /^lark-connector: /m);
   assert.match(err, /\/usr\/bin\/node \/skill\/dist\/cli\.mjs --home \S+ setup --reuse$/m);
   assert.equal(text(f.out), '');
 });
@@ -312,7 +312,7 @@ test('LARK_CONNECTOR_OFFLINE: both network paths are refused with exit 3 and the
   const qr = fake(scripted([], false), { offline: true });
   assert.equal(await runSetup([], qr.deps), 3);
   assert.equal(qr.registered, 0);
-  assert.match(text(qr.err), /^agent-lark: offline: refusing to contact Feishu/m);
+  assert.match(text(qr.err), /^lark-connector: offline: refusing to contact Feishu/m);
   const reuse = fake(scripted(['cli_ok1', 's']), { offline: true });
   assert.equal(await runSetup(['--reuse'], reuse.deps), 3);
   assert.equal(reuse.probes.length, 0);

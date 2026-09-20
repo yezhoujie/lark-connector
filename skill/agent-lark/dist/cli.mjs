@@ -136307,7 +136307,7 @@ var init_texts = __esm({
       interruptFailed: "\u6253\u65AD\u6CA1\u53D1\u51FA\u53BB\uFF08{why}\uFF09\u3002\u6D88\u606F\u8FD8\u5728 agent \u7684\u961F\u5217\u91CC\uFF0C\u5B83\u8DD1\u5B8C\u624B\u5934\u7684\u547D\u4EE4\u5C31\u4F1A\u8BFB\u5230\u3002",
       receiptNoPane: "\u8FD9\u4E2A\u9879\u76EE\u8FD8\u6CA1\u6709\u8BB0\u5F55\u5230 herdr \u7A97\u683C\uFF0C\u6D88\u606F\u6CA1\u5904\u53EF\u9001\u3002",
       promptAgentBlocked: "\u7EC8\u7AEF\u91CC\u7684 agent \u6B63\u5361\u5728\u4E00\u4E2A\u9700\u8981\u4F60\u672C\u4EBA\u786E\u8BA4\u7684\u63D0\u793A\u4E0A\uFF0C\u6536\u4E0D\u4E86\u65B0\u8F93\u5165\u3002\u56DE\u7535\u8111\u524D\u5904\u7406\u4E00\u4E0B\u3002",
-      promptPaneGone: "\u8BB0\u5F55\u7684 herdr \u7A97\u683C\u5DF2\u7ECF\u4E0D\u5728\u4E86\u3002\u5230\u9879\u76EE\u91CC\u8DD1\u4E00\u6B21 agent-lark away on \u6216\u4EFB\u610F agent-lark \u547D\u4EE4\uFF0C\u91CD\u65B0\u8BB0\u5F55\u7A97\u683C\u3002",
+      promptPaneGone: "\u8BB0\u5F55\u7684 herdr \u7A97\u683C\u5DF2\u7ECF\u4E0D\u5728\u4E86\u3002\u5230\u9879\u76EE\u91CC\u8DD1\u4E00\u6B21 lark-connector away on \u6216\u4EFB\u610F lark-connector \u547D\u4EE4\uFF0C\u91CD\u65B0\u8BB0\u5F55\u7A97\u683C\u3002",
       promptNoHerdr: "\u8FD9\u53F0\u673A\u5668\u6CA1\u6709 herdr\uFF0C\u6216 herdr \u6CA1\u5728\u8DD1\uFF0C\u624B\u673A\u4E0A\u53D1\u7684\u6D88\u606F\u6CA1\u5904\u6CE8\u5165\u3002",
       promptRefused: "herdr \u62D2\u7EDD\u4E86\u8FD9\u6B21\u6CE8\u5165\uFF1A{code} {message}",
       // "stuck" status card
@@ -136318,7 +136318,7 @@ var init_texts = __esm({
       toastClosed: "\u8FD9\u4E2A\u95EE\u9898\u5DF2\u7ECF\u7ED3\u675F\u4E86\uFF0C\u521A\u624D\u90A3\u4E0B\u5F53\u6210\u65B0\u6307\u4EE4\u53D1\u8FC7\u53BB\u4E86",
       toastBadOption: "\u8FD9\u4E2A\u9009\u9879\u5BF9\u4E0D\u4E0A\uFF0C\u518D\u8BD5\u4E00\u6B21",
       // setup walkthrough (each line is printed as "zh　/　en")
-      setupHaveCreds: "\u5DF2\u7ECF\u6709\u51ED\u636E\u4E86\uFF08\u6765\u81EA {origin}\uFF09\u3002\u60F3\u91CD\u65B0\u6388\u6743\u6216\u8865\u6743\u9650\uFF0C\u52A0 --update\uFF1B\u60F3\u6362\u4E00\u4E2A\u5E94\u7528\uFF0C\u5148 agent-lark setup --reset\u3002",
+      setupHaveCreds: "\u5DF2\u7ECF\u6709\u51ED\u636E\u4E86\uFF08\u6765\u81EA {origin}\uFF09\u3002\u60F3\u91CD\u65B0\u6388\u6743\u6216\u8865\u6743\u9650\uFF0C\u52A0 --update\uFF1B\u60F3\u6362\u4E00\u4E2A\u5E94\u7528\uFF0C\u5148 lark-connector setup --reset\u3002",
       setupMenu: "\u600E\u4E48\u63A5\u5165\u98DE\u4E66\uFF1F\n  1) \u626B\u7801\u65B0\u5EFA\u4E00\u4E2A\u5E94\u7528\uFF08\u7528\u98DE\u4E66\u626B\u7EC8\u7AEF\u91CC\u7684\u4E8C\u7EF4\u7801\uFF09\n  2) \u590D\u7528\u4E00\u4E2A\u5DF2\u6709\u7684\u5E94\u7528\uFF08\u8F93\u5165 App ID \u4E0E App Secret\uFF09",
       setupMenuPrompt: "\u9009 [1/2]\uFF1A",
       setupMenuBad: "\u53EA\u80FD\u8F93 1 \u6216 2\u3002",
@@ -136332,7 +136332,7 @@ var init_texts = __esm({
       setupSaved: "\u51ED\u636E\u5DF2\u4FDD\u5B58\u5230\uFF1A{where}",
       setupSavedQr: "\u2705 \u5E94\u7528\u5DF2\u7ED1\u5B9A\uFF0C\u51ED\u636E\u4FDD\u5B58\u5230\uFF1A{where}\uFF08\u660E\u6587\u4E0D\u4F1A\u51FA\u73B0\u5728\u4EFB\u4F55\u8F93\u51FA\u91CC\uFF09\u3002",
       setupNext: "\u4E0B\u4E00\u6B65\uFF1A\u56DE\u5230 agent \u4F1A\u8BDD\uFF0C\u8BF4\u300C\u5F00\u542F\u8FDC\u7A0B\u4EA4\u4E92\u6A21\u5F0F\u300D\u6216\u8F93\u5165 /agent-lark on\u2014\u2014daemon \u4E0E\u7FA4\u7ED1\u5B9A\u7531 agent \u4ECE\u5B83\u81EA\u5DF1\u7684\u7A97\u683C\u5B8C\u6210\uFF0C\u4E0D\u7528\u4F60\u624B\u52A8\u8DD1\u3002",
-      setupReuseGaveUp: "\u8FDE\u7EED {n} \u6B21\u6CA1\u901A\u8FC7\uFF0C\u5148\u5230\u5F00\u53D1\u8005\u540E\u53F0\u6838\u5BF9 App ID / App Secret\uFF0C\u518D\u8DD1\u4E00\u6B21 agent-lark setup --reuse\u3002",
+      setupReuseGaveUp: "\u8FDE\u7EED {n} \u6B21\u6CA1\u901A\u8FC7\uFF0C\u5148\u5230\u5F00\u53D1\u8005\u540E\u53F0\u6838\u5BF9 App ID / App Secret\uFF0C\u518D\u8DD1\u4E00\u6B21 lark-connector setup --reuse\u3002",
       setupManualScopes: "\u8FD9\u4E2A\u5E94\u7528\u8981\u5728\u5F00\u53D1\u8005\u540E\u53F0\u624B\u52A8\u5F00\u901A\uFF08\u5E94\u7528 \u2192 \u6743\u9650\u7BA1\u7406 \u2192 \u5F00\u901A\u6743\u9650\uFF09\uFF1A",
       setupManualEvents: "\u4E8B\u4EF6\u8BA2\u9605\uFF1Aim.message.receive_v1\u3001im.message.reaction.created_v1\uFF08\u8BA2\u9605\u65B9\u5F0F\u9009\u300C\u4F7F\u7528\u957F\u8FDE\u63A5\u63A5\u6536\u4E8B\u4EF6\u300D\uFF09\xB7 \u56DE\u8C03\uFF1Acard.action.trigger\uFF08\u540C\u6837\u9009\u957F\u8FDE\u63A5\uFF09",
       setupManualPublish: "\u5F00\u901A\u540E\u53D1\u5E03\u4E00\u4E2A\u7248\u672C\uFF0C\u6743\u9650\u624D\u751F\u6548\u3002",
@@ -136346,7 +136346,7 @@ var init_texts = __esm({
       setupExpiry: "\u23F3 \u4E8C\u7EF4\u7801 {minutes} \u5206\u949F\u5185\u6709\u6548\uFF08{time} \u8FC7\u671F\uFF09\uFF0C\u8FC7\u671F\u5C31\u91CD\u8DD1 setup\u3002",
       setupWaiting: "  \u8FD8\u5728\u7B49\u4F60\u626B\u2026\u2026\u5269 {seconds} \u79D2",
       setupStatus: "  \u72B6\u6001\uFF1A{status}",
-      setupExpired: "\u4E8C\u7EF4\u7801\u8FC7\u671F\u4E86\uFF0C\u6CA1\u7B49\u5230\u626B\u7801\u3002\u91CD\u8DD1\u4E00\u6B21\uFF1Aagent-lark setup\uFF08\u539F\u59CB\u9519\u8BEF\uFF1A{error}\uFF09",
+      setupExpired: "\u4E8C\u7EF4\u7801\u8FC7\u671F\u4E86\uFF0C\u6CA1\u7B49\u5230\u626B\u7801\u3002\u91CD\u8DD1\u4E00\u6B21\uFF1Alark-connector setup\uFF08\u539F\u59CB\u9519\u8BEF\uFF1A{error}\uFF09",
       setupRegisterFailed: "\u626B\u7801\u6CE8\u518C\u5931\u8D25\uFF1A{error}",
       setupRetry: "\u7F51\u7EDC\u6296\u52A8\uFF08{error}\uFF09\uFF0C\u91CD\u65B0\u7533\u8BF7\u4E00\u5F20\u4E8C\u7EF4\u7801\uFF08\u7B2C {n}/{max} \u6B21\uFF09\u2026\u2026",
       appDesc: "\u628A\u7EC8\u7AEF\u91CC agent \u7684\u63D0\u95EE\u63A8\u5230\u624B\u673A\uFF0C\u7B54\u590D\u6CE8\u5165\u56DE\u7EC8\u7AEF"
@@ -136380,7 +136380,7 @@ var init_texts = __esm({
       interruptFailed: "The interrupt could not be sent ({why}). The message is still in the agent's queue; it will be read once the current command finishes.",
       receiptNoPane: "No herdr pane is recorded for this project, so there is nowhere to deliver the message.",
       promptAgentBlocked: "The agent in the terminal is stuck on a prompt only you can answer and cannot take new input. Deal with it when you are back at the computer.",
-      promptPaneGone: "The recorded herdr pane is gone. Run agent-lark away on (or any agent-lark command) inside the project to record the pane again.",
+      promptPaneGone: "The recorded herdr pane is gone. Run lark-connector away on (or any lark-connector command) inside the project to record the pane again.",
       promptNoHerdr: "This machine has no herdr, or herdr is not running; messages from the phone have nowhere to go.",
       promptRefused: "herdr refused the injection: {code} {message}",
       statusBlocked: "waiting for you",
@@ -136388,7 +136388,7 @@ var init_texts = __esm({
       toastAnswered: "Replied",
       toastClosed: "This question is already closed; that tap was forwarded as a new instruction",
       toastBadOption: "That option does not match, try again",
-      setupHaveCreds: "Credentials already exist (from {origin}). Add --update to re-authorize or add scopes; run agent-lark setup --reset first to switch apps.",
+      setupHaveCreds: "Credentials already exist (from {origin}). Add --update to re-authorize or add scopes; run lark-connector setup --reset first to switch apps.",
       setupMenu: "How do you want to connect to Feishu?\n  1) Create a new app by QR code (scan it with Feishu)\n  2) Reuse an app you already have (enter its App ID and App Secret)",
       setupMenuPrompt: "Choose [1/2]: ",
       setupMenuBad: "Type 1 or 2.",
@@ -136402,7 +136402,7 @@ var init_texts = __esm({
       setupSaved: "Credentials saved to: {where}",
       setupSavedQr: "\u2705 App linked; credentials saved to {where} (the secret never appears in any output).",
       setupNext: 'Next: back in your agent session, say "turn remote mode on" or type /agent-lark on \u2014 the agent starts the daemon and binds the group from its own pane; nothing to run by hand.',
-      setupReuseGaveUp: "{n} attempts failed; check the App ID / App Secret in the developer console, then run agent-lark setup --reuse again.",
+      setupReuseGaveUp: "{n} attempts failed; check the App ID / App Secret in the developer console, then run lark-connector setup --reuse again.",
       setupManualScopes: "Enable these scopes for the app by hand in the developer console (app \u2192 Permissions & Scopes):",
       setupManualEvents: "Event subscription: im.message.receive_v1, im.message.reaction.created_v1 (delivery: long connection) \xB7 callback: card.action.trigger (long connection as well)",
       setupManualPublish: "Publish a version afterwards; scopes take effect only then.",
@@ -136416,13 +136416,13 @@ var init_texts = __esm({
       setupExpiry: "\u23F3 The QR code is valid for {minutes} minutes (expires {time}); rerun setup if it expires.",
       setupWaiting: "  still waiting for the scan\u2026 {seconds} s left",
       setupStatus: "  status: {status}",
-      setupExpired: "The QR code expired before it was scanned. Run again: agent-lark setup (original error: {error})",
+      setupExpired: "The QR code expired before it was scanned. Run again: lark-connector setup (original error: {error})",
       setupRegisterFailed: "QR-code registration failed: {error}",
       setupRetry: "Network hiccup ({error}); asking for a fresh QR code (attempt {n}/{max})\u2026",
       appDesc: "Agent questions pushed to your phone, answers back to the terminal"
     };
     msg = {
-      help: `agent-lark \u2014 reach the agent session running in your terminal from Feishu/Lark
+      help: `lark-connector \u2014 reach the agent session running in your terminal from Feishu/Lark
 
   setup [--update] [--reset] [--scopes a,b]
                                      On a terminal: a menu, create the app by QR code or reuse one; piped: QR code straight away.
@@ -136450,19 +136450,19 @@ Global: --home <dir>  state directory (same as LARK_CONNECTOR_HOME; default ~/.l
 
 Exit codes: 0 ok \xB7 1 bad input \xB7 2 timed out, nobody answered \xB7 3 channel failure \xB7 4 a human must act
 `,
-      prefix: "agent-lark: ",
+      prefix: "lark-connector: ",
       homeNeedsDir: "--home needs a directory",
-      unknownOption: "unknown option {option}. See agent-lark --help.",
+      unknownOption: "unknown option {option}. See lark-connector --help.",
       offline: "offline: refusing to contact Feishu (LARK_CONNECTOR_OFFLINE=1 is set)",
-      unknownCommand: 'Unknown command "{cmd}". See agent-lark --help.',
+      unknownCommand: 'Unknown command "{cmd}". See lark-connector --help.',
       needStdin: "This command reads one JSON object from stdin. Feed it with a heredoc.",
       badJson: "stdin is not valid JSON: {error}",
       askProblems: "This question card has {n} problem(s); nothing was sent:",
       notifyProblems: "This notification has {n} problem(s); nothing was sent:",
       timeoutArg: "--timeout must be a positive integer (seconds)",
-      sendFileUsage: "Usage: agent-lark send-file <path> [--caption <text>]",
-      awayUsage: "Usage: agent-lark away on [--name <task>] [--reuse <chat_id> | --new] | off | status [--json]",
-      renameUsage: 'Usage: agent-lark rename "<task name>"',
+      sendFileUsage: "Usage: lark-connector send-file <path> [--caption <text>]",
+      awayUsage: "Usage: lark-connector away on [--name <task>] [--reuse <chat_id> | --new] | off | status [--json]",
+      renameUsage: 'Usage: lark-connector rename "<task name>"',
       taskNameTooLong: "task name: over {max} characters (code points), got {n}",
       setupHandoffStarted: 'The interactive setup is running in herdr pane {pane}: the user enters the App ID and App Secret there (they never pass through this session). When it ends, one line prefixed "[lark-connector] setup:" arrives here (that pane has focus now).',
       setupHandoffFailed: "could not open a herdr pane for the interactive setup ({why}). Ask the user to run it in their own terminal:\n  {command}",
@@ -136470,8 +136470,8 @@ Exit codes: 0 ok \xB7 1 bad input \xB7 2 timed out, nobody answered \xB7 3 chann
       setupReportOk: "[lark-connector] setup: credentials stored for {appId} ({app}); the scopes must be enabled in the developer console before use",
       setupReportFailed: "[lark-connector] setup: failed: {why}",
       setupReportInterrupted: "[lark-connector] setup: interrupted before any credentials were stored",
-      setupReportExists: "[lark-connector] setup: credentials already stored ({origin}); nothing changed. To switch apps run agent-lark setup --reset --reuse",
-      setupReportNotDelivered: "agent-lark: the result could not be reported to pane {pane} ({why})",
+      setupReportExists: "[lark-connector] setup: credentials already stored ({origin}); nothing changed. To switch apps run lark-connector setup --reset --reuse",
+      setupReportNotDelivered: "lark-connector: the result could not be reported to pane {pane} ({why})",
       awayOffLocal: "daemon is not running; local state cleared",
       // daemon command
       daemonNotRunning: "daemon: not running",
@@ -136481,16 +136481,16 @@ Exit codes: 0 ok \xB7 1 bad input \xB7 2 timed out, nobody answered \xB7 3 chann
       daemonLastError: "  last error: {error}",
       daemonMediaLine: "media: ttl {ttl} days, {mb} MB in {files} files (as of last sweep {at})",
       daemonMediaLineOff: "media: no automatic cleanup (LARK_CONNECTOR_MEDIA_TTL_DAYS=0), {mb} MB in {files} files (as of last sweep {at})",
-      mediaTtlInvalid: "agent-lark: warning: LARK_CONNECTOR_MEDIA_TTL_DAYS={value} is not a whole number of days; using {fallback}",
+      mediaTtlInvalid: "lark-connector: warning: LARK_CONNECTOR_MEDIA_TTL_DAYS={value} is not a whole number of days; using {fallback}",
       daemonStopStuck: "daemon: still answering 10 s after the stop request; see the log: {log}",
       daemonWasNotRunning: "daemon: was not running",
-      daemonStopRefused: '{n} question(s) still pending on the phone. Stopping the daemon now turns those cards into "\u26A0\uFE0F Cancelled" \u2014 a dead card for the human.\nWait for the answer, or do it anyway: agent-lark daemon --stop --force',
+      daemonStopRefused: '{n} question(s) still pending on the phone. Stopping the daemon now turns those cards into "\u26A0\uFE0F Cancelled" \u2014 a dead card for the human.\nWait for the answer, or do it anyway: lark-connector daemon --stop --force',
       daemonStopped: "daemon: stopped",
       daemonAlready: "daemon is already running",
       daemonStarted: "daemon: started in the background, pid {pid} (log {log})",
       daemonNoReply: "daemon started but did not answer within 10 s; see the log: {log}",
-      daemonNoCreds: "no Feishu app credentials found. Run agent-lark setup first (or set LARK_CONNECTOR_APP_ID / LARK_CONNECTOR_APP_SECRET)",
-      daemonReady: "agent-lark daemon: pid {pid}, listening at {sock}, connecting to Feishu in the background",
+      daemonNoCreds: "no Feishu app credentials found. Run lark-connector setup first (or set LARK_CONNECTOR_APP_ID / LARK_CONNECTOR_APP_SECRET)",
+      daemonReady: "lark-connector daemon: pid {pid}, listening at {sock}, connecting to Feishu in the background",
       notConnected: "not connected to Feishu ({error}); the daemon keeps retrying, try again shortly",
       reconnecting: "the connection to Feishu dropped, reconnecting",
       connecting: "still connecting",
@@ -136515,7 +136515,7 @@ Exit codes: 0 ok \xB7 1 bad input \xB7 2 timed out, nobody answered \xB7 3 chann
       bindUpdateSkipped: "not connected to Feishu; the group's name and description were left as they are",
       unbound: 'Unbound. The Feishu group "{name}" stays in Feishu; the next away on in this directory offers to rename and reuse it.',
       dissolved: 'Dissolved Feishu group "{name}"; the local record is removed.',
-      renameNotBound: "this project has no live group; run agent-lark away on first",
+      renameNotBound: "this project has no live group; run lark-connector away on first",
       renameFailed: "renaming the group failed: Feishu error {code} {msg}",
       renameThrew: "renaming the group failed: {error}",
       renamePermissionHint: "The bot may only rename a group it owns, or one whose settings let every member edit group info (232002 / 232016), and must be a member of it (232011).",
@@ -136524,14 +136524,14 @@ Exit codes: 0 ok \xB7 1 bad input \xB7 2 timed out, nobody answered \xB7 3 chann
       notifySent: "Notification sent (a reply from the phone is injected into this pane as an instruction)",
       fileSent: "Sent to the project group",
       // away
-      awayNeverUsed: "This project has never used agent-lark (no .lark-connector/state.json)",
+      awayNeverUsed: "This project has never used lark-connector (no .lark-connector/state.json)",
       awayStatusLine: "remote mode: {away}  group: {chat}",
       awayNotConnected: "daemon is up but not connected to Feishu: {error}",
       awayOutsideHerdr: "Not inside herdr: messages sent from the phone are not injected anywhere, and there is no stuck-on-a-prompt alert.",
       on: "on",
       off: "off",
       awayUnbound: "not bound",
-      awayNoCreds: "No Feishu app credentials yet. Run once: agent-lark setup",
+      awayNoCreds: "No Feishu app credentials yet. Run once: lark-connector setup",
       awayCreated: 'Created Feishu group "{name}"',
       awayReused: 'Took back Feishu group "{name}"',
       awayKept: 'Connected to Feishu group "{name}"',
@@ -136540,10 +136540,10 @@ Exit codes: 0 ok \xB7 1 bad input \xB7 2 timed out, nobody answered \xB7 3 chann
       awayOn: "Remote mode is on: decisions, and moments when the agent is stuck on a prompt that needs you, are pushed to this project's Feishu group.",
       // status
       statusCredsYes: "credentials: configured, from {origin}",
-      statusCredsNo: "credentials: not configured; run agent-lark setup first",
+      statusCredsNo: "credentials: not configured; run lark-connector setup first",
       statusHerdrIn: "herdr: inside herdr, pane {pane}",
       statusHerdrOut: "herdr: not inside herdr",
-      statusDaemonDown: "daemon: not running (agent-lark daemon --detach)",
+      statusDaemonDown: "daemon: not running (lark-connector daemon --detach)",
       statusDaemonPath: "daemon: cannot run here ({problem})",
       statusDaemonLine: "daemon: pid {pid}, connected {connected}, connection {connection}, pending questions {pending}",
       statusNoBindings: "bindings: none yet",
@@ -136552,7 +136552,7 @@ Exit codes: 0 ok \xB7 1 bad input \xB7 2 timed out, nobody answered \xB7 3 chann
       statusReleased: "released (take one back with away on --reuse <chat_id>; * marks this project):",
       statusReleasedLine: "  {mark} {root}  {name}  {chatId}  released {time}",
       // ipc client / server
-      ipcDaemonDown: "daemon is not running. Start it first: agent-lark daemon --detach",
+      ipcDaemonDown: "daemon is not running. Start it first: lark-connector daemon --detach",
       ipcConnect: "cannot connect to the daemon: {message}",
       ipcClosed: "the daemon dropped the connection before answering (it may have crashed or been stopped)",
       ipcTimeout: "the daemon did not respond in time",
@@ -136561,7 +136561,7 @@ Exit codes: 0 ok \xB7 1 bad input \xB7 2 timed out, nobody answered \xB7 3 chann
       // the state directory
       sockPathTooLong: "socket path {path} is {bytes} bytes, over this platform's limit of {limit}; set LARK_CONNECTOR_HOME to a shorter directory",
       // daemon replies
-      notBound: "this project is not bound yet; run agent-lark away on first",
+      notBound: "this project is not bound yet; run lark-connector away on first",
       askPending: "this project already has a question pending on the phone; one at a time",
       askNote: "sent to the Feishu group, waiting for the answer (up to {seconds} s)",
       askTimedOut: "no answer after {seconds} s",
@@ -136574,9 +136574,9 @@ Exit codes: 0 ok \xB7 1 bad input \xB7 2 timed out, nobody answered \xB7 3 chann
       dissolveThrew: 'the Feishu group "{name}" was not dissolved: {error}. Dissolve it by hand in Feishu. The local record is removed.',
       dissolveMarkerCleared: "The group's marker was cleared, so it will not be offered back.",
       dissolveMarkerKept: "The group's marker could not be cleared ({error}), so it will be offered back until it is dissolved.",
-      dissolveOldDaemon: "the running daemon predates --dissolve and has only let the group go (it stays in Feishu, on record as released). Restart the daemon (agent-lark daemon --stop, then agent-lark daemon --detach), bind the group back (away on --reuse <chat_id>) and run unbind --dissolve again",
+      dissolveOldDaemon: "the running daemon predates --dissolve and has only let the group go (it stays in Feishu, on record as released). Restart the daemon (lark-connector daemon --stop, then lark-connector daemon --detach), bind the group back (away on --reuse <chat_id>) and run unbind --dissolve again",
       bindNoOwner: "nobody to invite into a new group (the app owner is not recorded). Use --chat <chat_id> to bind a group you created yourself.",
-      bindCreateFailed: "creating the group failed: {error}\nIf this is a permission problem the app lacks the im:chat (create group) scope: run agent-lark setup --update, or bind an existing group with --chat <chat_id>.",
+      bindCreateFailed: "creating the group failed: {error}\nIf this is a permission problem the app lacks the im:chat (create group) scope: run lark-connector setup --update, or bind an existing group with --chat <chat_id>.",
       fileMissing: "file not found: {path}",
       fileRealpath: "cannot resolve path: {error}",
       fileRefused: "refusing to send {real}\nOnly files under these directories can be sent:\n  this project {root}\n  {media}\n  {tmp}\n(this keeps send-file from reading arbitrary files off the machine)",
@@ -136584,7 +136584,7 @@ Exit codes: 0 ok \xB7 1 bad input \xB7 2 timed out, nobody answered \xB7 3 chann
       fileTooBig: "file too large: {size} MB, limit {cap} MB",
       // text synthesized into the pane
       injectVoice: "(voice transcript) {text}",
-      injectUnheard: "({n} voice message(s) received but transcription failed \u2014 Feishu code {code}: {msg}. Either the app lacks the speech_to_text:speech scope (agent-lark setup --update adds it), or the tenant is on the free plan, which cannot call speech recognition at all. Tell the user to type it instead this time.)",
+      injectUnheard: "({n} voice message(s) received but transcription failed \u2014 Feishu code {code}: {msg}. Either the app lacks the speech_to_text:speech scope (lark-connector setup --update adds it), or the tenant is on the free plan, which cannot call speech recognition at all. Tell the user to type it instead this time.)",
       injectNothingHeard: "({n} voice message(s) received but nothing was recognised in the audio. Tell the user to type it or send it again.)",
       injectSaved: "[saved: {path}]",
       replyTo: '(reply to: "{title}")',
@@ -136593,7 +136593,7 @@ Exit codes: 0 ok \xB7 1 bad input \xB7 2 timed out, nobody answered \xB7 3 chann
       lateTapNoOption: "(follow-up) I tapped the card above again",
       latePick: "(follow-up) I pick {labels}",
       urgentNotSent: "the urgent flag was not delivered ({error}); the question itself was sent and is waiting as usual",
-      urgentNoOwner: "the app owner is not recorded, so there is nobody to flag; rerun agent-lark setup --update to record it",
+      urgentNoOwner: "the app owner is not recorded, so there is nobody to flag; rerun lark-connector setup --update to record it",
       urgentRefused: "Feishu error {code} {msg}",
       // validation
       vTitleRequired: "title: required and non-empty",
@@ -136630,7 +136630,7 @@ Exit codes: 0 ok \xB7 1 bad input \xB7 2 timed out, nobody answered \xB7 3 chann
       keychainDarwin: "macOS Keychain",
       keychainWin32: "Windows DPAPI (current-user encryption)",
       keychainLinux: "libsecret (secret-tool)",
-      credsPermWarning: "agent-lark: warning: {file} permissions are too open ({mode}); chmod 600 recommended",
+      credsPermWarning: "lark-connector: warning: {file} permissions are too open ({mode}); chmod 600 recommended",
       credsNotPersisted: "not persisted (memory only for this run)",
       originEnv: "environment LARK_CONNECTOR_APP_ID/SECRET",
       reportEnv: "environment LARK_CONNECTOR_APP_ID / LARK_CONNECTOR_APP_SECRET",
@@ -138883,7 +138883,7 @@ var init_daemon = __esm({
     MEDIA_TTL_DAYS = 7;
     SWEEP_MS = 24 * 60 * 60 * 1e3;
     CHAT_LIST_MAX_PAGES = 100;
-    MARKER_CLEARED = "released by agent-lark";
+    MARKER_CLEARED = "released by lark-connector";
     DAY_MS = 24 * 60 * 60 * 1e3;
     DaemonStartError = class extends Error {
       constructor(code, message) {
@@ -139280,10 +139280,10 @@ async function runQr(deps, store, say, fail, updateAppId, scopes) {
   let lastStatus = "";
   let heartbeat;
   const register = () => deps.register({
-    source: "agent-lark",
+    source: "lark-connector",
     appId: updateAppId,
     appPreset: {
-      name: "agent-lark",
+      name: "lark-connector",
       desc: both("appDesc")
     },
     addons: {

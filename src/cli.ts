@@ -449,10 +449,10 @@ async function runQr(
   // dropped connection, so a network failure mid-wait means a fresh QR code.
   const register = () =>
     deps.register({
-      source: 'agent-lark',
+      source: 'lark-connector',
       appId: updateAppId,
       appPreset: {
-        name: 'agent-lark',
+        name: 'lark-connector',
         desc: both('appDesc'),
       },
       addons: {

@@ -44,7 +44,7 @@ export const zh = {
   interruptFailed: '打断没发出去（{why}）。消息还在 agent 的队列里，它跑完手头的命令就会读到。',
   receiptNoPane: '这个项目还没有记录到 herdr 窗格，消息没处可送。',
   promptAgentBlocked: '终端里的 agent 正卡在一个需要你本人确认的提示上，收不了新输入。回电脑前处理一下。',
-  promptPaneGone: '记录的 herdr 窗格已经不在了。到项目里跑一次 agent-lark away on 或任意 agent-lark 命令，重新记录窗格。',
+  promptPaneGone: '记录的 herdr 窗格已经不在了。到项目里跑一次 lark-connector away on 或任意 lark-connector 命令，重新记录窗格。',
   promptNoHerdr: '这台机器没有 herdr，或 herdr 没在跑，手机上发的消息没处注入。',
   promptRefused: 'herdr 拒绝了这次注入：{code} {message}',
   // "stuck" status card
@@ -55,7 +55,7 @@ export const zh = {
   toastClosed: '这个问题已经结束了，刚才那下当成新指令发过去了',
   toastBadOption: '这个选项对不上，再试一次',
   // setup walkthrough (each line is printed as "zh　/　en")
-  setupHaveCreds: '已经有凭据了（来自 {origin}）。想重新授权或补权限，加 --update；想换一个应用，先 agent-lark setup --reset。',
+  setupHaveCreds: '已经有凭据了（来自 {origin}）。想重新授权或补权限，加 --update；想换一个应用，先 lark-connector setup --reset。',
   setupMenu: '怎么接入飞书？\n  1) 扫码新建一个应用（用飞书扫终端里的二维码）\n  2) 复用一个已有的应用（输入 App ID 与 App Secret）',
   setupMenuPrompt: '选 [1/2]：',
   setupMenuBad: '只能输 1 或 2。',
@@ -69,7 +69,7 @@ export const zh = {
   setupSaved: '凭据已保存到：{where}',
   setupSavedQr: '✅ 应用已绑定，凭据保存到：{where}（明文不会出现在任何输出里）。',
   setupNext: '下一步：回到 agent 会话，说「开启远程交互模式」或输入 /agent-lark on——daemon 与群绑定由 agent 从它自己的窗格完成，不用你手动跑。',
-  setupReuseGaveUp: '连续 {n} 次没通过，先到开发者后台核对 App ID / App Secret，再跑一次 agent-lark setup --reuse。',
+  setupReuseGaveUp: '连续 {n} 次没通过，先到开发者后台核对 App ID / App Secret，再跑一次 lark-connector setup --reuse。',
   setupManualScopes: '这个应用要在开发者后台手动开通（应用 → 权限管理 → 开通权限）：',
   setupManualEvents: '事件订阅：im.message.receive_v1、im.message.reaction.created_v1（订阅方式选「使用长连接接收事件」）· 回调：card.action.trigger（同样选长连接）',
   setupManualPublish: '开通后发布一个版本，权限才生效。',
@@ -83,7 +83,7 @@ export const zh = {
   setupExpiry: '⏳ 二维码 {minutes} 分钟内有效（{time} 过期），过期就重跑 setup。',
   setupWaiting: '  还在等你扫……剩 {seconds} 秒',
   setupStatus: '  状态：{status}',
-  setupExpired: '二维码过期了，没等到扫码。重跑一次：agent-lark setup（原始错误：{error}）',
+  setupExpired: '二维码过期了，没等到扫码。重跑一次：lark-connector setup（原始错误：{error}）',
   setupRegisterFailed: '扫码注册失败：{error}',
   setupRetry: '网络抖动（{error}），重新申请一张二维码（第 {n}/{max} 次）……',
   appDesc: '把终端里 agent 的提问推到手机，答复注入回终端',
@@ -120,7 +120,7 @@ export const en: Record<keyof typeof zh, string> = {
   promptAgentBlocked:
     'The agent in the terminal is stuck on a prompt only you can answer and cannot take new input. Deal with it when you are back at the computer.',
   promptPaneGone:
-    'The recorded herdr pane is gone. Run agent-lark away on (or any agent-lark command) inside the project to record the pane again.',
+    'The recorded herdr pane is gone. Run lark-connector away on (or any lark-connector command) inside the project to record the pane again.',
   promptNoHerdr: 'This machine has no herdr, or herdr is not running; messages from the phone have nowhere to go.',
   promptRefused: 'herdr refused the injection: {code} {message}',
   statusBlocked: 'waiting for you',
@@ -129,7 +129,7 @@ export const en: Record<keyof typeof zh, string> = {
   toastClosed: 'This question is already closed; that tap was forwarded as a new instruction',
   toastBadOption: 'That option does not match, try again',
   setupHaveCreds:
-    'Credentials already exist (from {origin}). Add --update to re-authorize or add scopes; run agent-lark setup --reset first to switch apps.',
+    'Credentials already exist (from {origin}). Add --update to re-authorize or add scopes; run lark-connector setup --reset first to switch apps.',
   setupMenu: 'How do you want to connect to Feishu?\n  1) Create a new app by QR code (scan it with Feishu)\n  2) Reuse an app you already have (enter its App ID and App Secret)',
   setupMenuPrompt: 'Choose [1/2]: ',
   setupMenuBad: 'Type 1 or 2.',
@@ -143,7 +143,7 @@ export const en: Record<keyof typeof zh, string> = {
   setupSaved: 'Credentials saved to: {where}',
   setupSavedQr: '✅ App linked; credentials saved to {where} (the secret never appears in any output).',
   setupNext: 'Next: back in your agent session, say "turn remote mode on" or type /agent-lark on — the agent starts the daemon and binds the group from its own pane; nothing to run by hand.',
-  setupReuseGaveUp: '{n} attempts failed; check the App ID / App Secret in the developer console, then run agent-lark setup --reuse again.',
+  setupReuseGaveUp: '{n} attempts failed; check the App ID / App Secret in the developer console, then run lark-connector setup --reuse again.',
   setupManualScopes: 'Enable these scopes for the app by hand in the developer console (app → Permissions & Scopes):',
   setupManualEvents: 'Event subscription: im.message.receive_v1, im.message.reaction.created_v1 (delivery: long connection) · callback: card.action.trigger (long connection as well)',
   setupManualPublish: 'Publish a version afterwards; scopes take effect only then.',
@@ -157,7 +157,7 @@ export const en: Record<keyof typeof zh, string> = {
   setupExpiry: '⏳ The QR code is valid for {minutes} minutes (expires {time}); rerun setup if it expires.',
   setupWaiting: '  still waiting for the scan… {seconds} s left',
   setupStatus: '  status: {status}',
-  setupExpired: 'The QR code expired before it was scanned. Run again: agent-lark setup (original error: {error})',
+  setupExpired: 'The QR code expired before it was scanned. Run again: lark-connector setup (original error: {error})',
   setupRegisterFailed: 'QR-code registration failed: {error}',
   setupRetry: 'Network hiccup ({error}); asking for a fresh QR code (attempt {n}/{max})…',
   appDesc: 'Agent questions pushed to your phone, answers back to the terminal',
@@ -165,7 +165,7 @@ export const en: Record<keyof typeof zh, string> = {
 
 /** Agent-facing wording: CLI output, validation, daemon replies. English only. */
 export const msg = {
-  help: `agent-lark — reach the agent session running in your terminal from Feishu/Lark
+  help: `lark-connector — reach the agent session running in your terminal from Feishu/Lark
 
   setup [--update] [--reset] [--scopes a,b]
                                      On a terminal: a menu, create the app by QR code or reuse one; piped: QR code straight away.
@@ -193,19 +193,19 @@ Global: --home <dir>  state directory (same as LARK_CONNECTOR_HOME; default ~/.l
 
 Exit codes: 0 ok · 1 bad input · 2 timed out, nobody answered · 3 channel failure · 4 a human must act
 `,
-  prefix: 'agent-lark: ',
+  prefix: 'lark-connector: ',
   homeNeedsDir: '--home needs a directory',
-  unknownOption: 'unknown option {option}. See agent-lark --help.',
+  unknownOption: 'unknown option {option}. See lark-connector --help.',
   offline: 'offline: refusing to contact Feishu (LARK_CONNECTOR_OFFLINE=1 is set)',
-  unknownCommand: 'Unknown command "{cmd}". See agent-lark --help.',
+  unknownCommand: 'Unknown command "{cmd}". See lark-connector --help.',
   needStdin: 'This command reads one JSON object from stdin. Feed it with a heredoc.',
   badJson: 'stdin is not valid JSON: {error}',
   askProblems: 'This question card has {n} problem(s); nothing was sent:',
   notifyProblems: 'This notification has {n} problem(s); nothing was sent:',
   timeoutArg: '--timeout must be a positive integer (seconds)',
-  sendFileUsage: 'Usage: agent-lark send-file <path> [--caption <text>]',
-  awayUsage: 'Usage: agent-lark away on [--name <task>] [--reuse <chat_id> | --new] | off | status [--json]',
-  renameUsage: 'Usage: agent-lark rename "<task name>"',
+  sendFileUsage: 'Usage: lark-connector send-file <path> [--caption <text>]',
+  awayUsage: 'Usage: lark-connector away on [--name <task>] [--reuse <chat_id> | --new] | off | status [--json]',
+  renameUsage: 'Usage: lark-connector rename "<task name>"',
   taskNameTooLong: 'task name: over {max} characters (code points), got {n}',
   setupHandoffStarted:
     'The interactive setup is running in herdr pane {pane}: the user enters the App ID and App Secret there (they never pass through this session). When it ends, one line prefixed "[lark-connector] setup:" arrives here (that pane has focus now).',
@@ -215,8 +215,8 @@ Exit codes: 0 ok · 1 bad input · 2 timed out, nobody answered · 3 channel fai
   setupReportOk: '[lark-connector] setup: credentials stored for {appId} ({app}); the scopes must be enabled in the developer console before use',
   setupReportFailed: '[lark-connector] setup: failed: {why}',
   setupReportInterrupted: '[lark-connector] setup: interrupted before any credentials were stored',
-  setupReportExists: '[lark-connector] setup: credentials already stored ({origin}); nothing changed. To switch apps run agent-lark setup --reset --reuse',
-  setupReportNotDelivered: 'agent-lark: the result could not be reported to pane {pane} ({why})',
+  setupReportExists: '[lark-connector] setup: credentials already stored ({origin}); nothing changed. To switch apps run lark-connector setup --reset --reuse',
+  setupReportNotDelivered: 'lark-connector: the result could not be reported to pane {pane} ({why})',
   awayOffLocal: 'daemon is not running; local state cleared',
   // daemon command
   daemonNotRunning: 'daemon: not running',
@@ -227,17 +227,17 @@ Exit codes: 0 ok · 1 bad input · 2 timed out, nobody answered · 3 channel fai
   daemonLastError: '  last error: {error}',
   daemonMediaLine: 'media: ttl {ttl} days, {mb} MB in {files} files (as of last sweep {at})',
   daemonMediaLineOff: 'media: no automatic cleanup (LARK_CONNECTOR_MEDIA_TTL_DAYS=0), {mb} MB in {files} files (as of last sweep {at})',
-  mediaTtlInvalid: 'agent-lark: warning: LARK_CONNECTOR_MEDIA_TTL_DAYS={value} is not a whole number of days; using {fallback}',
+  mediaTtlInvalid: 'lark-connector: warning: LARK_CONNECTOR_MEDIA_TTL_DAYS={value} is not a whole number of days; using {fallback}',
   daemonStopStuck: 'daemon: still answering 10 s after the stop request; see the log: {log}',
   daemonWasNotRunning: 'daemon: was not running',
   daemonStopRefused:
-    '{n} question(s) still pending on the phone. Stopping the daemon now turns those cards into "⚠️ Cancelled" — a dead card for the human.\nWait for the answer, or do it anyway: agent-lark daemon --stop --force',
+    '{n} question(s) still pending on the phone. Stopping the daemon now turns those cards into "⚠️ Cancelled" — a dead card for the human.\nWait for the answer, or do it anyway: lark-connector daemon --stop --force',
   daemonStopped: 'daemon: stopped',
   daemonAlready: 'daemon is already running',
   daemonStarted: 'daemon: started in the background, pid {pid} (log {log})',
   daemonNoReply: 'daemon started but did not answer within 10 s; see the log: {log}',
-  daemonNoCreds: 'no Feishu app credentials found. Run agent-lark setup first (or set LARK_CONNECTOR_APP_ID / LARK_CONNECTOR_APP_SECRET)',
-  daemonReady: 'agent-lark daemon: pid {pid}, listening at {sock}, connecting to Feishu in the background',
+  daemonNoCreds: 'no Feishu app credentials found. Run lark-connector setup first (or set LARK_CONNECTOR_APP_ID / LARK_CONNECTOR_APP_SECRET)',
+  daemonReady: 'lark-connector daemon: pid {pid}, listening at {sock}, connecting to Feishu in the background',
   notConnected: 'not connected to Feishu ({error}); the daemon keeps retrying, try again shortly',
   reconnecting: 'the connection to Feishu dropped, reconnecting',
   connecting: 'still connecting',
@@ -262,7 +262,7 @@ Exit codes: 0 ok · 1 bad input · 2 timed out, nobody answered · 3 channel fai
   bindUpdateSkipped: 'not connected to Feishu; the group\'s name and description were left as they are',
   unbound: 'Unbound. The Feishu group "{name}" stays in Feishu; the next away on in this directory offers to rename and reuse it.',
   dissolved: 'Dissolved Feishu group "{name}"; the local record is removed.',
-  renameNotBound: 'this project has no live group; run agent-lark away on first',
+  renameNotBound: 'this project has no live group; run lark-connector away on first',
   renameFailed: 'renaming the group failed: Feishu error {code} {msg}',
   renameThrew: 'renaming the group failed: {error}',
   renamePermissionHint:
@@ -272,14 +272,14 @@ Exit codes: 0 ok · 1 bad input · 2 timed out, nobody answered · 3 channel fai
   notifySent: 'Notification sent (a reply from the phone is injected into this pane as an instruction)',
   fileSent: 'Sent to the project group',
   // away
-  awayNeverUsed: 'This project has never used agent-lark (no .lark-connector/state.json)',
+  awayNeverUsed: 'This project has never used lark-connector (no .lark-connector/state.json)',
   awayStatusLine: 'remote mode: {away}  group: {chat}',
   awayNotConnected: 'daemon is up but not connected to Feishu: {error}',
   awayOutsideHerdr: 'Not inside herdr: messages sent from the phone are not injected anywhere, and there is no stuck-on-a-prompt alert.',
   on: 'on',
   off: 'off',
   awayUnbound: 'not bound',
-  awayNoCreds: 'No Feishu app credentials yet. Run once: agent-lark setup',
+  awayNoCreds: 'No Feishu app credentials yet. Run once: lark-connector setup',
   awayCreated: 'Created Feishu group "{name}"',
   awayReused: 'Took back Feishu group "{name}"',
   awayKept: 'Connected to Feishu group "{name}"',
@@ -288,10 +288,10 @@ Exit codes: 0 ok · 1 bad input · 2 timed out, nobody answered · 3 channel fai
   awayOn: 'Remote mode is on: decisions, and moments when the agent is stuck on a prompt that needs you, are pushed to this project\'s Feishu group.',
   // status
   statusCredsYes: 'credentials: configured, from {origin}',
-  statusCredsNo: 'credentials: not configured; run agent-lark setup first',
+  statusCredsNo: 'credentials: not configured; run lark-connector setup first',
   statusHerdrIn: 'herdr: inside herdr, pane {pane}',
   statusHerdrOut: 'herdr: not inside herdr',
-  statusDaemonDown: 'daemon: not running (agent-lark daemon --detach)',
+  statusDaemonDown: 'daemon: not running (lark-connector daemon --detach)',
   statusDaemonPath: 'daemon: cannot run here ({problem})',
   statusDaemonLine: 'daemon: pid {pid}, connected {connected}, connection {connection}, pending questions {pending}',
   statusNoBindings: 'bindings: none yet',
@@ -300,7 +300,7 @@ Exit codes: 0 ok · 1 bad input · 2 timed out, nobody answered · 3 channel fai
   statusReleased: 'released (take one back with away on --reuse <chat_id>; * marks this project):',
   statusReleasedLine: '  {mark} {root}  {name}  {chatId}  released {time}',
   // ipc client / server
-  ipcDaemonDown: 'daemon is not running. Start it first: agent-lark daemon --detach',
+  ipcDaemonDown: 'daemon is not running. Start it first: lark-connector daemon --detach',
   ipcConnect: 'cannot connect to the daemon: {message}',
   ipcClosed: 'the daemon dropped the connection before answering (it may have crashed or been stopped)',
   ipcTimeout: 'the daemon did not respond in time',
@@ -309,7 +309,7 @@ Exit codes: 0 ok · 1 bad input · 2 timed out, nobody answered · 3 channel fai
   // the state directory
   sockPathTooLong: "socket path {path} is {bytes} bytes, over this platform's limit of {limit}; set LARK_CONNECTOR_HOME to a shorter directory",
   // daemon replies
-  notBound: 'this project is not bound yet; run agent-lark away on first',
+  notBound: 'this project is not bound yet; run lark-connector away on first',
   askPending: 'this project already has a question pending on the phone; one at a time',
   askNote: 'sent to the Feishu group, waiting for the answer (up to {seconds} s)',
   askTimedOut: 'no answer after {seconds} s',
@@ -324,10 +324,10 @@ Exit codes: 0 ok · 1 bad input · 2 timed out, nobody answered · 3 channel fai
   dissolveMarkerCleared: "The group's marker was cleared, so it will not be offered back.",
   dissolveMarkerKept: "The group's marker could not be cleared ({error}), so it will be offered back until it is dissolved.",
   dissolveOldDaemon:
-    'the running daemon predates --dissolve and has only let the group go (it stays in Feishu, on record as released). Restart the daemon (agent-lark daemon --stop, then agent-lark daemon --detach), bind the group back (away on --reuse <chat_id>) and run unbind --dissolve again',
+    'the running daemon predates --dissolve and has only let the group go (it stays in Feishu, on record as released). Restart the daemon (lark-connector daemon --stop, then lark-connector daemon --detach), bind the group back (away on --reuse <chat_id>) and run unbind --dissolve again',
   bindNoOwner: 'nobody to invite into a new group (the app owner is not recorded). Use --chat <chat_id> to bind a group you created yourself.',
   bindCreateFailed:
-    'creating the group failed: {error}\nIf this is a permission problem the app lacks the im:chat (create group) scope: run agent-lark setup --update, or bind an existing group with --chat <chat_id>.',
+    'creating the group failed: {error}\nIf this is a permission problem the app lacks the im:chat (create group) scope: run lark-connector setup --update, or bind an existing group with --chat <chat_id>.',
   fileMissing: 'file not found: {path}',
   fileRealpath: 'cannot resolve path: {error}',
   fileRefused:
@@ -337,7 +337,7 @@ Exit codes: 0 ok · 1 bad input · 2 timed out, nobody answered · 3 channel fai
   // text synthesized into the pane
   injectVoice: '(voice transcript) {text}',
   injectUnheard:
-    '({n} voice message(s) received but transcription failed — Feishu code {code}: {msg}. Either the app lacks the speech_to_text:speech scope (agent-lark setup --update adds it), or the tenant is on the free plan, which cannot call speech recognition at all. Tell the user to type it instead this time.)',
+    '({n} voice message(s) received but transcription failed — Feishu code {code}: {msg}. Either the app lacks the speech_to_text:speech scope (lark-connector setup --update adds it), or the tenant is on the free plan, which cannot call speech recognition at all. Tell the user to type it instead this time.)',
   injectNothingHeard: '({n} voice message(s) received but nothing was recognised in the audio. Tell the user to type it or send it again.)',
   injectSaved: '[saved: {path}]',
   replyTo: '(reply to: "{title}")',
@@ -346,7 +346,7 @@ Exit codes: 0 ok · 1 bad input · 2 timed out, nobody answered · 3 channel fai
   lateTapNoOption: '(follow-up) I tapped the card above again',
   latePick: '(follow-up) I pick {labels}',
   urgentNotSent: 'the urgent flag was not delivered ({error}); the question itself was sent and is waiting as usual',
-  urgentNoOwner: 'the app owner is not recorded, so there is nobody to flag; rerun agent-lark setup --update to record it',
+  urgentNoOwner: 'the app owner is not recorded, so there is nobody to flag; rerun lark-connector setup --update to record it',
   urgentRefused: 'Feishu error {code} {msg}',
   // validation
   vTitleRequired: 'title: required and non-empty',
@@ -383,7 +383,7 @@ Exit codes: 0 ok · 1 bad input · 2 timed out, nobody answered · 3 channel fai
   keychainDarwin: 'macOS Keychain',
   keychainWin32: 'Windows DPAPI (current-user encryption)',
   keychainLinux: 'libsecret (secret-tool)',
-  credsPermWarning: 'agent-lark: warning: {file} permissions are too open ({mode}); chmod 600 recommended',
+  credsPermWarning: 'lark-connector: warning: {file} permissions are too open ({mode}); chmod 600 recommended',
   credsNotPersisted: 'not persisted (memory only for this run)',
   originEnv: 'environment LARK_CONNECTOR_APP_ID/SECRET',
   reportEnv: 'environment LARK_CONNECTOR_APP_ID / LARK_CONNECTOR_APP_SECRET',

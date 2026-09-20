@@ -29,14 +29,14 @@ after(() => {
 // Every spawned CLI is pointed away from the machine's real credentials: a
 // keychain service that never holds anything, and a throwaway config dir.
 const isolatedEnv = (): NodeJS.ProcessEnv => {
-  const env: NodeJS.ProcessEnv = { ...process.env, LARK_CONNECTOR_KEYCHAIN: 'agent-lark-test-never-stored', XDG_CONFIG_HOME: tmp('agent-lark-cfg-') };
+  const env: NodeJS.ProcessEnv = { ...process.env, LARK_CONNECTOR_KEYCHAIN: 'lark-connector-test-never-stored', XDG_CONFIG_HOME: tmp('lark-connector-cfg-') };
   for (const k of ['LARK_CONNECTOR_APP_ID', 'LARK_CONNECTOR_APP_SECRET', 'LARK_CONNECTOR_OWNER_OPEN_ID', 'LARK_CONNECTOR_STORE']) delete env[k];
   return env;
 };
 
 function run(args: string[], opts: { input?: string; home?: string } = {}) {
   assert.ok(existsSync(cli), `dist/cli.mjs not found at ${cli} — run \`npm run build\` first`);
-  const home = opts.home ?? tmp('agent-lark-cli-');
+  const home = opts.home ?? tmp('lark-connector-cli-');
   // A bounded run: a command that reaches out to Feishu by mistake must fail
   // the test in seconds, not sit there polling for a scan.
   const r = spawnSync(process.execPath, [cli, ...args], {
@@ -50,10 +50,10 @@ function run(args: string[], opts: { input?: string; home?: string } = {}) {
 
 const hasHan = (s: string): boolean => /\p{Script=Han}/u.test(s);
 
-test('help: exit 0, English, names agent-lark and never herdr-lark', () => {
+test('help: exit 0, English, names lark-connector and never herdr-lark', () => {
   const r = run(['help']);
   assert.equal(r.status, 0, r.stderr);
-  assert.match(r.stdout, /agent-lark/);
+  assert.match(r.stdout, /lark-connector/);
   assert.doesNotMatch(r.stdout, /herdr-lark/);
   assert.equal(hasHan(r.stdout), false, r.stdout);
 });
@@ -71,7 +71,7 @@ test('the test suite runs offline: `setup` on the shipped bundle exits 3 without
   assert.equal(process.env.LARK_CONNECTOR_OFFLINE, '1', 'scripts/test.mjs must set LARK_CONNECTOR_OFFLINE');
   const r = run(['setup']);
   assert.equal(r.status, 3, r.stdout + r.stderr);
-  assert.match(r.stderr, /^agent-lark: offline: refusing to contact Feishu/m);
+  assert.match(r.stderr, /^lark-connector: offline: refusing to contact Feishu/m);
 });
 
 // ---- unknown options: every subcommand refuses them before doing anything ----
@@ -97,16 +97,16 @@ for (const [name, argv, bad] of UNKNOWN) {
   test(`unknown option on ${name}: exit 1 naming the option, nothing else attempted`, () => {
     const r = run(argv, { input: '{}' });
     assert.equal(r.status, 1, `${name}: ${r.stdout}${r.stderr}`);
-    assert.match(r.stderr, new RegExp(`^agent-lark: unknown option ${bad}`, 'm'), r.stderr);
+    assert.match(r.stderr, new RegExp(`^lark-connector: unknown option ${bad}`, 'm'), r.stderr);
     assert.equal(r.stdout, '');
   });
 }
 
 test('away off with no daemon: exit 0, the local state file is switched off, and stdout says the daemon was not asked', () => {
-  const project = realpathSync(tmp('agent-lark-off-'));
+  const project = realpathSync(tmp('lark-connector-off-'));
   mkdirSync(join(project, '.lark-connector'));
   writeFileSync(join(project, '.lark-connector', 'state.json'), JSON.stringify({ away: true, chatId: 'oc_x', target: project, updated: '' }));
-  const r = spawnSync(process.execPath, [cli, 'away', 'off'], { encoding: 'utf8', env: { ...isolatedEnv(), LARK_CONNECTOR_HOME: tmp('agent-lark-home-') }, input: '', cwd: project });
+  const r = spawnSync(process.execPath, [cli, 'away', 'off'], { encoding: 'utf8', env: { ...isolatedEnv(), LARK_CONNECTOR_HOME: tmp('lark-connector-home-') }, input: '', cwd: project });
   assert.equal(r.status, 0, r.stderr);
   assert.match(r.stdout, /^Remote mode is off\.$/m);
   assert.match(r.stdout, /daemon is not running; local state cleared/);
@@ -116,17 +116,17 @@ test('away off with no daemon: exit 0, the local state file is switched off, and
 });
 
 test('away off with no daemon and no state file: exit 0, "never used", nothing created', () => {
-  const project = realpathSync(tmp('agent-lark-off-'));
-  const r = spawnSync(process.execPath, [cli, 'away', 'off'], { encoding: 'utf8', env: { ...isolatedEnv(), LARK_CONNECTOR_HOME: tmp('agent-lark-home-') }, input: '', cwd: project });
+  const project = realpathSync(tmp('lark-connector-off-'));
+  const r = spawnSync(process.execPath, [cli, 'away', 'off'], { encoding: 'utf8', env: { ...isolatedEnv(), LARK_CONNECTOR_HOME: tmp('lark-connector-home-') }, input: '', cwd: project });
   assert.equal(r.status, 0, r.stderr);
-  assert.match(r.stdout, /never used agent-lark/);
+  assert.match(r.stdout, /never used lark-connector/);
   assert.equal(existsSync(join(project, '.lark-connector')), false);
 });
 
-test('unknown command: exit 1, English hint on stderr with the agent-lark prefix', () => {
+test('unknown command: exit 1, English hint on stderr with the lark-connector prefix', () => {
   const r = run(['nope']);
   assert.equal(r.status, 1);
-  assert.match(r.stderr, /^agent-lark: /);
+  assert.match(r.stderr, /^lark-connector: /);
   assert.match(r.stderr, /nope/);
   assert.equal(hasHan(r.stderr), false, r.stderr);
 });
@@ -147,14 +147,14 @@ test('ask with malformed JSON on stdin: exit 1, English, nothing sent', () => {
 // `daemon --stop` with no daemon listening removes a stale pid file — only
 // visible in the directory --home named.
 function stalePid(): string {
-  const pid = join(tmp('agent-lark-home-'), 'daemon.pid');
+  const pid = join(tmp('lark-connector-home-'), 'daemon.pid');
   writeFileSync(pid, '12345\n');
   return pid;
 }
 
 test('--home <dir> points the CLI at that state directory', () => {
   const pid = stalePid();
-  const r = run(['--home', dirname(pid), 'daemon', '--stop'], { home: tmp('agent-lark-other-') });
+  const r = run(['--home', dirname(pid), 'daemon', '--stop'], { home: tmp('lark-connector-other-') });
   assert.equal(r.status, 0, r.stderr);
   assert.equal(hasHan(r.stdout), false, r.stdout);
   assert.equal(existsSync(pid), false, 'stale daemon.pid under --home was not removed');
@@ -162,7 +162,7 @@ test('--home <dir> points the CLI at that state directory', () => {
 
 test('--home=<dir> is accepted too', () => {
   const pid = stalePid();
-  const r = run([`--home=${dirname(pid)}`, 'daemon', '--stop'], { home: tmp('agent-lark-other-') });
+  const r = run([`--home=${dirname(pid)}`, 'daemon', '--stop'], { home: tmp('lark-connector-other-') });
   assert.equal(r.status, 0, r.stderr);
   assert.equal(existsSync(pid), false, 'stale daemon.pid under --home= was not removed');
 });
@@ -427,7 +427,7 @@ describe('with a fake daemon whose first handshakes fail', () => {
     const r = cmd(['unbind', '--dissolve']);
     assert.equal(r.status, 4, r.stdout + r.stderr);
     assert.equal(r.stdout, '');
-    assert.match(r.stderr, /^agent-lark: the Feishu group ".+" was not dissolved: /m);
+    assert.match(r.stderr, /^lark-connector: the Feishu group ".+" was not dissolved: /m);
     assert.match(r.stderr, /Dissolve it by hand in Feishu/);
     assert.match(r.stderr, /The local record is removed\./);
     const s = JSON.parse(readFileSync(join(project, '.lark-connector', 'state.json'), 'utf8')) as { away: boolean; chatId: string | null };
@@ -443,7 +443,7 @@ describe('with a fake daemon whose first handshakes fail', () => {
 
 describe('with LARK_CONNECTOR_HOME over the socket path limit', { skip: platform() === 'win32' ? 'named pipes have no sun_path' : false }, () => {
   const home = homeOfSockBytes(SOCK_PATH_LIMIT + 1, 'al-cli-long-');
-  const project = realpathSync(tmp('agent-lark-long-proj-'));
+  const project = realpathSync(tmp('lark-connector-long-proj-'));
   after(() => rmSync(dirname(home), { recursive: true, force: true }));
   const long = (args: string[], extra: NodeJS.ProcessEnv = {}) => {
     const started = Date.now();
@@ -513,8 +513,8 @@ describe('with LARK_CONNECTOR_HOME over the socket path limit', { skip: platform
 // upgrade keeps running the old code: its unbind reply carries no `dissolved`.
 
 test('unbind --dissolve against a daemon that does not know the flag: exit 3 saying to restart it; the state file is cleared as after a plain unbind', async () => {
-  const home = tmp('agent-lark-old-daemon-');
-  const project = realpathSync(tmp('agent-lark-old-proj-'));
+  const home = tmp('lark-connector-old-daemon-');
+  const project = realpathSync(tmp('lark-connector-old-proj-'));
   mkdirSync(join(project, '.lark-connector'));
   writeFileSync(join(project, '.lark-connector', 'state.json'), JSON.stringify({ away: true, chatId: 'oc_x', target: project, updated: '' }));
   const prev = process.env.LARK_CONNECTOR_HOME;
@@ -534,7 +534,7 @@ test('unbind --dissolve against a daemon that does not know the flag: exit 3 say
     });
     assert.equal(r.status, 3, r.stdout + r.stderr);
     assert.equal(r.stdout, '');
-    assert.match(r.stderr, /^agent-lark: .*--dissolve.*daemon --stop/m);
+    assert.match(r.stderr, /^lark-connector: .*--dissolve.*daemon --stop/m);
     const s = JSON.parse(readFileSync(join(project, '.lark-connector', 'state.json'), 'utf8')) as { away: boolean; chatId: string | null };
     assert.deepEqual([s.away, s.chatId], [false, null]);
   } finally {

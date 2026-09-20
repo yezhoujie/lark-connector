@@ -521,7 +521,7 @@ test('unbind --dissolve refused and the marker cannot be cleared either: the rep
   assert.match(res.problem ?? '', /232016/);
   assert.match(res.problem ?? '', /offered back/);
   assert.equal(fake.renames.length, before + 1);
-  assert.equal(fake.renames.at(-1)?.description, 'released by agent-lark');
+  assert.equal(fake.renames.at(-1)?.description, 'released by lark-connector');
   assert.match(readFileSync(join(home, 'daemon.log'), 'utf8'), /dissolve\.marker-failed/);
   assert.deepEqual(await bindings(home), []);
   await daemon.stop();

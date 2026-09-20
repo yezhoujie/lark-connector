@@ -29,7 +29,7 @@ const SWEEP_MS = 24 * 60 * 60 * 1000;
 /** `im.v1.chat.list` pages of 100 followed before the list is declared untrustworthy. */
 const CHAT_LIST_MAX_PAGES = 100;
 /** What a group's description becomes when its dissolve was refused: anything but a project marker. */
-const MARKER_CLEARED = 'released by agent-lark';
+const MARKER_CLEARED = 'released by lark-connector';
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /**
