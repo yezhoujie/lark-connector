@@ -204,7 +204,7 @@ const APP_ID_RE = /^cli_[A-Za-z0-9]+$/;
 /** How many failed credential probes the reuse branch tolerates before giving up. */
 const REUSE_ATTEMPTS = 3;
 /** Prefix of the one line `--report-to` injects back; protocol, never translated. */
-const SETUP_REPORT_PREFIX = '[agent-lark] setup:';
+const SETUP_REPORT_PREFIX = '[lark-connector] setup:';
 
 /** What the interactive setup borrows from the outside world; tests inject every piece. */
 export interface SetupDeps {

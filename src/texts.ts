@@ -172,7 +172,7 @@ export const msg = {
                                      Credentials go to the keychain (--update re-authorizes, --reset forgets them first)
   setup --reuse                      Reuse an app you already have: asks for the App ID and the App Secret (not echoed) on the terminal
   setup --reuse --report-to <pane> [--close-pane]
-                                     What the agent runs for you in a herdr pane: the result comes back to <pane> as one "[agent-lark] setup:" line
+                                     What the agent runs for you in a herdr pane: the result comes back to <pane> as one "[lark-connector] setup:" line
   daemon [--detach|--status|--stop]  Resident process holding the Feishu connection (--stop is refused while a question is pending, unless --force)
   away on [--name <task>] [--reuse <chat_id> | --new]
                                      Remote mode on: daemon up, this project bound to a Feishu group named "<task> [<dir>]"
@@ -208,14 +208,14 @@ Exit codes: 0 ok · 1 bad input · 2 timed out, nobody answered · 3 channel fai
   renameUsage: 'Usage: agent-lark rename "<task name>"',
   taskNameTooLong: 'task name: over {max} characters (code points), got {n}',
   setupHandoffStarted:
-    'The interactive setup is running in herdr pane {pane}: the user enters the App ID and App Secret there (they never pass through this session). When it ends, one line prefixed "[agent-lark] setup:" arrives here (that pane has focus now).',
+    'The interactive setup is running in herdr pane {pane}: the user enters the App ID and App Secret there (they never pass through this session). When it ends, one line prefixed "[lark-connector] setup:" arrives here (that pane has focus now).',
   setupHandoffFailed: 'could not open a herdr pane for the interactive setup ({why}). Ask the user to run it in their own terminal:\n  {command}',
   setupReuseNeedsTerminal:
     'setup --reuse asks for the App ID and App Secret interactively, and there is no terminal here (and no herdr to open one). Ask the user to run it in their own terminal:\n  {command}',
-  setupReportOk: '[agent-lark] setup: credentials stored for {appId} ({app}); the scopes must be enabled in the developer console before use',
-  setupReportFailed: '[agent-lark] setup: failed: {why}',
-  setupReportInterrupted: '[agent-lark] setup: interrupted before any credentials were stored',
-  setupReportExists: '[agent-lark] setup: credentials already stored ({origin}); nothing changed. To switch apps run agent-lark setup --reset --reuse',
+  setupReportOk: '[lark-connector] setup: credentials stored for {appId} ({app}); the scopes must be enabled in the developer console before use',
+  setupReportFailed: '[lark-connector] setup: failed: {why}',
+  setupReportInterrupted: '[lark-connector] setup: interrupted before any credentials were stored',
+  setupReportExists: '[lark-connector] setup: credentials already stored ({origin}); nothing changed. To switch apps run agent-lark setup --reset --reuse',
   setupReportNotDelivered: 'agent-lark: the result could not be reported to pane {pane} ({why})',
   awayOffLocal: 'daemon is not running; local state cleared',
   // daemon command

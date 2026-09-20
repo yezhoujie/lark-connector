@@ -110,7 +110,7 @@ The unit is the **project**: the git toplevel of the directory a command runs in
 (a worktree or a submodule is its own project). One project has **one live group** at a time; a group is
 never shared by two projects. The group is created by the bot with the app owner invited, named
 `<task> [<dir>]` (`[<dir>]` alone when no `--name` was given; `<dir>` is the project directory's name),
-and its description is set to `agent-lark · <project root>` — that marker is how the group is found again
+and its description is set to `lark-connector · <project root>` — that marker is how the group is found again
 when the local records are gone. Task names are at most 60 characters (code points; longer exits 1
 `task name: over 60 characters (code points), got N`).
 
@@ -208,7 +208,7 @@ with `  <root>  <name>  <chatId>  released <time>` lines.
 ## 5. Messages from the phone when no question is pending
 
 A message in a bound group with no question pending for that project is injected into the project's
-terminal as one prompt: `[agent-lark remote] <text>` — the prefix is protocol and never translated; the
+terminal as one prompt: `[lark-connector remote] <text>` — the prefix is protocol and never translated; the
 text after it is the human's, unchanged (attachments and voice notes are turned into text first, §6).
 The target pane is the binding's `paneId`; when none was ever recorded, the daemon looks for a pane
 whose agent runs in the project directory (`herdr agent list`, the focused one first). The prompt is
@@ -375,5 +375,5 @@ written here.
 - **Everything the agent reads** — CLI stdout and stderr, validation reports, `note:` lines, the injected
   text, `help` — is English only, and nothing in the environment changes that.
 - **`setup`** prints every line in Chinese and English side by side, since a human is at the terminal for it.
-- The `[<dir>]` prefix in card titles, the `[agent-lark remote] ` injection prefix and the `[saved: …]` /
+- The `[<dir>]` prefix in card titles, the `[lark-connector remote] ` injection prefix and the `[saved: …]` /
   `(voice transcript)` / `(reply to: …)` / `(follow-up) …` lines are protocol, not wording.

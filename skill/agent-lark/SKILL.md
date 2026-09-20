@@ -46,7 +46,7 @@ same words in a sentence). Each maps to one flow:
   - Reuse ⇒ run `agent-lark setup --reuse`. **The secret never passes through you.** Inside herdr the
     command opens a pane below yours, runs the interactive setup there (App ID typed, App Secret typed
     with echo off) and exits 0 at once with `The interactive setup is running in herdr pane <id>: …`;
-    when the human is done, one line prefixed `[agent-lark] setup:` arrives in your session (the four
+    when the human is done, one line prefixed `[lark-connector] setup:` arrives in your session (the four
     forms are in "Remote mode" below) — wait for it, do nothing meanwhile. Every end of the pane reports
     a line except one: the pane closed by hand. No line, and the pane is gone or the user says they are
     done ⇒ ask them what the pane printed, or run `status` (its credential layers show whether anything
@@ -250,7 +250,7 @@ Lifecycle, groups and bindings, environment variables and files:
 ## Messages the human sends on their own
 
 Anything the human sends in the project's group while no question is pending is injected into your
-session as an instruction, prefixed with the marker `[agent-lark remote] ` on the same line; the text
+session as an instruction, prefixed with the marker `[lark-connector remote] ` on the same line; the text
 after the marker is the user's, unchanged. It is the user speaking, not another agent: treat it exactly
 like input typed at the keyboard. You do nothing to receive it. Once it is in your terminal, the daemon
 puts a `Get` reaction on that message — the one sign on the phone that the terminal has it. If delivery
@@ -299,13 +299,13 @@ agent-lark setup                                   # once per machine, on a term
   or **reuse an app they already have**, then follow the `setup` flow in "Invoked with an argument": QR
   code ⇒ you run `setup` and hand over the URL line (or a PNG of it); reuse ⇒ you run `setup --reuse`,
   which inside herdr opens its own pane for the human to type the App ID and App Secret (the secret
-  never reaches you) and reports back with one `[agent-lark] setup:` line, and outside herdr exits 4 with
+  never reaches you) and reports back with one `[lark-connector] setup:` line, and outside herdr exits 4 with
   the command for the human to run themselves. The user must run it in a terminal window of their own (Terminal, iTerm, …). Never suggest running it inside this session — a `!`-prefixed command, a shell tool, a background job: none of them has a TTY, and the CLI refuses without one.
   The four report lines, verbatim:
-  - `[agent-lark] setup: credentials stored for cli_xxxxxxxx (<app name>); the scopes must be enabled in the developer console before use` — done; remind the user of the console work if they have not done it, then `away on` again.
-  - `[agent-lark] setup: failed: <why>` — every end that is not success or Ctrl-C: three failed probes — refused or thrown — (`3 probes refused (<error>)`), the `LARK_CONNECTOR_OFFLINE` guard, any other failure; relay `<why>` (the secret is masked as `***` wherever it could appear).
-  - `[agent-lark] setup: interrupted before any credentials were stored` — the human pressed Ctrl-C; ask whether to try again.
-  - `[agent-lark] setup: credentials already stored (<origin>); nothing changed. To switch apps run agent-lark setup --reset --reuse` — there was nothing to do.
+  - `[lark-connector] setup: credentials stored for cli_xxxxxxxx (<app name>); the scopes must be enabled in the developer console before use` — done; remind the user of the console work if they have not done it, then `away on` again.
+  - `[lark-connector] setup: failed: <why>` — every end that is not success or Ctrl-C: three failed probes — refused or thrown — (`3 probes refused (<error>)`), the `LARK_CONNECTOR_OFFLINE` guard, any other failure; relay `<why>` (the secret is masked as `***` wherever it could appear).
+  - `[lark-connector] setup: interrupted before any credentials were stored` — the human pressed Ctrl-C; ask whether to try again.
+  - `[lark-connector] setup: credentials already stored (<origin>); nothing changed. To switch apps run agent-lark setup --reset --reuse` — there was nothing to do.
   `setup` in any form with credentials already stored only reports them — `Credentials already exist
   (from <origin>). …`, rc 0, no pane opened; `setup --update` rescans the QR code for the same app (adds
   scopes; on a terminal the menu comes first); `setup --reset` forgets the stored credentials first, so `setup --reset --reuse` switches to
@@ -319,7 +319,7 @@ agent-lark setup                                   # once per machine, on a term
   stuck on a prompt that needs you, are pushed to this project's Feishu group.` — the last line inside herdr; outside herdr one more
   line follows it, `Not inside herdr: messages sent from the phone are not injected anywhere, and there is no stuck-on-a-prompt alert.`
 - **Which group** (all on stdout, before the switch line): `Created Feishu group "<task> [<dir>]"` (the
-  app owner is invited; the group description carries `agent-lark · <project root>` so it can be found
+  app owner is invited; the group description carries `lark-connector · <project root>` so it can be found
   again), `Took back Feishu group "…"` (a group this project used before, renamed to the new task),
   `Connected to Feishu group "…"` (already bound; `--name` renames it).
 - **Exit 4 with earlier groups on offer**: when the project has no live group but groups it let go of

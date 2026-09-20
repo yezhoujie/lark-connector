@@ -269,7 +269,7 @@ test('a second daemon on the same home is refused with code 3', PER_TEST, async 
 
 // ---- group lifecycle ------------------------------------------------------
 
-const MARKER = 'agent-lark · /p';
+const MARKER = 'lark-connector · /p';
 
 test('bind with a live group keeps it; with a name it renames the group to "<task> [<dir>]"', PER_TEST, async () => {
   const { daemon, fake } = await start({ chatUpdate: async () => ({ code: 0 }) });
@@ -499,7 +499,7 @@ test('unbind --dissolve refused: the group\'s marker is cleared so it is not off
   const last = fake.renames.at(-1);
   assert.equal(last?.chatId, 'oc_x');
   assert.equal(last?.name, undefined);
-  assert.ok(last?.description && last.description !== 'agent-lark · /p', JSON.stringify(last));
+  assert.ok(last?.description && last.description !== 'lark-connector · /p', JSON.stringify(last));
   assert.match(readFileSync(join(home, 'daemon.log'), 'utf8'), /dissolve\.marker-cleared/);
   assert.deepEqual(await bindings(home), []);
   await daemon.stop();
@@ -1046,7 +1046,7 @@ test('multi-choice: a submit after the question closed is injected as a follow-u
   assert.equal(late.toast.type, 'info');
   await waitFor(() => herdr.prompts.length === 1, 'the follow-up injection');
   assert.equal(herdr.prompts[0]!.paneId, 'w1:p1');
-  assert.equal(herdr.prompts[0]!.text, `[agent-lark remote] ${fill(msg.latePick, { labels: 'Drop、Wipe' })}`);
+  assert.equal(herdr.prompts[0]!.text, `[lark-connector remote] ${fill(msg.latePick, { labels: 'Drop、Wipe' })}`);
   await daemon.stop();
 });
 
@@ -1292,7 +1292,7 @@ test('single-choice: a tap after the question closed is injected with the label,
   const late = (await fake.cardAction(buttonTap(reqId, 'b'))) as { toast: { type: string } };
   assert.equal(late.toast.type, 'info');
   await waitFor(() => herdr.prompts.length === 1, 'the follow-up injection');
-  assert.equal(herdr.prompts[0]!.text, `[agent-lark remote] ${fill(msg.latePick, { labels: 'Drop' })}`);
+  assert.equal(herdr.prompts[0]!.text, `[lark-connector remote] ${fill(msg.latePick, { labels: 'Drop' })}`);
   await daemon.stop();
 });
 
@@ -1319,7 +1319,7 @@ test('attachments: the injected text names where each one was saved, before the 
   assert.equal(downloads.length, 2);
   const text = herdr.prompts[0]!.text;
   const lines = text.split('\n');
-  assert.equal(lines[0], '[agent-lark remote] ![image](img_v3_x)');
+  assert.equal(lines[0], '[lark-connector remote] ![image](img_v3_x)');
   assert.equal(lines[1], `[saved: ${downloads[0]}]`);
   assert.equal(lines[2], `[saved: ${downloads[1]}]`);
   assert.equal(lines[3], msg.injectFilesWithText);
@@ -1349,7 +1349,7 @@ test('voice: when Feishu refuses the transcription, the injected note carries it
   await fake.message(voiceNote);
   await waitFor(() => herdr.prompts.length === 1, 'the injection');
   const lines = herdr.prompts[0]!.text.split('\n');
-  assert.equal(lines[0], `[agent-lark remote] ${fill(msg.injectUnheard, { n: 1, code: 99991400, msg: 'request trigger frequency limit' })}`);
+  assert.equal(lines[0], `[lark-connector remote] ${fill(msg.injectUnheard, { n: 1, code: 99991400, msg: 'request trigger frequency limit' })}`);
   assert.match(lines[0]!, /99991400/);
   assert.match(lines[0]!, /request trigger frequency limit/);
   assert.match(lines[0]!, /speech_to_text:speech/);
@@ -1367,7 +1367,7 @@ test('voice: a transcription failure with no Feishu body in it is reported with 
   await fake.message(voiceNote);
   await waitFor(() => herdr.prompts.length === 1, 'the injection');
   const lines = herdr.prompts[0]!.text.split('\n');
-  assert.equal(lines[0], `[agent-lark remote] ${fill(msg.injectUnheard, { n: 1, code: 'unknown', msg: 'unknown' })}`);
+  assert.equal(lines[0], `[lark-connector remote] ${fill(msg.injectUnheard, { n: 1, code: 'unknown', msg: 'unknown' })}`);
   assert.match(lines[0]!, /unknown/);
   assert.doesNotMatch(lines[0]!, /socket hang up/);
   assert.equal(lines.length, 3);
@@ -1381,7 +1381,7 @@ test('voice: a transcription that recognised nothing says so, without blaming th
   await fake.message(voiceNote);
   await waitFor(() => herdr.prompts.length === 1, 'the injection');
   const lines = herdr.prompts[0]!.text.split('\n');
-  assert.equal(lines[0], `[agent-lark remote] ${fill(msg.injectNothingHeard, { n: 1 })}`);
+  assert.equal(lines[0], `[lark-connector remote] ${fill(msg.injectNothingHeard, { n: 1 })}`);
   assert.match(lines[0]!, /recogni[sz]ed/);
   assert.doesNotMatch(lines[0]!, /speech_to_text:speech|free plan|code/);
   assert.match(lines[1]!, /^\[saved: .+\]$/);
@@ -1397,7 +1397,7 @@ test('voice: a successful transcription replaces the audio placeholder with the 
   await fake.message(voiceNote);
   await waitFor(() => herdr.prompts.length === 1, 'the injection');
   const lines = herdr.prompts[0]!.text.split('\n');
-  assert.equal(lines[0], '[agent-lark remote] ship it');
+  assert.equal(lines[0], '[lark-connector remote] ship it');
   assert.match(lines[1]!, /^\[saved: .+\]$/);
   assert.equal(lines[2], msg.injectFilesWithText);
   assert.equal(lines.length, 3);
@@ -1416,10 +1416,10 @@ test('a message quoting an answered question card is injected with "(reply to: �
   await asking;
   await fake.message({ chatId: 'oc_x', content: 'actually, one more thing', replyToMessageId: 'om_1' });
   await waitFor(() => herdr.prompts.length === 1, 'the injection');
-  assert.equal(herdr.prompts[0]!.text, `[agent-lark remote] ${fill(msg.replyTo, { title: 't' })}\nactually, one more thing`);
+  assert.equal(herdr.prompts[0]!.text, `[lark-connector remote] ${fill(msg.replyTo, { title: 't' })}\nactually, one more thing`);
   await fake.message({ chatId: 'oc_x', content: 'and this', rootId: 'om_1' });
   await waitFor(() => herdr.prompts.length === 2, 'the second injection');
-  assert.equal(herdr.prompts[1]!.text, `[agent-lark remote] ${fill(msg.replyTo, { title: 't' })}\nand this`);
+  assert.equal(herdr.prompts[1]!.text, `[lark-connector remote] ${fill(msg.replyTo, { title: 't' })}\nand this`);
   await daemon.stop();
 });
 
@@ -1433,7 +1433,7 @@ test('a message quoting something the daemon never sent, or quoting nothing, is 
   await waitFor(() => herdr.prompts.length === 2, 'both injections');
   assert.deepEqual(
     herdr.prompts.map((p) => p.text),
-    ['[agent-lark remote] who said that?', '[agent-lark remote] plain'],
+    ['[lark-connector remote] who said that?', '[lark-connector remote] plain'],
   );
   await daemon.stop();
 });
@@ -1468,9 +1468,9 @@ test('only the last 200 cards are remembered for quoting; the oldest are forgott
   assert.deepEqual(
     herdr.prompts.map((p) => p.text),
     [
-      '[agent-lark remote] first',
-      `[agent-lark remote] ${fill(msg.replyTo, { title: 'n2' })}\nsecond`,
-      `[agent-lark remote] ${fill(msg.replyTo, { title: 'n201' })}\nlast`,
+      '[lark-connector remote] first',
+      `[lark-connector remote] ${fill(msg.replyTo, { title: 'n2' })}\nsecond`,
+      `[lark-connector remote] ${fill(msg.replyTo, { title: 'n201' })}\nlast`,
     ],
   );
   await daemon.stop();
@@ -2022,7 +2022,7 @@ test('transcript: a "remove … absorbed_mid_turn" record quoting the injected l
   await waitFor(() => emojisOn(fake, 'om_human_1').length === 1, 'the queued reaction');
   await sleep(120);
   assert.equal(fake.removedReactions.length, 0, 'nothing changes while the transcript is silent');
-  appendFileSync(transcript, queueOp({ operation: 'remove', reason: 'absorbed_mid_turn', content: '[agent-lark remote] hello there' }));
+  appendFileSync(transcript, queueOp({ operation: 'remove', reason: 'absorbed_mid_turn', content: '[lark-connector remote] hello there' }));
   await waitFor(() => swapped(fake, 'om_human_1'), 'the swap');
   assert.deepEqual(emojisOn(fake, 'om_human_1'), [QUEUE, 'Get']);
   await fake.react({ messageId: 'om_human_1', emojiType: 'THUMBSUP' });
@@ -2039,8 +2039,8 @@ test('transcript: a "dequeue" record (the whole queue sent as a turn) swaps ever
   await fake.message({ chatId: 'oc_x', content: 'one', messageId: 'om_human_1' });
   await fake.message({ chatId: 'oc_x', content: 'two', messageId: 'om_human_2' });
   await waitFor(() => fake.reactions.length === 2, 'two queued reactions');
-  appendFileSync(transcript, queueOp({ operation: 'remove', reason: 'taken_back', content: '[agent-lark remote] one' }));
-  appendFileSync(transcript, queueOp({ operation: 'remove', reason: 'absorbed_mid_turn', content: '[agent-lark remote] something else' }));
+  appendFileSync(transcript, queueOp({ operation: 'remove', reason: 'taken_back', content: '[lark-connector remote] one' }));
+  appendFileSync(transcript, queueOp({ operation: 'remove', reason: 'absorbed_mid_turn', content: '[lark-connector remote] something else' }));
   await sleep(120);
   assert.equal(fake.removedReactions.length, 0, 'neither a different reason nor a different text counts');
   appendFileSync(transcript, queueOp({ operation: 'dequeue' }));
@@ -2052,13 +2052,13 @@ test('transcript: a record written before the prompt does not count; a missing t
   const { daemon, fake, herdr, home, transcript } = await startWithTranscript();
   await connected();
   await request({ type: 'bind', root: '/p', label: 'p', paneId: 'w1:p1', chatId: 'oc_x' });
-  appendFileSync(transcript, queueOp({ operation: 'remove', reason: 'absorbed_mid_turn', content: '[agent-lark remote] hello there' }));
+  appendFileSync(transcript, queueOp({ operation: 'remove', reason: 'absorbed_mid_turn', content: '[lark-connector remote] hello there' }));
   herdr.agents = [claudeWorking()];
   await fake.message({ chatId: 'oc_x', content: 'hello there', messageId: 'om_human_1' });
   await waitFor(() => emojisOn(fake, 'om_human_1').length === 1, 'the queued reaction');
   await sleep(120);
   assert.equal(fake.removedReactions.length, 0, 'the older record must not count');
-  const record = queueOp({ operation: 'remove', reason: 'absorbed_mid_turn', content: '[agent-lark remote] hello there' });
+  const record = queueOp({ operation: 'remove', reason: 'absorbed_mid_turn', content: '[lark-connector remote] hello there' });
   const half = Math.floor(record.length / 2);
   appendFileSync(transcript, record.slice(0, half));
   await sleep(120);
@@ -2142,7 +2142,7 @@ test('a reaction that lands while the poll is swapping another message does not 
   await fake.message({ chatId: 'oc_x', content: 'one', messageId: 'om_human_1' });
   await fake.message({ chatId: 'oc_x', content: 'two', messageId: 'om_human_2' });
   await waitFor(() => fake.reactions.length === 2, 'two queued reactions');
-  appendFileSync(transcript, queueOp({ operation: 'remove', reason: 'absorbed_mid_turn', content: '[agent-lark remote] one' }));
+  appendFileSync(transcript, queueOp({ operation: 'remove', reason: 'absorbed_mid_turn', content: '[lark-connector remote] one' }));
   await waitFor(() => /queued\.read.*om_human_1/.test(readFileSync(join(home, 'daemon.log'), 'utf8')), 'the poll to start swapping the first');
   await fake.react({ messageId: 'om_human_2', emojiType: 'THUMBSUP' });
   appendFileSync(transcript, queueOp({ operation: 'dequeue' }));
@@ -2162,7 +2162,7 @@ test('when Feishu refuses to take the queued reaction off (non-zero code), it is
   herdr.agents = [claudeWorking()];
   await fake.message({ chatId: 'oc_x', content: 'hello there', messageId: 'om_human_1' });
   await waitFor(() => emojisOn(fake, 'om_human_1').length === 1, 'the queued reaction');
-  appendFileSync(transcript, queueOp({ operation: 'remove', reason: 'absorbed_mid_turn', content: '[agent-lark remote] hello there' }));
+  appendFileSync(transcript, queueOp({ operation: 'remove', reason: 'absorbed_mid_turn', content: '[lark-connector remote] hello there' }));
   await waitFor(() => emojisOn(fake, 'om_human_1').includes('Get'), 'Get added all the same');
   assert.match(readFileSync(join(home, 'daemon.log'), 'utf8'), /queued\.unmark-refused.*230006/);
   await daemon.stop();
@@ -2179,7 +2179,7 @@ test('when the reaction removal throws, it is logged and Get is still added', PE
   herdr.agents = [claudeWorking()];
   await fake.message({ chatId: 'oc_x', content: 'hello there', messageId: 'om_human_1' });
   await waitFor(() => emojisOn(fake, 'om_human_1').length === 1, 'the queued reaction');
-  appendFileSync(transcript, queueOp({ operation: 'remove', reason: 'absorbed_mid_turn', content: '[agent-lark remote] hello there' }));
+  appendFileSync(transcript, queueOp({ operation: 'remove', reason: 'absorbed_mid_turn', content: '[lark-connector remote] hello there' }));
   await waitFor(() => emojisOn(fake, 'om_human_1').includes('Get'), 'Get added all the same');
   assert.match(readFileSync(join(home, 'daemon.log'), 'utf8'), /queued\.unmark-failed/);
   await daemon.stop();

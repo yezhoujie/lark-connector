@@ -14,7 +14,7 @@
 - **开启**：「开启远程交互模式」「我走了，有事发手机」「切到手机」「remote on」——用户对你输入 `/agent-lark on` 也是同一个意思（见 SKILL.md「Invoked with an argument」）。用户此刻还在键盘旁，**当场做三件**（选群、扫码只有人在时才做得了）：
   1. **从自己的终端窗格**跑 `$AL away on --name "<任务名>"`——一站式：daemon 没跑就起、等它连上飞书、把本项目绑到一个叫 `<任务名> [<目录名>]` 的群，然后才写开关。**stdout 原样转告用户。** 结果：
      - rc 0 ⇒ 完成。群那一行说明是哪个群（`Created Feishu group "…"` / `Took back Feishu group "…"` / `Connected to Feishu group "…"`）；开关行 `Remote mode is on: …` 在 herdr 内是最后一行；herdr 外它后面还跟一行 `Not inside herdr: …`（手机消息不注入、无卡住提醒）。
-     - rc 4 `No Feishu app credentials yet` ⇒ **先问用户**：扫码新建一个应用，还是复用已有的应用（他知道 App ID 与 App Secret）。扫码 ⇒ 替他后台跑 `$AL setup </dev/null`，把二维码下面那行 URL 交给他（或渲成 PNG 打开）。复用 ⇒ 跑 `$AL setup --reuse`：在 herdr 里它会在你下方开一个窗格让用户自己输 App ID 与 App Secret（secret 不经你的手），用户做完后你的会话里会收到一行 `[agent-lark] setup:` 开头的结果——等它；在 herdr 外它退 4、把完整命令打在 stderr——把那条命令给用户在他自己的终端跑，跑完让他说一声。必须在用户自己的终端窗口（Terminal / iTerm 等）里跑。不许建议在本会话内执行——`!` 开头的命令、shell 工具、后台任务都没有 TTY，CLI 会直接拒绝。然后再 `away on` 一次。（`/agent-lark setup` 走的就是这条流程；见 SKILL.md「Invoked with an argument」。）
+     - rc 4 `No Feishu app credentials yet` ⇒ **先问用户**：扫码新建一个应用，还是复用已有的应用（他知道 App ID 与 App Secret）。扫码 ⇒ 替他后台跑 `$AL setup </dev/null`，把二维码下面那行 URL 交给他（或渲成 PNG 打开）。复用 ⇒ 跑 `$AL setup --reuse`：在 herdr 里它会在你下方开一个窗格让用户自己输 App ID 与 App Secret（secret 不经你的手），用户做完后你的会话里会收到一行 `[lark-connector] setup:` 开头的结果——等它；在 herdr 外它退 4、把完整命令打在 stderr——把那条命令给用户在他自己的终端跑，跑完让他说一声。必须在用户自己的终端窗口（Terminal / iTerm 等）里跑。不许建议在本会话内执行——`!` 开头的命令、shell 工具、后台任务都没有 TTY，CLI 会直接拒绝。然后再 `away on` 一次。（`/agent-lark setup` 走的就是这条流程；见 SKILL.md「Invoked with an argument」。）
      - rc 4 `this project has no live group, but N earlier group(s) could be taken back` ⇒ 把 stderr 里的候选列表（一行一个群：名字、何时解绑、群 id）转告用户，**问他改名复用哪一个、还是新建**——不要替他选；带 `--reuse <chatId>` 或 `--new` 重跑。
      - rc 3 ⇒ **没开启**，什么都没写。先 `$AL daemon --status`；daemon 没跑就 `$AL daemon --detach` 再 `away on` 一次；仍 3（飞书连不上，`daemon is up but not connected to Feishu: …`）⇒ 停下，把 stderr 转告用户。
   2. `$AL away status --json` 核 `away: true`（`away on` 顺带登记了你的窗格为注入目标——**只在自己的窗格跑**）。
@@ -27,7 +27,7 @@
 - 退出码：0 按回复办；1 改 JSON 重发；2 超时 ⇒ 可逆的事按推荐项继续并记「未获确认」，不可逆的停下等人；3 通道故障 ⇒ `$AL daemon --status`，没跑就 `--detach` 起，重发一次，仍 3 停下；4 需要人（未绑定 / 已有提问挂着）⇒ 停下等用户回终端。
 - **`--urgent` 只用于不可逆动作或短超时**（它会在应用内加急提醒 owner；每张都加急等于没有加急）。不可逆选项标 `"danger": true`（红色按钮 + 二次确认），且永远不能是推荐项——校验会直接拦下。
 - **`"select": "multi"` 只在答案可能同时是好几项时用**（「这几项检查跑哪些」）；是 / 否、多选一的问题保持单选——一下点完，不用勾好几个。
-- **手机来的消息以 `[agent-lark remote] ` 前缀注入你的会话**（**只在 herdr 内**；herdr 外没有注入，他主动发的消息只会收到「Not delivered」回执卡，`ask` 的回复照常回到调用），按用户输入处理。图片、文件带 `[saved: <路径>]` 行（从那里打开）；语音以转写文字到达。
+- **手机来的消息以 `[lark-connector remote] ` 前缀注入你的会话**（**只在 herdr 内**；herdr 外没有注入，他主动发的消息只会收到「Not delivered」回执卡，`ask` 的回复照常回到调用），按用户输入处理。图片、文件带 `[saved: <路径>]` 行（从那里打开）；语音以转写文字到达。
 - **手机消息算哪道题的回复**：你有 `ask` 挂着时，用户发的**任何**消息都算它的回复，哪怕是引用回复别的卡。没挂着时，引用回复你某张卡的消息首行带 `(reply to: "<那张卡的标题>")`——「对，就这么办」指的就是它；没引用的就是普通指令。在已结束的卡上迟到点击会以 `(follow-up) I pick <label>` 到达；以最后一条为准。
 - **看到前缀就说明人在手机上**：照常在终端回答，同时用 `notify` 把同一个答复推过去。
 - **手机消息作为一条新回合到达、而你的工具调用刚被取消**，是用户在自己那条带 ✈️ 的消息上加了表情要求立刻发送：不是故障——先读它，再决定被打断的活哪些要重做。（随 tool_result 一起到的消息只是排队等那次调用跑完。）
@@ -36,13 +36,13 @@
 - 需要用户验证某个改动（版式 / 文案）时不单发验证卡——塞进下一张本来就要发的真问题卡（「这张卡顺便看 X」），或直接 `send-file` 那个东西。
 - **🔔「等你输入」卡是自动的**（herdr 内、远程模式开着时）：herdr 报你的会话卡在只有人能答的提示上，daemon 自己推。不要手发，也不要用 `notify` 说自己卡住了——还能跑命令就不算卡住。
 - 远程模式只换通道，**不降标准**：不可逆动作仍要明确批准，超时不算批准。
-- 用户在终端直接回话（没有 `[agent-lark remote] ` 前缀）而手机上还挂着一张 `ask` ⇒ 先停掉那个后台任务（Claude Code 里是 TaskStop；卡片会变「Cancelled」），再按终端回话办；不要两边都等。
+- 用户在终端直接回话（没有 `[lark-connector remote] ` 前缀）而手机上还挂着一张 `ask` ⇒ 先停掉那个后台任务（Claude Code 里是 TaskStop；卡片会变「Cancelled」），再按终端回话办；不要两边都等。
 - **任务换了**（同一项目里用户交了别的活）⇒ `$AL rename "<新任务名>"`，让手机上的群名说得清这是在做什么。
 
 ## 多个 agent 会话组队时（一个主会话派活给别的会话）
 - **只有对接用户的那个会话（主会话）持有远程模式**：跑 `away on`、发 `ask` / `notify` / `send-file`、读 `state.json`。其他会话照旧只对接主会话，不调 `ask`。
 - 别的会话需要用户授权 / 拍板的事 ⇒ 由主会话用 `ask` 问用户，拿到答复后按你们既有的通道转达。
-- 手机来的消息注入的是主会话（绑定上记的窗格），带 `[agent-lark remote] ` 前缀 ⇒ 当用户输入。
+- 手机来的消息注入的是主会话（绑定上记的窗格），带 `[lark-connector remote] ` 前缀 ⇒ 当用户输入。
 - 状态以 `state.json` 为准，主会话重置后照第一节重读即可；队伍自己的状态文件里写一句「远程模式见 state.json」就够，别另记一份。
 - 你们若有「自动驾驶 / 不必逐项请示」之类的授权，它与远程模式正交：前者管哪些事不必问，后者管必须问的走哪条通道。
 

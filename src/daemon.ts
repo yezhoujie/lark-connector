@@ -13,7 +13,7 @@ import { ensureHomeDir, homeDir, ipcEndpoint, logPath, mediaDir, pidPath, sockPa
 import { fill, msg, t } from './texts.js';
 import { validateAsk, validateNotify, ValidationError, type AskPayload, type Lang } from './validate.js';
 
-const INJECT_PREFIX = '[agent-lark remote] ';
+const INJECT_PREFIX = '[lark-connector remote] ';
 const POLL_MS = 5_000;
 const STATUS_COOLDOWN_MS = 60_000;
 const CONNECT_RETRY_MS = 5_000;
@@ -1347,7 +1347,7 @@ export async function runDaemon(deps: DaemonDeps = {}): Promise<DaemonHandle> {
             const problem = taskNameProblem(req.name);
             if (problem) return { ok: false, code: 1, message: problem };
           }
-          const marker = `agent-lark · ${req.root}`;
+          const marker = `lark-connector · ${req.root}`;
 
           if (req.chatId) {
             const switching = live !== undefined && live.chatId !== req.chatId;

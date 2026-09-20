@@ -204,7 +204,7 @@ sets `LARK_CONNECTOR_HOME` (or passes `--home <dir>`) to a shorter directory; §
 — ask the user whether to scan a QR code for a new app or reuse an app they already have, then follow
 SKILL.md "Invoked with an argument", `setup`: QR code ⇒ run `setup` yourself and hand over the URL line
 (or a PNG of it); reuse ⇒ run `setup --reuse`, which opens its own herdr pane for the human to type the
-App ID and App Secret and reports back with one `[agent-lark] setup:` line (§8), or — outside herdr —
+App ID and App Secret and reports back with one `[lark-connector] setup:` line (§8), or — outside herdr —
 exits 4 with the command for them (next paragraph). Never run either unasked: it creates or binds a Feishu
 app under their account.
 
@@ -274,7 +274,7 @@ interrupted; the daemon is unaffected — **do not restart it**. Simply call `as
 human types under the cancelled card arrives as an instruction.
 
 Ctrl-C in an interactive `setup` (the pane a handed-off `setup --reuse` runs in) is also rc 130, and the
-pane reports `[agent-lark] setup: interrupted before any credentials were stored` back to the agent (§8).
+pane reports `[lark-connector] setup: interrupted before any credentials were stored` back to the agent (§8).
 
 ## 7. `note:` lines while waiting
 
@@ -292,7 +292,7 @@ Lines starting `note: ` on stderr while a command blocks are informational; the 
 |---|---|---|---|---|
 | `setup` | on a terminal: the menu (`1) … QR code / 2) reuse …`), then the chosen branch; piped (an agent running it): the QR code straight away — app registered, credentials saved (`✅ …`), next steps printed. Credentials already stored and neither `--update` nor `--reset` given ⇒ only `Credentials already exist (from <origin>). Add --update … --reset …` (rc 0) | – | the scan-code registration failed (after up to 3 retries on network errors) · `LARK_CONNECTOR_OFFLINE=1` | the QR code expired before it was scanned |
 | `setup --reuse` | on a terminal: App ID asked (must be `cli_` + letters and digits, asked again otherwise), App Secret asked with echo off, one probe against Feishu, `✅ Credentials work; app name "…"`, saved, the scopes / event / callback to enable by hand and `Publish a version afterwards` printed. Without a terminal: inside herdr, hands off to a new pane and prints `The interactive setup is running in herdr pane <id>: …` (rc 0) | three probes refused | `LARK_CONNECTOR_OFFLINE=1` · the pane could not be opened or run (`could not open a herdr pane …`, with the command) | no terminal and no herdr (`setup --reuse asks for … interactively …`, with the command) |
-| `setup --reuse --report-to <pane> [--close-pane]` | what the handed-off pane runs: as `setup --reuse` on a terminal, plus one `[agent-lark] setup:` line injected into `<pane>` at the end (below); `--close-pane` asks `Close this pane? [Y/n]` after success | as above | as above | – |
+| `setup --reuse --report-to <pane> [--close-pane]` | what the handed-off pane runs: as `setup --reuse` on a terminal, plus one `[lark-connector] setup:` line injected into `<pane>` at the end (below); `--close-pane` asks `Close this pane? [Y/n]` after success | as above | as above | – |
 | `daemon --detach` | started (pid printed), or `daemon is already running` | – | did not answer within 10 s | socket path over the limit (nothing spawned) |
 | `daemon` (foreground) | clean shutdown after a signal or `--stop` | – | already running | socket path over the limit · no credentials · `bindings.json` unreadable |
 | `daemon --status` | two status lines | not running / no answer / socket path over the limit | – | – |
@@ -324,10 +324,10 @@ like any other prompt; the secret is masked as `***` wherever it could appear):
 
 | line | meaning |
 |---|---|
-| `[agent-lark] setup: credentials stored for cli_xxxxxxxx (<app name>); the scopes must be enabled in the developer console before use` | done (rc 0 in the pane); the human still has console work for a reused app |
-| `[agent-lark] setup: failed: <why>` | every end that is not success or Ctrl-C: three failed probes, refused or thrown (`3 probes refused (<error>)`, rc 1 in the pane), `offline: refusing to contact Feishu (LARK_CONNECTOR_OFFLINE=1 is set)` (rc 3), any other failure (rc 3, `<why>` is the error text). The secret is masked as `***` wherever it could appear; relay `<why>`. The one end that sends no line: the pane closed by hand |
-| `[agent-lark] setup: interrupted before any credentials were stored` | Ctrl-C in the pane (rc 130); ask whether to try again |
-| `[agent-lark] setup: credentials already stored (<origin>); nothing changed. To switch apps run agent-lark setup --reset --reuse` | nothing was asked (rc 0) |
+| `[lark-connector] setup: credentials stored for cli_xxxxxxxx (<app name>); the scopes must be enabled in the developer console before use` | done (rc 0 in the pane); the human still has console work for a reused app |
+| `[lark-connector] setup: failed: <why>` | every end that is not success or Ctrl-C: three failed probes, refused or thrown (`3 probes refused (<error>)`, rc 1 in the pane), `offline: refusing to contact Feishu (LARK_CONNECTOR_OFFLINE=1 is set)` (rc 3), any other failure (rc 3, `<why>` is the error text). The secret is masked as `***` wherever it could appear; relay `<why>`. The one end that sends no line: the pane closed by hand |
+| `[lark-connector] setup: interrupted before any credentials were stored` | Ctrl-C in the pane (rc 130); ask whether to try again |
+| `[lark-connector] setup: credentials already stored (<origin>); nothing changed. To switch apps run agent-lark setup --reset --reuse` | nothing was asked (rc 0) |
 
 If the line cannot be delivered, the pane prints `agent-lark: the result could not be reported to pane <pane> (<why>)` and
 its own exit code stands; the human sees the outcome on that pane.
