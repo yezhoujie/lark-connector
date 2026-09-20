@@ -1,8 +1,10 @@
-# agent-lark
+# lark-connector
+
+[![skills.sh](https://skills.sh/b/yezhoujie/lark-connector)](https://skills.sh/yezhoujie/lark-connector) [![CI](https://github.com/yezhoujie/lark-connector/actions/workflows/test.yml/badge.svg)](https://github.com/yezhoujie/lark-connector/actions/workflows/test.yml)
 
 [English](README.md) · 中文
 
-本文写给装它的人。agent 读的是 [SKILL.md](SKILL.md) 与 `references/`，你不必向它解释这个工具。它是同一仓库里 `agent-ntfy` 的飞书版；两者的比较见[仓库 README](../../README.md)。
+lark-connector 是一个 daemon + CLI：把本机上需要人拍板的事推到飞书群，再把人的回话与指令送回本机。`agent-lark` 是它给 AI coding CLI 用来驱动它的 skill——agent 读的是 [SKILL.md](skill/agent-lark/SKILL.md) 与 `skill/agent-lark/references/`，你不必自己向它解释这个工具。
 
 ## 目录
 
@@ -14,8 +16,9 @@
 6. 日常（6.1 跟 agent 说的 · 6.2 你自己跑的几条）
 7. 出问题了怎么办
 8. 安全与边界
-9. 升级
+9. 升级（9.1 从 agent-lark 0.1.x 升级）
 10. 让它一直生效：给 agent 的规则
+11. 开发
 
 ## 1. 它是什么
 
@@ -48,12 +51,14 @@ agent ──提问──▶ daemon ──▶ 飞书 ──▶ 你的手机：点
 装进当前项目（skill 落在 `./.agents/skills/agent-lark`，并从 `./.claude/skills/agent-lark` 打一个符号链接过去；用 `-a <agent>` 只指定一个非 universal 的 agent 时 CLI 会改为拷进那个 agent 自己的目录）：
 
 ```bash
-npx skills add yezhoujie/agent-remote-communication-skills --skill agent-lark
+npx skills add yezhoujie/lark-connector
 ```
 
-要给所有项目用，加 `-g`：文件放到 `~/.agents/skills/agent-lark`，`~/.claude/skills/agent-lark` 变成指向它的符号链接。**`-g` 的警告**：`~/.claude/skills/agent-lark` 已经是一个真实目录的话，`skills` CLI 会把它删掉换成符号链接——先备份。任何能把 `skills/agent-lark/` 放到 agent 加载 skill 位置的办法都行（`git clone` 后拷目录也一样）；要钉住某个版本，安装时带 git ref（§9）。
+`skills.sh` 会自己发现本仓只发布的这一个 skill（`agent-lark`），`--skill agent-lark` 可以省（要显式指定也行）。要给所有项目用，加 `-g`：文件放到 `~/.agents/skills/agent-lark`，`~/.claude/skills/agent-lark` 变成指向它的符号链接。**`-g` 的警告**：`~/.claude/skills/agent-lark` 已经是一个真实目录的话，`skills` CLI 会把它删掉换成符号链接——先备份。任何能把 `skill/agent-lark/` 放到 agent 加载 skill 位置的办法都行（`git clone` 后拷目录也一样）；要钉住某个版本，安装时带 git ref（§9）。
 
-CLI 就是目录里的 `dist/cli.mjs`，它管自己叫 `agent-lark`。你很少需要敲它（§6.2），但配个 alias 方便：`alias agent-lark='node "<skills/agent-lark 的路径>/dist/cli.mjs"'`（文件带可执行位，往 `PATH` 里打符号链接也行）。
+CLI 就是目录里的 `dist/cli.mjs`，它管自己叫 `lark-connector`。你很少需要敲它（§6.2），但配个 alias 方便：`alias lark-connector='node "<agent-lark 的路径>/dist/cli.mjs"'`（文件带可执行位，往 `PATH` 里打符号链接也行）。
+
+Claude Code 也可以把它当 plugin 装：`claude plugin marketplace add yezhoujie/agent-remote-communication-skills`，再 `claude plugin install agent-lark@agent-remote-communication-skills`——marketplace 由那个 index 仓维护，plugin 的内容（这个 skill）来自本仓。
 
 ## 4. 配置，每台机器一次
 
@@ -62,7 +67,7 @@ CLI 就是目录里的 `dist/cli.mjs`，它管自己叫 `agent-lark`。你很少
 ### 4.1 手动
 
 ```bash
-agent-lark setup
+lark-connector setup
 ```
 
 每一行都中英并排打印（下面只列中文那一半）。在终端里跑，先出菜单：
@@ -77,13 +82,13 @@ agent-lark setup
 **1 — 扫码新建应用。** 二维码画在终端里，同一个链接紧跟着以一行文本打出来，画得不好时点链接也行。用手机飞书扫；确认页列出要授权的权限（§4.3）；点同意，应用就建好了。二维码只在几分钟内有效（过期时间会打出来）；过期了重跑 `setup`。成功时：
 
 ```
-✅ 应用已绑定，凭据保存到：macOS Keychain (service: agent-lark)（明文不会出现在任何输出里）。
+✅ 应用已绑定，凭据保存到：macOS Keychain (service: lark-connector)（明文不会出现在任何输出里）。
 下一步：回到 agent 会话，说「开启远程交互模式」或输入 /agent-lark on——daemon 与群绑定由 agent 从它自己的窗格完成，不用你手动跑。
 ```
 
-**2 — 复用已有的应用**（`agent-lark setup --reuse` 直接进这一支）。它问 App ID（`cli_…`，在开发者后台「凭证与基础信息」里看）和 App Secret——盲输、不回显、之后也不出现在任何输出里，连报错信息里都不会——连一次飞书核这对凭据，存起来，再把这种应用要你**手动开通**的权限、事件、回调列出来（§4.3），最后同样一行「下一步」。飞书不认的凭据会再问一次；连续三次不过就停，什么都不存。
+**2 — 复用已有的应用**（`lark-connector setup --reuse` 直接进这一支）。它问 App ID（`cli_…`，在开发者后台「凭证与基础信息」里看）和 App Secret——盲输、不回显、之后也不出现在任何输出里，连报错信息里都不会——连一次飞书核这对凭据，存起来，再把这种应用要你**手动开通**的权限、事件、回调列出来（§4.3），最后同样一行「下一步」。飞书不认的凭据会再问一次；连续三次不过就停，什么都不存。
 
-**不管哪条路：** 凭据存进系统钥匙串，没有钥匙串的平台存 `0600` 文件（§4.4）。之后再跑 `setup` 只会说「已经有凭据了（来自 …）」。`setup --update` 重新扫码给同一个应用重新授权（扫码建的应用补权限就靠它）；`setup --reset` 先删掉存着的凭据，所以 `agent-lark setup --reset --reuse`（或只 `--reset`，走扫码）就是换一个应用。
+**不管哪条路：** 凭据存进系统钥匙串，没有钥匙串的平台存 `0600` 文件（§4.4）。之后再跑 `setup` 只会说「已经有凭据了（来自 …）」。`setup --update` 重新扫码给同一个应用重新授权（扫码建的应用补权限就靠它）；`setup --reset` 先删掉存着的凭据，所以 `lark-connector setup --reset --reuse`（或只 `--reset`，走扫码）就是换一个应用。
 
 ### 4.2 让 agent 帮你
 
@@ -92,7 +97,7 @@ agent-lark setup
 - **扫码新建应用**：agent 跑 setup，把链接（或二维码图片）给你；你用飞书扫，它报结果。
 - **复用已有的应用**：App ID、尤其是 App Secret 不能经 agent 之手。在 [herdr](https://herdr.dev) 里，agent 会在它自己下方新开一个终端窗格、焦点切过去：在那个窗格里输 App ID 和 Secret；你做完，agent 自己会拿到结果。不在 herdr 里，agent 会把一条命令给你，**在你自己的终端窗口**（Terminal / iTerm 等）里跑——不是在 agent 会话里；跑完告诉 agent 一声。
 
-两条路都只存凭据，agent 报个结果；开启远程模式是你接下来说的那句话（§5）。底下的交接怎么做，见 [SKILL.md](SKILL.md)「Invoked with an argument」。
+两条路都只存凭据，agent 报个结果；开启远程模式是你接下来说的那句话（§5）。底下的交接怎么做，见 [SKILL.md](skill/agent-lark/SKILL.md)「Invoked with an argument」。
 
 ### 4.3 权限清单
 
@@ -102,11 +107,11 @@ agent-lark setup
 im:message   im:message:send_as_bot   im:message.group_msg   im:chat   im:resource   im:message.urgent   speech_to_text:speech   im:message.reactions:read
 ```
 
-`im:message.urgent` 是加急要的；`speech_to_text:speech` 是语音转文字要的（只有付费租户可用，§7）；`im:message.reactions:read`（连同表情事件）让你在排队消息上加的表情能传到 daemon（§5）。扫码建的应用之后缺了哪个？`agent-lark setup --update` 补上。
+`im:message.urgent` 是加急要的；`speech_to_text:speech` 是语音转文字要的（只有付费租户可用，§7）；`im:message.reactions:read`（连同表情事件）让你在排队消息上加的表情能传到 daemon（§5）。扫码建的应用之后缺了哪个？`lark-connector setup --update` 补上。
 
 ### 4.4 凭据
 
-三个来源，高到低：环境变量 `LARK_CONNECTOR_APP_ID` / `LARK_CONNECTOR_APP_SECRET`（运行时覆盖）、系统钥匙串（`setup` 默认写这里：macOS `security`、Linux `secret-tool`、Windows 上是 DPAPI 加密文件）、`~/.config/lark-connector/credentials.json`（权限 `0600`）。别的一概不读——没有 env 文件。`agent-lark status` 会标出用的是哪一个，**但不打印值**。细节与全部环境变量：[references/daemon.md](references/daemon.md) §7。
+三个来源，高到低：环境变量 `LARK_CONNECTOR_APP_ID` / `LARK_CONNECTOR_APP_SECRET`（运行时覆盖）、系统钥匙串（`setup` 默认写这里：macOS `security`、Linux `secret-tool`、Windows 上是 DPAPI 加密文件）、`~/.config/lark-connector/credentials.json`（权限 `0600`）。别的一概不读——没有 env 文件。`lark-connector status` 会标出用的是哪一个，**但不打印值**。细节与全部环境变量：[references/daemon.md](skill/agent-lark/references/daemon.md) §7。
 
 ## 5. 怎么用：你说什么，agent 做什么
 
@@ -118,7 +123,7 @@ im:message   im:message:send_as_bot   im:message.group_msg   im:chat   im:resour
 - **一条通知**是浅蓝色的「📣」卡片，没有按钮、没有状态：永远不变色，回复它就是一条普通指令。agent 也可能往群里发一张图或一个文件。
 - **你主动发的任何内容**——没有提问挂着时——会作为一句指令打进 agent 的会话，前缀 `[lark-connector remote] `；送到后你那条消息会被贴上 `Get` 表情。agent 正忙着时（Claude Code），你的消息会先被贴上 ✈️：它跑完手头那条命令就会读到。等不得？**在你那条消息上加一个任意表情**——agent 会停下手头的命令立刻读你的（那条命令会被杀掉，所以只在要紧时这么做）。agent 读到后 ✈️ 会自己变成 `Get`；30 分钟都没等到它读到的信号，✈️ 就留在那里不动（daemon 不知道结局，也不装作知道）。图片和文件会存到机器上、把路径给 agent。语音只在飞书付费租户上会转成文字（§7），但不管怎样都会保存。用飞书的「回复」功能回某张卡片，agent 会知道你指的是哪张。
 - **🔔「[<项目目录名>] 等你输入」**（橙色；只在 herdr 里有）表示 agent 卡在只有你能回答的提示上——权限确认、选择题——它会一直等到你回到键盘旁。
-- 提问是 agent 写的 JSON（契约在 [SKILL.md](SKILL.md)）；你永远不用写。
+- 提问是 agent 写的 JSON（契约在 [SKILL.md](skill/agent-lark/SKILL.md)）；你永远不用写。
 
 **回来。** 说「我回来了」或输入 `/agent-lark off`：agent 跑 `away off`——只关开关，群和 daemon 都留着。任务结束时 agent 先问你群留不留：留 ⇒ `unbind`（群留在飞书里，这个项目下次开启远程模式时 agent 会把它提出来）；不留 ⇒ `unbind --dissolve`（解散群、忘掉记录）。远程模式只换通道，不降标准：不可逆动作仍要你明确批准，超时不算批准。
 
@@ -136,17 +141,17 @@ im:message   im:message:send_as_bot   im:message.group_msg   im:chat   im:resour
 ### 6.2 你自己跑的几条
 
 ```bash
-agent-lark status            # 凭据（哪一层，不打印值）、herdr、daemon、每个项目的群
-agent-lark daemon --status   # daemon: pid …  connected true  connection connected  pending questions 0  bound projects 1  started …
-                             # media: ttl 7 days, … MB in … files (as of last sweep …)
-agent-lark daemon --stop     # 升级前（§9）；有提问挂着时拒绝——--stop --force 取消提问并停掉
+lark-connector status            # 凭据（哪一层，不打印值）、herdr、daemon、每个项目的群
+lark-connector daemon --status   # daemon: pid …  connected true  connection connected  pending questions 0  bound projects 1  started …
+                                 # media: ttl 7 days, … MB in … files (as of last sweep …)
+lark-connector daemon --stop     # 升级前（§9）；有提问挂着时拒绝——--stop --force 取消提问并停掉
 ```
 
-`agent-lark --help` 列出其余全部命令；那些是 agent 用的（SKILL.md）。换任务、换群、上下文重置都不用停 daemon；它同时管着所有项目。**删掉飞书应用**：`setup` 建的应用是你租户里真实的自建应用——先在飞书管理后台*停用*它（工作台管理 → 应用管理），再到开发者后台删除，换应用时再 `agent-lark setup --reset`（或 `--reset --reuse`）。
+`lark-connector --help` 列出其余全部命令；那些是 agent 用的（SKILL.md）。换任务、换群、上下文重置都不用停 daemon；它同时管着所有项目。**删掉飞书应用**：`setup` 建的应用是你租户里真实的自建应用——先在飞书管理后台*停用*它（工作台管理 → 应用管理），再到开发者后台删除，换应用时再 `lark-connector setup --reset`（或 `--reset --reuse`）。
 
 ## 7. 出问题了怎么办
 
-- **卡片没来，agent 说退出码 3。** daemon 没跑，或连不上飞书：`agent-lark daemon --status` 显示最后一次错误（凭据不对、没网）；daemon 会自己不断重连，排除原因后让 agent 再试。根本没在跑 ⇒ agent 会起它；你也可以：`agent-lark daemon --detach`。
+- **卡片没来，agent 说退出码 3。** daemon 没跑，或连不上飞书：`lark-connector daemon --status` 显示最后一次错误（凭据不对、没网）；daemon 会自己不断重连，排除原因后让 agent 再试。根本没在跑 ⇒ agent 会起它；你也可以：`lark-connector daemon --detach`。
 - **卡片上显示「已读 0/0」。** 那是飞书对机器人消息的已读计数，不是送达状态。真正算数的标记：提问被回答会变绿；你主动发的消息送到 agent 后会被贴上 `Get` 表情。
 - **你发的消息收到一张「没能送达」回执卡。** 原因写在卡上：那台机器没有 herdr、agent 的窗格没了、或 agent 正卡在只有你能回答的提示上。让 agent 重新开一次远程模式会重新记录它的窗格；最后一种情况回到电脑前处理那个提示。
 - **语音存下来了但没转成文字。** 转写需要 `speech_to_text:speech` 权限**且飞书付费租户**；免费 / 个人版租户即使已开通权限，飞书也会拒绝（HTTP 400，code 99991400）。改打字。语音控制在一分钟内。
@@ -155,7 +160,7 @@ agent-lark daemon --stop     # 升级前（§9）；有提问挂着时拒绝—�
 - **agent 给了你一条 `setup --reuse` 命令。** 你不在 herdr 里：在自己的终端窗口跑，不要在 agent 会话里跑（输 secret 需要真终端），跑完告诉 agent。
 - **旧群一直被提出来。** 只要它还在飞书里就会被提出来：让 agent 新建一个、把旧的丢掉（绑定着的时候跑 `unbind --dissolve`），或者你自己在飞书里解散它——daemon 会忘掉已经不存在的群（每天一次，以及每次找旧群提出来的时候）。应用解散不了的群（它不是群主）留给你手动解散。
 
-每个退出码的 stderr 原文与 agent 被要求怎么办：[references/failures.md](references/failures.md)。
+每个退出码的 stderr 原文与 agent 被要求怎么办：[references/failures.md](skill/agent-lark/references/failures.md)。
 
 ## 8. 安全与边界
 
@@ -164,23 +169,31 @@ agent-lark daemon --stop     # 升级前（§9）；有提问挂着时拒绝—�
 - 内容经过飞书服务器——提问描述你的项目，图片与文件从飞书下载——群描述带着你项目的绝对路径（群就是靠它找回来的）。别往提问里放密钥。
 - agent 只能发项目内、daemon 媒体目录或临时目录里的文件；daemon 日志只记 id 和事件，不记消息文字。
 - 一个项目同时只挂一个提问；一个自建应用只服务一个租户，一台机器只存一套凭据。
-- 卡片各字段上限、60 字符的任务名、手机上的样子：[references/message-spec.md](references/message-spec.md)。文件在哪、媒体目录及其 7 天保留期、项目级状态文件：[references/daemon.md](references/daemon.md)。
+- 卡片各字段上限、60 字符的任务名、手机上的样子：[references/message-spec.md](skill/agent-lark/references/message-spec.md)。文件在哪、媒体目录及其 7 天保留期、项目级状态文件：[references/daemon.md](skill/agent-lark/references/daemon.md)。
 - Linux 与 Windows 只有单元测试覆盖，没有在真实环境里跑过端到端（§2）。
 
 ## 9. 升级
 
-版本就是 git tag `agent-lark/vX.Y.Z`；改了什么见 [CHANGELOG.md](../../CHANGELOG.md)。装到本机的是仓库内容的一份快照，`npx skills update` 刷新它（全局安装加 `-g`，当前项目加 `-p`）。想停在某个版本，安装时把 tag 当 git ref 带上：`npx skills add 'yezhoujie/agent-remote-communication-skills#agent-lark/v0.1.4' --skill agent-lark`。
+版本就是 git tag `vX.Y.Z`；改了什么见 [CHANGELOG.md](CHANGELOG.md)。装到本机的是仓库内容的一份快照，`npx skills update` 刷新它（全局安装加 `-g`，当前项目加 `-p`）。想停在某个版本，安装时把 tag 当 git ref 带上：`npx skills add 'yezhoujie/lark-connector#v0.2.0'`。
 
-跑着 daemon 的机器：1. 用手上的 CLI `agent-lark daemon --stop`（有提问挂着时会拒绝——等一等，或 `--stop --force`；文件已经换成新版、旧 daemon 又不应答的话，`kill -TERM <pid>`，pid 在 `~/.lark-connector/daemon.pid` 里）。2. 换文件。3. `agent-lark daemon --detach`。凭据、群绑定、项目级开关都会保留；然后说一声「开启远程交互模式」，让 agent 重新记下它的窗格。
+跑着 daemon 的机器：1. 用手上的 CLI `lark-connector daemon --stop`（有提问挂着时会拒绝——等一等，或 `--stop --force`；文件已经换成新版、旧 daemon 又不应答的话，`kill -TERM <pid>`，pid 在 `~/.lark-connector/daemon.pid` 里）。2. 换文件。3. `lark-connector daemon --detach`。凭据、群绑定、项目级开关都会保留；然后说一声「开启远程交互模式」，让 agent 重新记下它的窗格。
+
+### 9.1 从 agent-lark 0.1.x 升级
+
+本仓与它发布的 CLI 在 0.2.0 从 `agent-lark` 改名为 `lark-connector`；skill 名不变，仍是 `agent-lark`。旧名下配置过的机器：1. 用手上还留着的旧版 CLI 先停掉旧 daemon（`agent-lark daemon --stop`）；2. 从新地址重新安装（§3）；3. 之后跑的第一条命令会自动把剩下的都迁过去——状态目录（`~/.agent-lark` → `~/.lark-connector`）、配置目录（`~/.config/agent-lark` → `~/.config/lark-connector`）、钥匙串条目（service `agent-lark` → `lark-connector`，在找到旧状态目录的那一次运行里），以及第一次在某个用过这条通路的项目里跑命令时，它的 `.agent-lark/` 目录（→ `.lark-connector/`）；群的旧 marker 描述仍然认得，不用重新绑定；不会删除任何东西，只搬或复制，每一步都会打一行说明搬了什么。
+
+以下几处不会帮你改：shell 或项目 env 里的 `AGENT_LARK_*` → `LARK_CONNECTOR_*`（后缀不变——CLI 现在实际读取的是 `HOME` / `APP_ID` / `APP_SECRET` / `OWNER_OPEN_ID` / `STORE` / `KEYCHAIN` / `MEDIA_TTL_DAYS` / `OFFLINE` 这几个；旧名只会被提示，不会被读取）；agent 常驻规则或 memory 里的 `[agent-lark remote]`、`[agent-lark] setup:` → `[lark-connector remote]` / `[lark-connector] setup:`；规则或脚本里按路径写死的 `.agent-lark/state.json` → `.lark-connector/state.json`。
+
+新旧两个目录同时存在（迁移中断，或手动复制过）时，旧目录原样保留，会打一条警告列出两个路径——留哪个自己定。迁移只搬**缺省位置**（`~/.agent-lark` → `~/.lark-connector`）；机器上把 `LARK_CONNECTOR_HOME`（或 `--home`）直接指到 `~/.agent-lark` 的，会继续原样使用，凭据也不会自动搬——重跑一次 `setup --reuse`（同一个 App ID 与 Secret）把它存到新的钥匙串 service 下。
 
 ## 10. 让它一直生效：给 agent 的规则
 
 skill 只提供命令，**有意不规定什么时候用**。不加约束的 agent 只在碰巧想起这个 skill 时才用它。触发策略要写进 agent 的**常驻指令**，而且要覆盖四个时刻：会话开始时读项目的 `state.json`（`away: true` ⇒ 你不在）· 你要走时它趁你还在跑 `away on`、有旧群时问你 · 你不在时每个决定都变成一张提问卡，`notify` 只用于重大事项、不报进展 · 你回来时 `away off`，任务结束时 agent 问你群留不留，再跑 `unbind` 或 `unbind --dissolve`。
 
-skill 自带一份照这四条写好的规则——[`examples/remote-mode-rule.zh-CN.md`](examples/remote-mode-rule.zh-CN.md)（中文）、[`examples/remote-mode-rule.md`](examples/remote-mode-rule.md)（英文），也写了多个 agent 会话组队时怎么办。Claude Code 的 `~/.claude/rules/` 会注入每个会话：
-
-```bash
-cp ~/.claude/skills/agent-lark/examples/remote-mode-rule.zh-CN.md ~/.claude/rules/agent-lark-remote-mode.md
-```
+skill 自带一份照这四条写好的规则——[`examples/remote-mode-rule.zh-CN.md`](skill/agent-lark/examples/remote-mode-rule.zh-CN.md)（中文）、[`examples/remote-mode-rule.md`](skill/agent-lark/examples/remote-mode-rule.md)（英文），也写了多个 agent 会话组队时怎么办。Claude Code 的 `~/.claude/rules/` 会注入每个会话：`cp ~/.claude/skills/agent-lark/examples/remote-mode-rule.zh-CN.md ~/.claude/rules/agent-lark-remote-mode.md`。
 
 其他 agent 放到它加载常驻指令的位置；按自己的习惯改开头的 `<skill dir>` 路径和触发用语。**两个 skill 都装了？** 它们互不知道对方：每台机器（或每个项目）只让一条规则生效，由它写明调用哪个 CLI；两个 daemon 可以并存。
+
+## 11. 开发
+
+`npm ci && npm test` 做类型检查、重建 `skill/agent-lark/dist/cli.mjs`、跑测试；`npm run build` 只重建 bundle，`npm run typecheck` 只查类型。bundle 入仓，CI 会重建一次并用 `git diff --exit-code` 校验，所以改了 `src/` 要连重建后的 `dist/cli.mjs` 一起提交。

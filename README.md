@@ -1,8 +1,10 @@
-# agent-lark
+# lark-connector
+
+[![skills.sh](https://skills.sh/b/yezhoujie/lark-connector)](https://skills.sh/yezhoujie/lark-connector) [![CI](https://github.com/yezhoujie/lark-connector/actions/workflows/test.yml/badge.svg)](https://github.com/yezhoujie/lark-connector/actions/workflows/test.yml)
 
 English · [中文](README.zh-CN.md)
 
-This file is for the person installing it. The agent reads [SKILL.md](SKILL.md) and `references/`; you never need to explain the tool to it. It is the Feishu sibling of `agent-ntfy` in the same repository; how the two compare is in the [repository README](../../README.md).
+lark-connector is a daemon + CLI: it pushes a decision that needs a human, from this machine, to a Feishu group, and sends the human's replies and instructions back. `agent-lark` is the skill it ships for AI coding CLIs to drive it — the agent reads [SKILL.md](skill/agent-lark/SKILL.md) and `skill/agent-lark/references/`; you never need to explain the tool to it yourself.
 
 ## Contents
 
@@ -14,8 +16,9 @@ This file is for the person installing it. The agent reads [SKILL.md](SKILL.md) 
 6. Day-to-day (6.1 things you ask the agent for · 6.2 the few commands you run yourself)
 7. When something goes wrong
 8. Security and limits
-9. Upgrading
+9. Upgrading (9.1 from agent-lark 0.1.x)
 10. Make it stick: the rule for your agent
+11. Developing
 
 ## 1. What it is
 
@@ -48,12 +51,14 @@ The limit: both register the `lark://` family of URL schemes, and macOS keeps on
 Into the current project (the skill lands in `./.agents/skills/agent-lark`, with a symlink from `./.claude/skills/agent-lark`; with a single non-universal agent selected via `-a <agent>` the CLI copies it into that agent's directory instead):
 
 ```bash
-npx skills add yezhoujie/agent-remote-communication-skills --skill agent-lark
+npx skills add yezhoujie/lark-connector
 ```
 
-For all projects at once, add `-g`: the files go to `~/.agents/skills/agent-lark` and `~/.claude/skills/agent-lark` becomes a symlink to them. **Warning about `-g`**: if `~/.claude/skills/agent-lark` already exists as a real directory, the `skills` CLI deletes it and replaces it with the symlink — back it up first. Any other way of putting `skills/agent-lark/` where your agent loads skills works too (`git clone` and copy the folder); to pin a version, install with a git ref (§9).
+`skills.sh` finds the one skill this repository ships (`agent-lark`) on its own, so `--skill agent-lark` can be left off (add it back if you ever need to be explicit). For all projects at once, add `-g`: the files go to `~/.agents/skills/agent-lark` and `~/.claude/skills/agent-lark` becomes a symlink to them. **Warning about `-g`**: if `~/.claude/skills/agent-lark` already exists as a real directory, the `skills` CLI deletes it and replaces it with the symlink — back it up first. Any other way of putting `skill/agent-lark/` where your agent loads skills works too (`git clone` and copy the folder); to pin a version, install with a git ref (§9).
 
-The CLI is `dist/cli.mjs` inside that directory; it calls itself `agent-lark`. You will type it rarely (§6.2), but an alias helps: `alias agent-lark='node "<path to skills/agent-lark>/dist/cli.mjs"'` (the file is executable, so a symlink on your `PATH` works as well).
+The CLI is `dist/cli.mjs` inside that directory; it calls itself `lark-connector`. You will type it rarely (§6.2), but an alias helps: `alias lark-connector='node "<path to agent-lark>/dist/cli.mjs"'` (the file is executable, so a symlink on your `PATH` works as well).
+
+Claude Code can also install it as a plugin: `claude plugin marketplace add yezhoujie/agent-remote-communication-skills` then `claude plugin install agent-lark@agent-remote-communication-skills`. That index repository maintains the marketplace listing; the plugin's content (this skill) ships from here.
 
 ## 4. Setup, once per machine
 
@@ -62,7 +67,7 @@ Once per machine the Feishu app is created (or an app you already have is reused
 ### 4.1 By hand
 
 ```bash
-agent-lark setup
+lark-connector setup
 ```
 
 Every line is printed in Chinese and English side by side (the English half is shown here). On a terminal it opens with a menu:
@@ -77,13 +82,13 @@ Choose [1/2]:
 **1 — new app by QR code.** The code is drawn in the terminal and the same link is printed as a line of text right under it, in case the drawing renders badly. Scan it with Feishu on your phone; the confirmation page lists the permissions being requested (§4.3); approve, and the app exists. The code is valid for a few minutes (the expiry time is printed); if it expires, run `setup` again. On success:
 
 ```
-✅ App linked; credentials saved to macOS Keychain (service: agent-lark) (the secret never appears in any output).
+✅ App linked; credentials saved to macOS Keychain (service: lark-connector) (the secret never appears in any output).
 Next: back in your agent session, say "turn remote mode on" or type /agent-lark on — the agent starts the daemon and binds the group from its own pane; nothing to run by hand.
 ```
 
-**2 — reuse an app you already have** (`agent-lark setup --reuse` goes here directly). It asks for the App ID (`cli_…`, from Developer console → Credentials & Basic Info) and the App Secret — typed blind, never echoed, never shown afterwards, not even inside an error message — checks the pair against Feishu once, stores it, and prints the scopes, the event and the callback you must enable **by hand** for such an app (§4.3), then the same `Next:` line. A pair Feishu rejects is asked again; three refusals stop with nothing stored.
+**2 — reuse an app you already have** (`lark-connector setup --reuse` goes here directly). It asks for the App ID (`cli_…`, from Developer console → Credentials & Basic Info) and the App Secret — typed blind, never echoed, never shown afterwards, not even inside an error message — checks the pair against Feishu once, stores it, and prints the scopes, the event and the callback you must enable **by hand** for such an app (§4.3), then the same `Next:` line. A pair Feishu rejects is asked again; three refusals stop with nothing stored.
 
-**Whichever way:** credentials go to the OS keychain where one is reachable, else a `0600` file (§4.4). Run `setup` again later and it only says `Credentials already exist (from …)`. `setup --update` rescans the QR code to re-authorize the same app (that is how a missing scope is added after a QR-code setup); `setup --reset` forgets the stored credentials first, so `agent-lark setup --reset --reuse` (or `--reset` alone, for the QR code) switches to another app.
+**Whichever way:** credentials go to the OS keychain where one is reachable, else a `0600` file (§4.4). Run `setup` again later and it only says `Credentials already exist (from …)`. `setup --update` rescans the QR code to re-authorize the same app (that is how a missing scope is added after a QR-code setup); `setup --reset` forgets the stored credentials first, so `lark-connector setup --reset --reuse` (or `--reset` alone, for the QR code) switches to another app.
 
 ### 4.2 Through your agent
 
@@ -92,7 +97,7 @@ Type `/agent-lark setup` to your agent (or just say "set up agent-lark" / "turn 
 - **New app by QR code**: the agent runs the setup and gives you the link (or a QR image); you scan it with Feishu and it reports the outcome.
 - **Reuse an app you already have**: the App ID and, above all, the App Secret must not pass through the agent. Inside [herdr](https://herdr.dev) the agent opens a new terminal pane right below its own and the focus moves there: type the App ID and the Secret in that pane; when you are done the agent picks up the result by itself. Outside herdr the agent gives you one command to run **in a terminal window of your own** (Terminal, iTerm, …) — not inside the agent session; run it, then tell the agent you are done.
 
-Either way, setup only stores credentials and the agent reports the outcome; turning remote mode on is the next thing you say (§5). How the hand-off works underneath is in [SKILL.md](SKILL.md), "Invoked with an argument".
+Either way, setup only stores credentials and the agent reports the outcome; turning remote mode on is the next thing you say (§5). How the hand-off works underneath is in [SKILL.md](skill/agent-lark/SKILL.md), "Invoked with an argument".
 
 ### 4.3 Scopes
 
@@ -102,11 +107,11 @@ A QR-code setup asks for these on the confirmation page; an app you reuse must h
 im:message   im:message:send_as_bot   im:message.group_msg   im:chat   im:resource   im:message.urgent   speech_to_text:speech   im:message.reactions:read
 ```
 
-`im:message.urgent` is for the urgent flag; `speech_to_text:speech` is for voice notes (paid tenants only, §7); `im:message.reactions:read` (with the reaction event) lets a reaction you add to a queued message reach the daemon (§5). Missing one after a QR-code setup? `agent-lark setup --update` adds it.
+`im:message.urgent` is for the urgent flag; `speech_to_text:speech` is for voice notes (paid tenants only, §7); `im:message.reactions:read` (with the reaction event) lets a reaction you add to a queued message reach the daemon (§5). Missing one after a QR-code setup? `lark-connector setup --update` adds it.
 
 ### 4.4 Credentials
 
-Three places, highest first: `LARK_CONNECTOR_APP_ID` / `LARK_CONNECTOR_APP_SECRET` in the environment (a runtime override), the OS keychain (what `setup` writes; macOS `security`, Linux `secret-tool`, a DPAPI-encrypted file on Windows), or `~/.config/lark-connector/credentials.json` with mode `0600`. Nothing else is read — no env file. `agent-lark status` shows which one is in use **and never prints a value**. Details and every variable: [references/daemon.md](references/daemon.md) §7.
+Three places, highest first: `LARK_CONNECTOR_APP_ID` / `LARK_CONNECTOR_APP_SECRET` in the environment (a runtime override), the OS keychain (what `setup` writes; macOS `security`, Linux `secret-tool`, a DPAPI-encrypted file on Windows), or `~/.config/lark-connector/credentials.json` with mode `0600`. Nothing else is read — no env file. `lark-connector status` shows which one is in use **and never prints a value**. Details and every variable: [references/daemon.md](skill/agent-lark/references/daemon.md) §7.
 
 ## 5. Using it: what you say, what the agent does
 
@@ -118,7 +123,7 @@ Three places, highest first: `LARK_CONNECTOR_APP_ID` / `LARK_CONNECTOR_APP_SECRE
 - **A notification** is a light-blue `📣` card with no button and no state: it never changes colour; replying to it is an instruction like any other message. The agent may also drop an image or a file into the group.
 - **Anything you send yourself** — while no question is pending — is typed into the agent's session as an instruction, prefixed `[lark-connector remote] `; once it has landed your message gets a `Get` reaction. If the agent is busy (Claude Code), your message gets ✈️ instead: it reads it once its current command finishes. Cannot wait? **Add any reaction of your own to that message** — the agent stops its current command and reads yours at once (that cancels the command, so do it only when it matters). ✈️ turns into `Get` by itself once the agent has read it; after 30 minutes without any sign of that, ✈️ is left as it is (the daemon does not know, and does not pretend to). Photos and files are saved on the machine and the agent is given their paths. A voice note is transcribed only on a paid Feishu tenant (§7); it is saved either way. Use Feishu's *reply* on one of the cards and the agent is told which card you mean.
 - **🔔 `[<project dir>] waiting for you`** (orange; inside herdr only) means the agent is stuck on a prompt only you can answer — a permission dialog, a choice — and will wait until you are back at the keyboard.
-- The questions are JSON the agent writes (the contract is in [SKILL.md](SKILL.md)); you never write one.
+- The questions are JSON the agent writes (the contract is in [SKILL.md](skill/agent-lark/SKILL.md)); you never write one.
 
 **Coming back.** Say "I'm back" or type `/agent-lark off`: the agent runs `away off` — the switch only; the group and the daemon stay. When the task is over the agent asks whether to keep the group: keep ⇒ `unbind` (the group stays in Feishu, and the next time this project turns remote mode on the agent offers it back); drop ⇒ `unbind --dissolve` (the group is dissolved and forgotten). Remote mode changes the channel, not the standard: irreversible actions still need your explicit approval, and a timeout is not approval.
 
@@ -136,17 +141,17 @@ Three places, highest first: `LARK_CONNECTOR_APP_ID` / `LARK_CONNECTOR_APP_SECRE
 ### 6.2 The few commands you run yourself
 
 ```bash
-agent-lark status            # credentials (which layer, never the value), herdr, daemon, every project's group
-agent-lark daemon --status   # daemon: pid …  connected true  connection connected  pending questions 0  bound projects 1  started …
-                             # media: ttl 7 days, … MB in … files (as of last sweep …)
-agent-lark daemon --stop     # before an upgrade (§9); refused while a question is pending — --stop --force cancels it and stops
+lark-connector status            # credentials (which layer, never the value), herdr, daemon, every project's group
+lark-connector daemon --status   # daemon: pid …  connected true  connection connected  pending questions 0  bound projects 1  started …
+                                 # media: ttl 7 days, … MB in … files (as of last sweep …)
+lark-connector daemon --stop     # before an upgrade (§9); refused while a question is pending — --stop --force cancels it and stops
 ```
 
-`agent-lark --help` lists everything else; those are the agent's commands (SKILL.md). The daemon does not have to be stopped for a new task, a new group or a context reset; it serves every project at once. **Removing the Feishu app**: an app created by `setup` is a real custom app in your tenant — first *disable* it in the Feishu admin console (workspace admin → app management), then delete it in the developer console, then `agent-lark setup --reset` (or `--reset --reuse`) when you switch to another one.
+`lark-connector --help` lists everything else; those are the agent's commands (SKILL.md). The daemon does not have to be stopped for a new task, a new group or a context reset; it serves every project at once. **Removing the Feishu app**: an app created by `setup` is a real custom app in your tenant — first *disable* it in the Feishu admin console (workspace admin → app management), then delete it in the developer console, then `lark-connector setup --reset` (or `--reset --reuse`) when you switch to another one.
 
 ## 7. When something goes wrong
 
-- **No card arrives, the agent reports exit 3.** The daemon is not running or cannot reach Feishu: `agent-lark daemon --status` shows the last error (wrong credentials, no network); the daemon keeps retrying by itself, so fix the cause and let the agent try again. Not running at all ⇒ the agent starts it; you can too: `agent-lark daemon --detach`.
+- **No card arrives, the agent reports exit 3.** The daemon is not running or cannot reach Feishu: `lark-connector daemon --status` shows the last error (wrong credentials, no network); the daemon keeps retrying by itself, so fix the cause and let the agent try again. Not running at all ⇒ the agent starts it; you can too: `lark-connector daemon --detach`.
 - **The card says "Read 0/0".** That is Feishu's read counter for bot messages, not a delivery status. The signs that count: an answered question turns green, and your own message gets a `Get` reaction once it reached the agent.
 - **Your message got a "Not delivered" receipt card.** The reason is on the card: no herdr on that machine, the agent's pane is gone, or the agent is stuck on a prompt only you can answer. Turning remote mode on again from the agent records its pane afresh; for the last case, handle the prompt when you are back.
 - **Voice notes are saved but not transcribed.** Transcription needs the `speech_to_text:speech` scope **and a paid Feishu tenant**; on a free / personal tenant Feishu refuses (HTTP 400, code 99991400) even with the scope granted. Type instead. Keep a voice note under a minute.
@@ -155,7 +160,7 @@ agent-lark daemon --stop     # before an upgrade (§9); refused while a question
 - **The agent handed you a `setup --reuse` command.** You are outside herdr: run it in a terminal window of your own, not inside the agent session (it needs a real terminal for the secret), then tell the agent.
 - **An old group keeps being offered.** It is offered as long as it exists in Feishu: tell the agent to create a new one and drop the old one (`unbind --dissolve` while it is bound), or dissolve it in Feishu yourself — the daemon forgets groups that are gone (once a day, and whenever it looks for groups to offer back). A group the app cannot dissolve (it is not the owner) is left for you to dissolve by hand.
 
-Every exit code with its stderr text and what the agent is told to do: [references/failures.md](references/failures.md).
+Every exit code with its stderr text and what the agent is told to do: [references/failures.md](skill/agent-lark/references/failures.md).
 
 ## 8. Security and limits
 
@@ -164,23 +169,31 @@ Every exit code with its stderr text and what the agent is told to do: [referenc
 - Content travels through Feishu's servers — questions describe your project, photos and files are downloaded from Feishu — and the group's description carries your project's absolute path (that is how a group is found again). Do not put secrets in a question.
 - The agent can only send files from inside the project, the daemon's media directory or the temp directory; the daemon log records ids and events, never message text.
 - One pending question per project at a time; one custom app serves one tenant, and a machine stores one set of credentials.
-- Card size caps, the 60-character task name and what the phone shows: [references/message-spec.md](references/message-spec.md). Files, the media directory and its 7-day retention, the per-project state file: [references/daemon.md](references/daemon.md).
+- Card size caps, the 60-character task name and what the phone shows: [references/message-spec.md](skill/agent-lark/references/message-spec.md). Files, the media directory and its 7-day retention, the per-project state file: [references/daemon.md](skill/agent-lark/references/daemon.md).
 - Linux and Windows have unit-test coverage only, no end-to-end run in a real environment (§2).
 
 ## 9. Upgrading
 
-Versions are git tags `agent-lark/vX.Y.Z`; what changed is in [CHANGELOG.md](../../CHANGELOG.md). An install is a snapshot of the repository; `npx skills update` refreshes it (`-g` for global installs, `-p` for the current project). To stay on a release, install with the tag as git ref: `npx skills add 'yezhoujie/agent-remote-communication-skills#agent-lark/v0.1.4' --skill agent-lark`.
+Versions are git tags `vX.Y.Z`; what changed is in [CHANGELOG.md](CHANGELOG.md). An install is a snapshot of the repository; `npx skills update` refreshes it (`-g` for global installs, `-p` for the current project). To stay on a release, install with the tag as git ref: `npx skills add 'yezhoujie/lark-connector#v0.2.0'`.
 
-On a machine that runs the daemon: 1. `agent-lark daemon --stop` with the CLI you have now (refused while a question is pending — wait, or `--stop --force`; if the files were already replaced and the old daemon does not answer, `kill -TERM <pid>`, the pid is in `~/.lark-connector/daemon.pid`). 2. Update the files. 3. `agent-lark daemon --detach`. Credentials, group bindings and the per-project switch all carry over; then say "turn remote mode on" so the agent records its pane again.
+On a machine that runs the daemon: 1. `lark-connector daemon --stop` with the CLI you have now (refused while a question is pending — wait, or `--stop --force`; if the files were already replaced and the old daemon does not answer, `kill -TERM <pid>`, the pid is in `~/.lark-connector/daemon.pid`). 2. Update the files. 3. `lark-connector daemon --detach`. Credentials, group bindings and the per-project switch all carry over; then say "turn remote mode on" so the agent records its pane again.
+
+### 9.1 Upgrading from agent-lark 0.1.x
+
+This repository and the CLI it ships were renamed from `agent-lark` to `lark-connector` at 0.2.0; the skill keeps its name, `agent-lark`. On a machine set up under the old name: 1. stop the old daemon with the CLI you still have (`agent-lark daemon --stop`); 2. reinstall from the new address (§3); 3. the first command you run migrates the rest on its own — the state directory (`~/.agent-lark` → `~/.lark-connector`), the config directory (`~/.config/agent-lark` → `~/.config/lark-connector`), the keychain entry (service `agent-lark` → `lark-connector`; on the run that finds the old state directory), and, the first time you run a command inside a project that used the channel before, its `.agent-lark/` directory (→ `.lark-connector/`) — a group's old marker description is still recognised, so nothing needs re-binding, nothing is deleted (only moved or copied), and each step prints one line saying what moved.
+
+A few things are not renamed for you: any `AGENT_LARK_*` you set in a shell profile or a project's env → `LARK_CONNECTOR_*` (same suffix — `HOME` / `APP_ID` / `APP_SECRET` / `OWNER_OPEN_ID` / `STORE` / `KEYCHAIN` / `MEDIA_TTL_DAYS` / `OFFLINE` are the ones the CLI reads today; a stale name is only ever reported, never read); `[agent-lark remote]` and `[agent-lark] setup:` in an agent's standing rule or memory → `[lark-connector remote]` / `[lark-connector] setup:`; `.agent-lark/state.json` named by path in a rule or script → `.lark-connector/state.json`.
+
+Both the old and the new directory existing (an interrupted migration, or things copied by hand) leaves the old one exactly as it is, with a warning naming both paths — decide which to keep yourself. The migration only ever moves the *default* locations (`~/.agent-lark` → `~/.lark-connector`); a machine that points `LARK_CONNECTOR_HOME` (or `--home`) straight at `~/.agent-lark` keeps using it as is, and its credentials are not moved automatically — run `setup --reuse` again (same App ID and Secret) to store them under the new keychain service.
 
 ## 10. Make it stick: the rule for your agent
 
 The skill only provides the calls and never decides *when* to use them. Left alone, an agent uses agent-lark only when it happens to remember it exists. The trigger policy belongs in the agent's **standing instructions**, and it has to cover four moments: at session start, read the project's `state.json` (`away: true` ⇒ you are away) · when you leave, the agent runs `away on` while you are still there and asks you about old groups · while you are away, every decision becomes a question card, `notify` only for major events, never for progress · when you are back, `away off`; when the task is over, the agent asks whether to keep the group, then `unbind` or `unbind --dissolve`.
 
-A ready-made rule that does exactly this ships with the skill — [`examples/remote-mode-rule.md`](examples/remote-mode-rule.md) (English) and [`examples/remote-mode-rule.zh-CN.md`](examples/remote-mode-rule.zh-CN.md) (Chinese); it also covers teams of agent sessions. For Claude Code, rules in `~/.claude/rules/` are injected into every session:
-
-```bash
-cp ~/.claude/skills/agent-lark/examples/remote-mode-rule.md ~/.claude/rules/agent-lark-remote-mode.md
-```
+A ready-made rule that does exactly this ships with the skill — [`examples/remote-mode-rule.md`](skill/agent-lark/examples/remote-mode-rule.md) (English) and [`examples/remote-mode-rule.zh-CN.md`](skill/agent-lark/examples/remote-mode-rule.zh-CN.md) (Chinese); it also covers teams of agent sessions. For Claude Code, rules in `~/.claude/rules/` are injected into every session: `cp ~/.claude/skills/agent-lark/examples/remote-mode-rule.md ~/.claude/rules/agent-lark-remote-mode.md`.
 
 For other agents, put it wherever that agent loads its standing instructions; adjust the `<skill dir>` path at the top and the trigger phrases to your own habits. **Both skills installed?** They know nothing about each other: keep one rule in force per machine (or per project) and let it name the CLI it calls; the two daemons may run side by side.
+
+## 11. Developing
+
+`npm ci && npm test` type-checks, rebuilds `skill/agent-lark/dist/cli.mjs` and runs the tests; `npm run build` rebuilds the bundle alone, `npm run typecheck` only checks the types. The bundle is committed, and CI rebuilds it and fails on `git diff --exit-code`, so a change under `src/` is committed together with the rebuilt `dist/cli.mjs`.
