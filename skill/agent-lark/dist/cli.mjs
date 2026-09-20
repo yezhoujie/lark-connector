@@ -136446,7 +136446,7 @@ var init_texts = __esm({
   send-file <path> [--caption <t>]   Send an image or file to the project group
   status                             Daemon and binding overview
 
-Global: --home <dir>  state directory (same as LARK_CONNECTOR_HOME; default ~/.agent-lark)
+Global: --home <dir>  state directory (same as LARK_CONNECTOR_HOME; default ~/.lark-connector)
 
 Exit codes: 0 ok \xB7 1 bad input \xB7 2 timed out, nobody answered \xB7 3 channel failure \xB7 4 a human must act
 `,
@@ -136524,7 +136524,7 @@ Exit codes: 0 ok \xB7 1 bad input \xB7 2 timed out, nobody answered \xB7 3 chann
       notifySent: "Notification sent (a reply from the phone is injected into this pane as an instruction)",
       fileSent: "Sent to the project group",
       // away
-      awayNeverUsed: "This project has never used agent-lark (no .agent-lark/state.json)",
+      awayNeverUsed: "This project has never used agent-lark (no .lark-connector/state.json)",
       awayStatusLine: "remote mode: {away}  group: {chat}",
       awayNotConnected: "daemon is up but not connected to Feishu: {error}",
       awayOutsideHerdr: "Not inside herdr: messages sent from the phone are not injected anywhere, and there is no stuck-on-a-prompt alert.",
@@ -136648,7 +136648,7 @@ import { dirname, join } from "node:path";
 function configDir() {
   const xdg = process.env.XDG_CONFIG_HOME?.trim();
   const base = xdg || join(homedir(), platform() === "win32" ? "AppData/Roaming" : ".config");
-  return join(base, "agent-lark");
+  return join(base, "lark-connector");
 }
 function defaultStore() {
   const forced = process.env.LARK_CONNECTOR_STORE?.trim();
@@ -136742,7 +136742,7 @@ function keychainWrite(creds) {
     });
     return;
   }
-  execFileSync("secret-tool", ["store", "--label", "agent-lark", "service", SERVICE, "account", ACCOUNT], {
+  execFileSync("secret-tool", ["store", "--label", "lark-connector", "service", SERVICE, "account", ACCOUNT], {
     input: blob,
     stdio: ["pipe", "ignore", "pipe"]
   });
@@ -136825,7 +136825,7 @@ var init_creds = __esm({
   "src/creds.ts"() {
     "use strict";
     init_texts();
-    SERVICE = process.env.LARK_CONNECTOR_KEYCHAIN?.trim() || "agent-lark";
+    SERVICE = process.env.LARK_CONNECTOR_KEYCHAIN?.trim() || "lark-connector";
     ACCOUNT = "app";
     credentialsFile = () => join(configDir(), "credentials.json");
     dpapiFile = () => join(configDir(), "credentials.dpapi");
@@ -136946,7 +136946,7 @@ import { homedir as homedir2, platform as platform2 } from "node:os";
 import { basename, join as join2, resolve } from "node:path";
 function homeDir() {
   const override = process.env.LARK_CONNECTOR_HOME?.trim();
-  return override ? resolve(override) : join2(homedir2(), ".agent-lark");
+  return override ? resolve(override) : join2(homedir2(), ".lark-connector");
 }
 function ensureHomeDir() {
   const dir = homeDir();
@@ -136960,7 +136960,7 @@ function sockPathProblem() {
   return bytes > SOCK_PATH_LIMIT ? fill(msg.sockPathTooLong, { path: path2, bytes, limit: SOCK_PATH_LIMIT }) : null;
 }
 function ipcEndpoint() {
-  if (platform2() === "win32") return `\\\\.\\pipe\\agent-lark-${createHash2("sha1").update(homeDir()).digest("hex").slice(0, 12)}`;
+  if (platform2() === "win32") return `\\\\.\\pipe\\lark-connector-${createHash2("sha1").update(homeDir()).digest("hex").slice(0, 12)}`;
   return sockPath();
 }
 function projectRoot(cwd = process.cwd()) {
@@ -137029,7 +137029,7 @@ var init_paths = __esm({
     logPath = () => join2(homeDir(), "daemon.log");
     bindingsPath = () => join2(homeDir(), "bindings.json");
     mediaDir = () => join2(homeDir(), "media");
-    projectStateDir = (root) => join2(root, ".agent-lark");
+    projectStateDir = (root) => join2(root, ".lark-connector");
     projectStatePath = (root) => join2(projectStateDir(root), "state.json");
   }
 });

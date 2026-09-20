@@ -33,7 +33,7 @@ test('state.json carries exactly away / chatId / target / updated', () => {
   assert.match(String(onDisk.updated), /^\d{4}-\d{2}-\d{2}T/);
   const read = readProjectState(root);
   assert.deepEqual(read, written);
-  assert.equal(readFileSync(join(root, '.agent-lark', '.gitignore'), 'utf8'), '*\n');
+  assert.equal(readFileSync(join(root, '.lark-connector', '.gitignore'), 'utf8'), '*\n');
 });
 
 test('a later write keeps the fields it does not name', () => {
@@ -60,7 +60,7 @@ test('a state file written before paneId left it: the field is dropped on read a
 test('without create, a project that never bound gets no directory planted', () => {
   const root = tmp('al-paths-proj-');
   assert.equal(writeProjectState(root, { away: true }), null);
-  assert.equal(existsSync(join(root, '.agent-lark')), false);
+  assert.equal(existsSync(join(root, '.lark-connector')), false);
   assert.equal(readProjectState(root), null);
 });
 

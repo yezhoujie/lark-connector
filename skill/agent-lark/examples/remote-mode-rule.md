@@ -9,7 +9,7 @@
 > Below, `$AL` = `node <skill dir>/dist/cli.mjs`; with a global Claude Code install `<skill dir>` is
 > `~/.claude/skills/agent-lark`. How to write a question card is in SKILL.md.
 
-## Where the state lives: `<project root>/.agent-lark/state.json` (written by the CLI; you only read it)
+## Where the state lives: `<project root>/.lark-connector/state.json` (written by the CLI; you only read it)
 - **At session start, and after your context was cleared or reset**, run `$AL away status --json` first: `away: true` ⇒ this project is already in remote mode, follow "While in remote mode"; file absent or `false` ⇒ normal terminal interaction.
 - Fields: `away` (the switch) · `chatId` (the Feishu group this project is bound to, `null` = none) · `target` (the project root) · `updated`. **No credential is ever in it**, and the pane phone messages are injected into is not either — the daemon keeps that.
 
@@ -60,4 +60,4 @@
 - Do not `bind --chat` a group that belongs to another project; do not reuse a group the user has not chosen.
 
 ## Both skills installed (agent-ntfy and agent-lark)
-The two skills know nothing about each other, and neither decides which one a decision goes to. Keep **one** remote-mode rule in force per machine (or per project) and let it name the CLI it calls: this file for agent-lark, `agent-ntfy`'s `examples/remote-mode-rule.md` for ntfy. To route by project instead, keep both rules but open each with one line such as "This rule applies only when the project has `.agent-lark/state.json`" / "… `.agent-ntfy/state.json`" and let `away status --json` of the matching CLI decide. The daemons may run side by side; they share nothing.
+The two skills know nothing about each other, and neither decides which one a decision goes to. Keep **one** remote-mode rule in force per machine (or per project) and let it name the CLI it calls: this file for agent-lark, `agent-ntfy`'s `examples/remote-mode-rule.md` for ntfy. To route by project instead, keep both rules but open each with one line such as "This rule applies only when the project has `.lark-connector/state.json`" / "… `.agent-ntfy/state.json`" and let `away status --json` of the matching CLI decide. The daemons may run side by side; they share nothing.

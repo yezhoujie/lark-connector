@@ -189,7 +189,7 @@ export const msg = {
   send-file <path> [--caption <t>]   Send an image or file to the project group
   status                             Daemon and binding overview
 
-Global: --home <dir>  state directory (same as LARK_CONNECTOR_HOME; default ~/.agent-lark)
+Global: --home <dir>  state directory (same as LARK_CONNECTOR_HOME; default ~/.lark-connector)
 
 Exit codes: 0 ok · 1 bad input · 2 timed out, nobody answered · 3 channel failure · 4 a human must act
 `,
@@ -272,7 +272,7 @@ Exit codes: 0 ok · 1 bad input · 2 timed out, nobody answered · 3 channel fai
   notifySent: 'Notification sent (a reply from the phone is injected into this pane as an instruction)',
   fileSent: 'Sent to the project group',
   // away
-  awayNeverUsed: 'This project has never used agent-lark (no .agent-lark/state.json)',
+  awayNeverUsed: 'This project has never used agent-lark (no .lark-connector/state.json)',
   awayStatusLine: 'remote mode: {away}  group: {chat}',
   awayNotConnected: 'daemon is up but not connected to Feishu: {error}',
   awayOutsideHerdr: 'Not inside herdr: messages sent from the phone are not injected anywhere, and there is no stuck-on-a-prompt alert.',

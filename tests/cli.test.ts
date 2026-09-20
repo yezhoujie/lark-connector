@@ -104,13 +104,13 @@ for (const [name, argv, bad] of UNKNOWN) {
 
 test('away off with no daemon: exit 0, the local state file is switched off, and stdout says the daemon was not asked', () => {
   const project = realpathSync(tmp('agent-lark-off-'));
-  mkdirSync(join(project, '.agent-lark'));
-  writeFileSync(join(project, '.agent-lark', 'state.json'), JSON.stringify({ away: true, chatId: 'oc_x', target: project, updated: '' }));
+  mkdirSync(join(project, '.lark-connector'));
+  writeFileSync(join(project, '.lark-connector', 'state.json'), JSON.stringify({ away: true, chatId: 'oc_x', target: project, updated: '' }));
   const r = spawnSync(process.execPath, [cli, 'away', 'off'], { encoding: 'utf8', env: { ...isolatedEnv(), LARK_CONNECTOR_HOME: tmp('agent-lark-home-') }, input: '', cwd: project });
   assert.equal(r.status, 0, r.stderr);
   assert.match(r.stdout, /^Remote mode is off\.$/m);
   assert.match(r.stdout, /daemon is not running; local state cleared/);
-  const state = JSON.parse(readFileSync(join(project, '.agent-lark', 'state.json'), 'utf8')) as { away: boolean; chatId: string | null };
+  const state = JSON.parse(readFileSync(join(project, '.lark-connector', 'state.json'), 'utf8')) as { away: boolean; chatId: string | null };
   assert.equal(state.away, false);
   assert.equal(state.chatId, 'oc_x');
 });
@@ -120,7 +120,7 @@ test('away off with no daemon and no state file: exit 0, "never used", nothing c
   const r = spawnSync(process.execPath, [cli, 'away', 'off'], { encoding: 'utf8', env: { ...isolatedEnv(), LARK_CONNECTOR_HOME: tmp('agent-lark-home-') }, input: '', cwd: project });
   assert.equal(r.status, 0, r.stderr);
   assert.match(r.stdout, /never used agent-lark/);
-  assert.equal(existsSync(join(project, '.agent-lark')), false);
+  assert.equal(existsSync(join(project, '.lark-connector')), false);
 });
 
 test('unknown command: exit 1, English hint on stderr with the agent-lark prefix', () => {
@@ -196,7 +196,7 @@ describe('with a fake daemon', () => {
     const r = spawnSync(process.execPath, [cli, ...args], { encoding: 'utf8', env, input: '', cwd });
     return { status: r.status, stdout: r.stdout, stderr: r.stderr };
   }
-  const state = (): Record<string, unknown> => JSON.parse(readFileSync(join(project, '.agent-lark', 'state.json'), 'utf8')) as Record<string, unknown>;
+  const state = (): Record<string, unknown> => JSON.parse(readFileSync(join(project, '.lark-connector', 'state.json'), 'utf8')) as Record<string, unknown>;
 
   before(async () => {
     assert.ok(existsSync(cli), `dist/cli.mjs not found at ${cli} — run \`npm run build\` first`);
@@ -246,7 +246,7 @@ describe('with a fake daemon', () => {
     assert.equal(r.status, 4, r.stdout + r.stderr);
     assert.match(r.stderr, /^old task \[proj\] {2}released 2026-01-02T03:04:05\.000Z {2}oc_old$/m);
     assert.match(r.stderr, /rerun with --reuse <chatId> or --new/);
-    assert.equal(existsSync(join(project, '.agent-lark')), false, 'state was written although nothing was bound');
+    assert.equal(existsSync(join(project, '.lark-connector')), false, 'state was written although nothing was bound');
   });
 
   test('away with --name before the subcommand: the value is not taken for the subcommand', () => {
@@ -334,7 +334,7 @@ describe('with a fake daemon', () => {
     assert.equal(state().away, false);
     const never = cmd(['away', 'off'], other);
     assert.equal(never.status, 0, never.stdout + never.stderr);
-    assert.equal(existsSync(join(other, '.agent-lark')), false);
+    assert.equal(existsSync(join(other, '.lark-connector')), false);
   });
 
   test('status lists released groups apart from live ones, the current project marked with *', () => {
@@ -418,7 +418,7 @@ describe('with a fake daemon whose first handshakes fail', () => {
     assert.match(on.stdout, /Took back Feishu group "old task \[proj\]"/);
     assert.match(on.stdout, /Remote mode is on/);
     assert.match(on.stderr, /^note: bound, but renaming the group failed/m);
-    const s = JSON.parse(readFileSync(join(project, '.agent-lark', 'state.json'), 'utf8')) as { away: boolean; chatId: string };
+    const s = JSON.parse(readFileSync(join(project, '.lark-connector', 'state.json'), 'utf8')) as { away: boolean; chatId: string };
     assert.equal(s.away, true);
     assert.equal(s.chatId, 'oc_old');
   });
@@ -430,7 +430,7 @@ describe('with a fake daemon whose first handshakes fail', () => {
     assert.match(r.stderr, /^agent-lark: the Feishu group ".+" was not dissolved: /m);
     assert.match(r.stderr, /Dissolve it by hand in Feishu/);
     assert.match(r.stderr, /The local record is removed\./);
-    const s = JSON.parse(readFileSync(join(project, '.agent-lark', 'state.json'), 'utf8')) as { away: boolean; chatId: string | null };
+    const s = JSON.parse(readFileSync(join(project, '.lark-connector', 'state.json'), 'utf8')) as { away: boolean; chatId: string | null };
     assert.equal(s.away, false);
     assert.equal(s.chatId, null);
     assert.doesNotMatch(cmd(['status']).stdout, /oc_old/);
@@ -473,7 +473,7 @@ describe('with LARK_CONNECTOR_HOME over the socket path limit', { skip: platform
     assert.equal(r.status, 4, r.stdout + r.stderr);
     assert.match(r.stderr, sentence);
     assert.equal(existsSync(join(home, 'daemon.log')), false, 'a daemon was spawned (its log exists)');
-    assert.equal(existsSync(join(project, '.agent-lark')), false, 'state was written although nothing was bound');
+    assert.equal(existsSync(join(project, '.lark-connector')), false, 'state was written although nothing was bound');
   });
 
   test('away on with no credentials still reports the path first', () => {
@@ -491,13 +491,13 @@ describe('with LARK_CONNECTOR_HOME over the socket path limit', { skip: platform
   });
 
   test('away off still switches the local state off and exits 0', () => {
-    mkdirSync(join(project, '.agent-lark'));
-    writeFileSync(join(project, '.agent-lark', 'state.json'), JSON.stringify({ away: true, chatId: 'oc_x', target: project, updated: '' }));
+    mkdirSync(join(project, '.lark-connector'));
+    writeFileSync(join(project, '.lark-connector', 'state.json'), JSON.stringify({ away: true, chatId: 'oc_x', target: project, updated: '' }));
     const r = long(['away', 'off']);
     assert.equal(r.status, 0, r.stdout + r.stderr);
     assert.match(r.stdout, /^Remote mode is off\.$/m);
     assert.match(r.stdout, /daemon is not running; local state cleared/);
-    const s = JSON.parse(readFileSync(join(project, '.agent-lark', 'state.json'), 'utf8')) as { away: boolean; chatId: string | null };
+    const s = JSON.parse(readFileSync(join(project, '.lark-connector', 'state.json'), 'utf8')) as { away: boolean; chatId: string | null };
     assert.deepEqual([s.away, s.chatId], [false, 'oc_x']);
   });
 
@@ -515,8 +515,8 @@ describe('with LARK_CONNECTOR_HOME over the socket path limit', { skip: platform
 test('unbind --dissolve against a daemon that does not know the flag: exit 3 saying to restart it; the state file is cleared as after a plain unbind', async () => {
   const home = tmp('agent-lark-old-daemon-');
   const project = realpathSync(tmp('agent-lark-old-proj-'));
-  mkdirSync(join(project, '.agent-lark'));
-  writeFileSync(join(project, '.agent-lark', 'state.json'), JSON.stringify({ away: true, chatId: 'oc_x', target: project, updated: '' }));
+  mkdirSync(join(project, '.lark-connector'));
+  writeFileSync(join(project, '.lark-connector', 'state.json'), JSON.stringify({ away: true, chatId: 'oc_x', target: project, updated: '' }));
   const prev = process.env.LARK_CONNECTOR_HOME;
   process.env.LARK_CONNECTOR_HOME = home;
   const server = await serve({ handle: async () => ({ ok: true, kind: 'unbind', chatId: 'oc_x', name: 'x' }) });
@@ -535,7 +535,7 @@ test('unbind --dissolve against a daemon that does not know the flag: exit 3 say
     assert.equal(r.status, 3, r.stdout + r.stderr);
     assert.equal(r.stdout, '');
     assert.match(r.stderr, /^agent-lark: .*--dissolve.*daemon --stop/m);
-    const s = JSON.parse(readFileSync(join(project, '.agent-lark', 'state.json'), 'utf8')) as { away: boolean; chatId: string | null };
+    const s = JSON.parse(readFileSync(join(project, '.lark-connector', 'state.json'), 'utf8')) as { away: boolean; chatId: string | null };
     assert.deepEqual([s.away, s.chatId], [false, null]);
   } finally {
     await new Promise<void>((resolve) => server.close(() => resolve()));

@@ -1571,7 +1571,7 @@ test('sweep: a project that never had a state file does not get one planted by t
   homes.push(project);
   await bindChat(project, 'oc_live');
   await waitFor(() => logLines(home, 'bindings.swept').find((l) => l.includes('"removed":1')), 'the sweep');
-  assert.equal(existsSync(join(project, '.agent-lark')), false);
+  assert.equal(existsSync(join(project, '.lark-connector')), false);
 });
 
 for (const [what, chatList, reason] of [

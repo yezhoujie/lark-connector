@@ -222,14 +222,14 @@ nothing is pending arrives with `(reply to: "<that card's title>")` on its first
 
 One resident process holds the Feishu connection (a WebSocket the SDK keeps open; no public URL, no
 webhook) for every bound project; `ask`, `notify`, `send-file` and the rest only talk to it over a local
-IPC endpoint (a Unix socket, `~/.agent-lark/daemon.sock`, or a named pipe on Windows). If it is not
+IPC endpoint (a Unix socket, `~/.lark-connector/daemon.sock`, or a named pipe on Windows). If it is not
 running they exit 3 without sending: `agent-lark: daemon is not running. Start it first: agent-lark daemon --detach`.
 
 You may start it yourself, but **never from your own shell as a background job, a Monitor, or a
 subagent**: it dies with you, and every message the human sends afterwards is lost silently.
 
 - `agent-lark daemon --detach` starts it in its own session (inside herdr as well: there is no pane to
-  open) and prints `daemon: started in the background, pid N (log ~/.agent-lark/daemon.log)`. `away on`
+  open) and prints `daemon: started in the background, pid N (log ~/.lark-connector/daemon.log)`. `away on`
   does this for you.
 - The daemon comes up **before** it reaches Feishu: IPC first, the handshake in the background with
   retries (5 s doubling to 60 s), so a machine that is offline does not crash-loop. Until the handshake
@@ -259,7 +259,7 @@ the group, not you.
 
 - **Images and files** are downloaded first, one line per attachment, `[saved: <absolute path>]`, followed
   by `(attachments saved locally)` (or `(I sent attachments; they are saved locally)` when there was no
-  text). Open them as you would any local file; they live under `~/.agent-lark/media/` and are swept
+  text). Open them as you would any local file; they live under `~/.lark-connector/media/` and are swept
   after 7 days by default.
 - **Voice notes**: a voice message on its own is injected as its transcript, plain — nothing marks it as
   spoken; only when the message also carries text does the transcript follow that text as
@@ -344,7 +344,7 @@ agent-lark setup                                   # once per machine, on a term
 - `away off` only flips the switch; the binding stays. **Remote mode changes the channel, not the
   standard**: irreversible actions still need explicit approval, and a timeout is not approval.
 
-The switch and the group live in `<project root>/.agent-lark/state.json` (project root = the git
+The switch and the group live in `<project root>/.lark-connector/state.json` (project root = the git
 toplevel, else the cwd; a worktree or a submodule is its own project), written by `away on|off`, `bind`
 and `unbind` (and by the daemon, `chatId` only, when it finds the live group gone from Feishu — Housekeeping).
 Read it with `away status --json`:
@@ -383,7 +383,7 @@ daemon keeps that on the binding.
   live one included, in which case the project's `state.json` loses its `chatId` (the `away` switch is
   left as it was) and the next `ask` exits 4 as not bound. Nothing is forgotten while Feishu's group list
   cannot be read in full.
-- Attachments the human sent live under `~/.agent-lark/media/` and are deleted after 7 days
+- Attachments the human sent live under `~/.lark-connector/media/` and are deleted after 7 days
   (`LARK_CONNECTOR_MEDIA_TTL_DAYS`; `0` keeps everything). Copy what you need into the project.
 - Credentials are in the OS keychain (or a 0600 file), never in this skill's directory or in any output,
   and the App Secret is typed by the human in an interactive `setup` — it never passes through argv, a

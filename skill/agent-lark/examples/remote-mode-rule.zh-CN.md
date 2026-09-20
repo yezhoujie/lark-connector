@@ -6,7 +6,7 @@
 >
 > 下文 `$AL` = `node <skill dir>/dist/cli.mjs`；Claude Code 全局安装时 `<skill dir>` 是 `~/.claude/skills/agent-lark`。怎么写一张提问卡看 SKILL.md。
 
-## 状态在哪：`<项目根>/.agent-lark/state.json`（CLI 写，你只读）
+## 状态在哪：`<项目根>/.lark-connector/state.json`（CLI 写，你只读）
 - **会话开始 / 上下文被清空或重置后**，先 `$AL away status --json`：`away: true` ⇒ 本项目已在远程模式，照「模式内」办；文件不存在或 `false` ⇒ 正常终端交互。
 - 字段：`away`（开关）· `chatId`（本项目绑定的飞书群，`null` = 没有）· `target`（项目根）· `updated`。**里面永远没有凭据**，注入目标窗格也不在里面——那个记在 daemon 那边。
 
@@ -57,4 +57,4 @@
 - 不 `bind --chat` 别的项目的群；不复用用户没选过的群。
 
 ## 两个 skill 都装了（agent-ntfy 与 agent-lark）
-两个 skill 互不知道对方，也都不决定一件事该走哪边。**每台机器（或每个项目）只让一条远程模式规则生效**，由它点名调用哪个 CLI：agent-lark 用本文件，ntfy 用 `agent-ntfy` 的 `examples/remote-mode-rule.md`。想按项目分流就两条都留，各自开头加一句「本规则只在项目有 `.agent-lark/state.json` 时适用」/「…`.agent-ntfy/state.json`…」，由对应 CLI 的 `away status --json` 决定。两个 daemon 可以并存，互不相干。
+两个 skill 互不知道对方，也都不决定一件事该走哪边。**每台机器（或每个项目）只让一条远程模式规则生效**，由它点名调用哪个 CLI：agent-lark 用本文件，ntfy 用 `agent-ntfy` 的 `examples/remote-mode-rule.md`。想按项目分流就两条都留，各自开头加一句「本规则只在项目有 `.lark-connector/state.json` 时适用」/「…`.agent-ntfy/state.json`…」，由对应 CLI 的 `away status --json` 决定。两个 daemon 可以并存，互不相干。

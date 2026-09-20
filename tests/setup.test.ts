@@ -12,7 +12,7 @@ import { InputInterrupted } from '../src/tty.js';
 
 // The keychain service name is read once at import time: point it at a
 // service that never holds anything before the module loads.
-process.env.LARK_CONNECTOR_KEYCHAIN = 'agent-lark-test-never-stored';
+process.env.LARK_CONNECTOR_KEYCHAIN = 'lark-connector-test-never-stored';
 const { runSetup } = await import('../src/cli.js');
 const { msg } = await import('../src/texts.js');
 type SetupDeps = Parameters<typeof runSetup>[1];
@@ -24,14 +24,14 @@ function isolate(): string {
   process.env.XDG_CONFIG_HOME = dir;
   process.env.LARK_CONNECTOR_HOME = join(dir, 'home');
   process.env.LARK_CONNECTOR_STORE = 'file';
-  process.env.LARK_CONNECTOR_KEYCHAIN = 'agent-lark-test-never-stored';
+  process.env.LARK_CONNECTOR_KEYCHAIN = 'lark-connector-test-never-stored';
   for (const k of ['LARK_CONNECTOR_APP_ID', 'LARK_CONNECTOR_APP_SECRET', 'LARK_CONNECTOR_OWNER_OPEN_ID']) delete process.env[k];
   return dir;
 }
 process.on('exit', () => {
   for (const d of scratch) rmSync(d, { recursive: true, force: true });
 });
-const credsFile = (dir: string) => join(dir, 'agent-lark', 'credentials.json');
+const credsFile = (dir: string) => join(dir, 'lark-connector', 'credentials.json');
 
 /** A terminal that answers from a script; `''` after the script ends is a closed stdin. */
 function scripted(answers: string[], isTTY = true): SetupIO & { prompts: string[]; hidden: string[]; closed: number } {

@@ -8,7 +8,7 @@ import { fill, msg } from './texts.js';
 /** Daemon-side state directory. Everything the daemon owns lives here. */
 export function homeDir(): string {
   const override = process.env.LARK_CONNECTOR_HOME?.trim();
-  return override ? resolve(override) : join(homedir(), '.agent-lark');
+  return override ? resolve(override) : join(homedir(), '.lark-connector');
 }
 
 export function ensureHomeDir(): string {
@@ -42,7 +42,7 @@ export function sockPathProblem(): string | null {
  * derived from the dir's path.
  */
 export function ipcEndpoint(): string {
-  if (platform() === 'win32') return `\\\\.\\pipe\\agent-lark-${createHash('sha1').update(homeDir()).digest('hex').slice(0, 12)}`;
+  if (platform() === 'win32') return `\\\\.\\pipe\\lark-connector-${createHash('sha1').update(homeDir()).digest('hex').slice(0, 12)}`;
   return sockPath();
 }
 
@@ -76,11 +76,11 @@ export function projectLabel(root: string): string {
   return basename(root) || root;
 }
 
-export const projectStateDir = (root: string): string => join(root, '.agent-lark');
+export const projectStateDir = (root: string): string => join(root, '.lark-connector');
 export const projectStatePath = (root: string): string => join(projectStateDir(root), 'state.json');
 
 /**
- * What a project's `.agent-lark/state.json` holds. The injection target (the
+ * What a project's `.lark-connector/state.json` holds. The injection target (the
  * herdr pane) is deliberately not here: the daemon keeps it on the binding.
  */
 export interface ProjectState {

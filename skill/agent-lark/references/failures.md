@@ -84,7 +84,7 @@ argument, `--home=<dir>` is the one exception) · `setup --reuse` after three re
 agent-lark: refusing to send /etc/hosts
 Only files under these directories can be sent:
   this project /Users/me/work/my-project
-  /Users/me/.agent-lark/media
+  /Users/me/.lark-connector/media
   /var/folders/…/T
 (this keeps send-file from reading arbitrary files off the machine)
 ```
@@ -126,7 +126,7 @@ Start it as described in [daemon.md](daemon.md) §2, then call again. A differen
 **State directory too deep for a Unix socket** (not sent; every command that talks to the daemon, `away off` excepted):
 
 ```
-agent-lark: socket path /very/deep/…/.agent-lark/daemon.sock is 112 bytes, over this platform's limit of 104; set LARK_CONNECTOR_HOME to a shorter directory
+agent-lark: socket path /very/deep/…/.lark-connector/daemon.sock is 112 bytes, over this platform's limit of 104; set LARK_CONNECTOR_HOME to a shorter directory
 ```
 
 No daemon can listen there, so starting one does not help: the user has to point `LARK_CONNECTOR_HOME` (or
@@ -255,7 +255,7 @@ when Feishu refused for a permission reason (any other reason is rc 3 with the s
 
 ```
 agent-lark: setup --reuse asks for the App ID and App Secret interactively, and there is no terminal here (and no herdr to open one). Ask the user to run it in their own terminal:
-  /path/to/node /path/to/skills/agent-lark/dist/cli.mjs --home /home/me/.agent-lark setup --reuse
+  /path/to/node /path/to/skills/agent-lark/dist/cli.mjs --home /home/me/.lark-connector setup --reuse
 ```
 
 Give the user the second line as is (absolute paths, the `--home` of this run); they run it, type the App
@@ -302,7 +302,7 @@ Lines starting `note: ` on stderr while a command blocks are informational; the 
 | `unbind --dissolve` | `Dissolved Feishu group "…"; the local record is removed.` | not bound | daemon not running · not connected to Feishu (nothing touched) · a daemon from before the flag answered (§4: the group was released, not dissolved) | a question is pending (nothing touched) · Feishu refused to dissolve or the call failed (§5: record removed, group still there) |
 | `rename "<task>"` | `Renamed the Feishu group to "<task> [<dir>]"` | empty or over-long name | not connected · Feishu refused (§9) | no live group |
 | `away on` | remote mode enabled (daemon line, group line, `Remote mode is on: …`; outside herdr one more line) | task name too long · `--reuse` + `--new` · `--reuse` not a candidate | daemon did not come up · not connected within 15 s · group creation failed | no credentials · socket path over the limit (nothing started) · candidates to choose from · no owner · creation refused for permissions |
-| `away off` | `Remote mode is off.` (also when nothing is bound). Daemon not running, or the socket path over the limit ⇒ still rc 0: the state file is written locally and a second line says `daemon is not running; local state cleared` (no state file ⇒ `This project has never used agent-lark (no .agent-lark/state.json)`) | – | an IPC error other than "not running" / "path over the limit" | – |
+| `away off` | `Remote mode is off.` (also when nothing is bound). Daemon not running, or the socket path over the limit ⇒ still rc 0: the state file is written locally and a second line says `daemon is not running; local state cleared` (no state file ⇒ `This project has never used agent-lark (no .lark-connector/state.json)`) | – | an IPC error other than "not running" / "path over the limit" | – |
 | `away status [--json]` | printed, whatever the state | – | – | – |
 | `status` | printed: credentials and their layers, herdr, daemon (or `daemon: not running (agent-lark daemon --detach)`), bindings | – | – | – |
 | `help` / no command | the command summary | unknown command | – | – |
@@ -314,7 +314,7 @@ half-on.
 reports as expired or refused (one way there: opened once under the wrong Feishu account) is not coming
 back: kill the setup still waiting for the scan, rerun, send the new line at once. When the human is on
 the phone, `send-file` the code as a PNG and `notify` the URL line — copy the PNG into
-`~/.agent-lark/media/` first, since `send-file` only serves files under the project, that directory or
+`~/.lark-connector/media/` first, since `send-file` only serves files under the project, that directory or
 the system temp directory. `setup --update` (re-authorizing the same app, e.g. for a scope added later)
 runs the same way and re-submits the current scope / event lists.
 

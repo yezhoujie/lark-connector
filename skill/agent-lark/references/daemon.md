@@ -25,7 +25,7 @@ times out, or is cancelled, and pushes the alert cards it sends on its own initi
 Everything else (`ask`, `notify`, `send-file`, `bind`, `unbind`, `rename`, `away`, `status`, `daemon
 --status|--stop`) is a thin client that talks to the daemon over a local IPC endpoint and holds nothing.
 The endpoint is a Unix domain socket on POSIX (`<home>/daemon.sock`) and a named pipe on Windows
-(`\\.\pipe\agent-lark-<12 hex chars derived from the state directory>`; no file). `ask` keeps its
+(`\\.\pipe\lark-connector-<12 hex chars derived from the state directory>`; no file). `ask` keeps its
 connection open until the answer arrives; if the daemon dies, the connection drops and `ask` exits 3 at
 once. No silent hang. Only `setup` never talks to the daemon.
 
@@ -91,7 +91,7 @@ agent-lark daemon --stop     # rc 0 "daemon: stopped" (or "daemon: was not runni
   rc 3 `the daemon is stopping; the question was sent but no answer will arrive this time`, each card is
   rewritten to `⚠️ … · Cancelled` (3 s allowed per card, then it is left as it was), Feishu is
   disconnected, open IPC connections get 2 s to drain, and `daemon.sock` / `daemon.pid` are removed.
-- Files under `LARK_CONNECTOR_HOME` (default `~/.agent-lark/`, directory mode 0700):
+- Files under `LARK_CONNECTOR_HOME` (default `~/.lark-connector/`, directory mode 0700):
 
   | file | content |
   |---|---|
@@ -320,14 +320,14 @@ between two daily sweeps (§4). `daemon --status` does not report the bindings s
 
 | variable | default | effect |
 |---|---|---|
-| `LARK_CONNECTOR_HOME` | `~/.agent-lark` | the daemon's state directory (§3). `--home <dir>` (or `--home=<dir>`, anywhere on the command line) sets it for that command and for a daemon it starts, and the interactive `setup --reuse` handed to a new pane is given it explicitly. With the Unix-socket transport the path has a limit (`<home>/daemon.sock` at most 104 bytes on macOS and the BSDs, 108 on Linux): the daemon refuses to start over it (rc 4, `socket path … is N bytes, over this platform's limit of M; set LARK_CONNECTOR_HOME to a shorter directory`, §2 — on Node 22 the platform would otherwise silently truncate the path to the limit and bind a different file, which is why this check runs before anything else; Node 23+ fails with `EINVAL`), `daemon --detach` and `away on` say the same before spawning anything, and every other command answers rc 3 with the same sentence instead of `connect EINVAL` (`status` shows it as `daemon: cannot run here (…)`); `away off` still switches the local state off. Windows (named pipe) has no such limit |
+| `LARK_CONNECTOR_HOME` | `~/.lark-connector` | the daemon's state directory (§3). `--home <dir>` (or `--home=<dir>`, anywhere on the command line) sets it for that command and for a daemon it starts, and the interactive `setup --reuse` handed to a new pane is given it explicitly. With the Unix-socket transport the path has a limit (`<home>/daemon.sock` at most 104 bytes on macOS and the BSDs, 108 on Linux): the daemon refuses to start over it (rc 4, `socket path … is N bytes, over this platform's limit of M; set LARK_CONNECTOR_HOME to a shorter directory`, §2 — on Node 22 the platform would otherwise silently truncate the path to the limit and bind a different file, which is why this check runs before anything else; Node 23+ fails with `EINVAL`), `daemon --detach` and `away on` say the same before spawning anything, and every other command answers rc 3 with the same sentence instead of `connect EINVAL` (`status` shows it as `daemon: cannot run here (…)`); `away off` still switches the local state off. Windows (named pipe) has no such limit |
 | `LARK_CONNECTOR_APP_ID` / `LARK_CONNECTOR_APP_SECRET` | – | app credentials from the environment, for one process: a runtime override that wins over the stores (below). The only way to supply credentials besides `setup` |
 | `LARK_CONNECTOR_OWNER_OPEN_ID` | – | the app owner's `open_id` when credentials come from the environment; needed to create groups and for `--urgent` (`setup` records it in the store on its own, from the QR registration or from the probe of a reused app) |
 | `LARK_CONNECTOR_STORE` | `keychain` where one is usable, else `file` | where `setup` writes: `keychain` (macOS Keychain · Windows DPAPI-encrypted file `<config>/credentials.dpapi` · Linux `secret-tool`), `file` (`<config>/credentials.json`, mode 0600), `none` (this run only) |
-| `LARK_CONNECTOR_KEYCHAIN` | `agent-lark` | the keychain service name (`security` on macOS, `secret-tool` on Linux) |
+| `LARK_CONNECTOR_KEYCHAIN` | `lark-connector` | the keychain service name (`security` on macOS, `secret-tool` on Linux) |
 | `LARK_CONNECTOR_MEDIA_TTL_DAYS` | `7` | retention of `<home>/media/`; `0` = keep everything (§6) |
 | `LARK_CONNECTOR_OFFLINE` | – | testing / offline only: `1` makes `setup` refuse to contact Feishu (rc 3 `offline: refusing to contact Feishu (LARK_CONNECTOR_OFFLINE=1 is set)`) before the QR registration or the credential probe; the test runner sets it so no test can register an app by accident. Not for normal use |
-| `XDG_CONFIG_HOME` | `~/.config` (`%AppData%` on Windows) | `<config>` above is `$XDG_CONFIG_HOME/agent-lark` |
+| `XDG_CONFIG_HOME` | `~/.config` (`%AppData%` on Windows) | `<config>` above is `$XDG_CONFIG_HOME/lark-connector` |
 | `CLAUDE_CONFIG_DIR` | `~/.claude` | where the daemon looks for Claude Code session transcripts (`projects/*/<session id>.jsonl`, §5), read from the **daemon's** environment: a claude started with another `CLAUDE_CONFIG_DIR` is not found, and its ✈️ is swapped for `Get` only on the idle fallback |
 | `HERDR_ENV`, `HERDR_PANE_ID` | set by herdr | detected, not configured: `HERDR_PANE_ID` is recorded on the binding as the injection target and is the pane a handed-off `setup --reuse` reports back to; `HERDR_ENV=1` is what `status`, `away on` and `setup --reuse` mean by "inside herdr" |
 
@@ -343,7 +343,7 @@ into the interactive `setup` (echo off) and never travels through argv (`ps` sho
 the machine), a file the CLI writes other than the stores above, or any output — a probe error that
 quotes it is printed with the secret masked as `***`.
 
-## 8. The per-project state file: `<project root>/.agent-lark/state.json`
+## 8. The per-project state file: `<project root>/.lark-connector/state.json`
 
 Written by the CLI, read by the agent and by whatever rule the user keeps about remote mode; the
 daemon writes it in one case only (a live group found gone during a sweep, §6). Project root as in §4.
@@ -359,7 +359,7 @@ The directory carries its own `.gitignore` (`*`), so git never sees it and the p
 
 `bind` and `away on` create the directory; `away off`, `unbind` and the daemon's sweep only update a
 file that already exists, so a project that never used the channel gets no directory. `away status` prints the file in
-words (`remote mode: on  group: oc_…`; `This project has never used agent-lark (no .agent-lark/state.json)`
+words (`remote mode: on  group: oc_…`; `This project has never used agent-lark (no .lark-connector/state.json)`
 when there is none); `away status --json` prints it verbatim, or `{"away":false,"chatId":null,"target":"<root>","updated":""}`
 when there is none. The file is not checked against the daemon: `status` is the command that asks the
 daemon. Writes are atomic (temp file + rename) but unlocked. No credential and no pane id is ever

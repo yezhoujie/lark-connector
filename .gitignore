@@ -5,8 +5,8 @@ CLAUDE.md
 # 只在本机保留，不入仓
 task/
 
-# 守护进程的运行时状态（花名册 / 群绑定 / 日志），只在本机
-.agent-lark/
+# 项目级远程模式开关 state.json，只在本机
+.lark-connector/
 
 # Node 工具链（package.json / tsconfig / scripts 都在仓根）：
 # 依赖、tsc 的测试编译产物、卡片预览的输出

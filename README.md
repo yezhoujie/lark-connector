@@ -106,7 +106,7 @@ im:message   im:message:send_as_bot   im:message.group_msg   im:chat   im:resour
 
 ### 4.4 Credentials
 
-Three places, highest first: `LARK_CONNECTOR_APP_ID` / `LARK_CONNECTOR_APP_SECRET` in the environment (a runtime override), the OS keychain (what `setup` writes; macOS `security`, Linux `secret-tool`, a DPAPI-encrypted file on Windows), or `~/.config/agent-lark/credentials.json` with mode `0600`. Nothing else is read — no env file. `agent-lark status` shows which one is in use **and never prints a value**. Details and every variable: [references/daemon.md](references/daemon.md) §7.
+Three places, highest first: `LARK_CONNECTOR_APP_ID` / `LARK_CONNECTOR_APP_SECRET` in the environment (a runtime override), the OS keychain (what `setup` writes; macOS `security`, Linux `secret-tool`, a DPAPI-encrypted file on Windows), or `~/.config/lark-connector/credentials.json` with mode `0600`. Nothing else is read — no env file. `agent-lark status` shows which one is in use **and never prints a value**. Details and every variable: [references/daemon.md](references/daemon.md) §7.
 
 ## 5. Using it: what you say, what the agent does
 
@@ -171,7 +171,7 @@ Every exit code with its stderr text and what the agent is told to do: [referenc
 
 Versions are git tags `agent-lark/vX.Y.Z`; what changed is in [CHANGELOG.md](../../CHANGELOG.md). An install is a snapshot of the repository; `npx skills update` refreshes it (`-g` for global installs, `-p` for the current project). To stay on a release, install with the tag as git ref: `npx skills add 'yezhoujie/agent-remote-communication-skills#agent-lark/v0.1.4' --skill agent-lark`.
 
-On a machine that runs the daemon: 1. `agent-lark daemon --stop` with the CLI you have now (refused while a question is pending — wait, or `--stop --force`; if the files were already replaced and the old daemon does not answer, `kill -TERM <pid>`, the pid is in `~/.agent-lark/daemon.pid`). 2. Update the files. 3. `agent-lark daemon --detach`. Credentials, group bindings and the per-project switch all carry over; then say "turn remote mode on" so the agent records its pane again.
+On a machine that runs the daemon: 1. `agent-lark daemon --stop` with the CLI you have now (refused while a question is pending — wait, or `--stop --force`; if the files were already replaced and the old daemon does not answer, `kill -TERM <pid>`, the pid is in `~/.lark-connector/daemon.pid`). 2. Update the files. 3. `agent-lark daemon --detach`. Credentials, group bindings and the per-project switch all carry over; then say "turn remote mode on" so the agent records its pane again.
 
 ## 10. Make it stick: the rule for your agent
 

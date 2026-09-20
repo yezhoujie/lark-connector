@@ -23,14 +23,14 @@ export interface ResolvedCreds extends AppCreds {
 
 export type StoreKind = 'keychain' | 'file' | 'none';
 
-const SERVICE = process.env.LARK_CONNECTOR_KEYCHAIN?.trim() || 'agent-lark';
+const SERVICE = process.env.LARK_CONNECTOR_KEYCHAIN?.trim() || 'lark-connector';
 const ACCOUNT = 'app';
 
-/** `$XDG_CONFIG_HOME/agent-lark`, i.e. `~/.config/agent-lark` by default. */
+/** `$XDG_CONFIG_HOME/lark-connector`, i.e. `~/.config/lark-connector` by default. */
 export function configDir(): string {
   const xdg = process.env.XDG_CONFIG_HOME?.trim();
   const base = xdg || join(homedir(), platform() === 'win32' ? 'AppData/Roaming' : '.config');
-  return join(base, 'agent-lark');
+  return join(base, 'lark-connector');
 }
 
 export const credentialsFile = (): string => join(configDir(), 'credentials.json');
@@ -149,7 +149,7 @@ function keychainWrite(creds: AppCreds): void {
     });
     return;
   }
-  execFileSync('secret-tool', ['store', '--label', 'agent-lark', 'service', SERVICE, 'account', ACCOUNT], {
+  execFileSync('secret-tool', ['store', '--label', 'lark-connector', 'service', SERVICE, 'account', ACCOUNT], {
     input: blob,
     stdio: ['pipe', 'ignore', 'pipe'],
   });
