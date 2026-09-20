@@ -28,9 +28,8 @@ export const sockPath = (): string => join(homeDir(), 'daemon.sock');
 export const SOCK_PATH_LIMIT = ['darwin', 'freebsd', 'openbsd', 'netbsd'].includes(platform()) ? 104 : 108;
 
 /** Why the socket path cannot be used, or null; always null on Windows (a named pipe has no such limit). */
-export function sockPathProblem(): string | null {
+export function sockPathProblem(path = sockPath()): string | null {
   if (platform() === 'win32') return null;
-  const path = sockPath();
   const bytes = Buffer.byteLength(path, 'utf8');
   return bytes > SOCK_PATH_LIMIT ? fill(msg.sockPathTooLong, { path, bytes, limit: SOCK_PATH_LIMIT }) : null;
 }
@@ -41,9 +40,12 @@ export function sockPathProblem(): string | null {
  * and the name vanishes with the process, so one pipe per state dir is
  * derived from the dir's path.
  */
-export function ipcEndpoint(): string {
-  if (platform() === 'win32') return `\\\\.\\pipe\\lark-connector-${createHash('sha1').update(homeDir()).digest('hex').slice(0, 12)}`;
-  return sockPath();
+export const ipcEndpoint = (): string => ipcEndpointFor(homeDir());
+
+/** The endpoint a daemon on state directory `home` listens on; `pipePrefix` names the pipe on Windows. */
+export function ipcEndpointFor(home: string, pipePrefix = 'lark-connector-'): string {
+  if (platform() === 'win32') return `\\\\.\\pipe\\${pipePrefix}${createHash('sha1').update(home).digest('hex').slice(0, 12)}`;
+  return join(home, 'daemon.sock');
 }
 
 export const pidPath = (): string => join(homeDir(), 'daemon.pid');

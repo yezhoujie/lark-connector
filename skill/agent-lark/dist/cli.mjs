@@ -136645,10 +136645,10 @@ import { execFileSync } from "node:child_process";
 import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { homedir, platform } from "node:os";
 import { dirname, join } from "node:path";
-function configDir() {
+function configDirFor(name) {
   const xdg = process.env.XDG_CONFIG_HOME?.trim();
   const base = xdg || join(homedir(), platform() === "win32" ? "AppData/Roaming" : ".config");
-  return join(base, "lark-connector");
+  return join(base, name);
 }
 function defaultStore() {
   const forced = process.env.LARK_CONNECTOR_STORE?.trim();
@@ -136708,20 +136708,20 @@ function dpapiRead() {
     return null;
   }
 }
-function keychainRead() {
+function keychainRead(service = SERVICE) {
   try {
     if (platform() === "win32") {
       const raw2 = dpapiRead();
       return raw2 ? JSON.parse(raw2) : null;
     }
     if (platform() === "darwin") {
-      const raw2 = execFileSync("security", ["find-generic-password", "-s", SERVICE, "-a", ACCOUNT, "-w"], {
+      const raw2 = execFileSync("security", ["find-generic-password", "-s", service, "-a", ACCOUNT, "-w"], {
         encoding: "utf8",
         stdio: ["ignore", "pipe", "ignore"]
       }).trim();
       return raw2 ? JSON.parse(raw2) : null;
     }
-    const raw = execFileSync("secret-tool", ["lookup", "service", SERVICE, "account", ACCOUNT], {
+    const raw = execFileSync("secret-tool", ["lookup", "service", service, "account", ACCOUNT], {
       encoding: "utf8",
       stdio: ["ignore", "pipe", "ignore"]
     }).trim();
@@ -136730,32 +136730,32 @@ function keychainRead() {
     return null;
   }
 }
-function keychainWrite(creds) {
+function keychainWrite(creds, service = SERVICE) {
   const blob = JSON.stringify(creds);
   if (platform() === "win32") {
     dpapiWrite(blob);
     return;
   }
   if (platform() === "darwin") {
-    execFileSync("security", ["add-generic-password", "-U", "-s", SERVICE, "-a", ACCOUNT, "-w", blob], {
+    execFileSync("security", ["add-generic-password", "-U", "-s", service, "-a", ACCOUNT, "-w", blob], {
       stdio: ["ignore", "ignore", "pipe"]
     });
     return;
   }
-  execFileSync("secret-tool", ["store", "--label", "lark-connector", "service", SERVICE, "account", ACCOUNT], {
+  execFileSync("secret-tool", ["store", "--label", "lark-connector", "service", service, "account", ACCOUNT], {
     input: blob,
     stdio: ["pipe", "ignore", "pipe"]
   });
 }
-function keychainClear() {
+function keychainClear(service = SERVICE) {
   try {
     if (platform() === "win32") {
       if (existsSync(dpapiFile())) unlinkSync(dpapiFile());
       return;
     }
     if (platform() === "darwin")
-      execFileSync("security", ["delete-generic-password", "-s", SERVICE, "-a", ACCOUNT], { stdio: "ignore" });
-    else execFileSync("secret-tool", ["clear", "service", SERVICE, "account", ACCOUNT], { stdio: "ignore" });
+      execFileSync("security", ["delete-generic-password", "-s", service, "-a", ACCOUNT], { stdio: "ignore" });
+    else execFileSync("secret-tool", ["clear", "service", service, "account", ACCOUNT], { stdio: "ignore" });
   } catch {
   }
 }
@@ -136820,13 +136820,14 @@ function credsReport() {
   lines.push(`${mark(!!fileRead())} ${credentialsFile()}`);
   return lines;
 }
-var SERVICE, ACCOUNT, credentialsFile, dpapiFile;
+var SERVICE, ACCOUNT, configDir, credentialsFile, dpapiFile;
 var init_creds = __esm({
   "src/creds.ts"() {
     "use strict";
     init_texts();
     SERVICE = process.env.LARK_CONNECTOR_KEYCHAIN?.trim() || "lark-connector";
     ACCOUNT = "app";
+    configDir = () => configDirFor("lark-connector");
     credentialsFile = () => join(configDir(), "credentials.json");
     dpapiFile = () => join(configDir(), "credentials.dpapi");
   }
@@ -136953,15 +136954,14 @@ function ensureHomeDir() {
   mkdirSync2(dir, { recursive: true, mode: 448 });
   return dir;
 }
-function sockPathProblem() {
+function sockPathProblem(path2 = sockPath()) {
   if (platform2() === "win32") return null;
-  const path2 = sockPath();
   const bytes = Buffer.byteLength(path2, "utf8");
   return bytes > SOCK_PATH_LIMIT ? fill(msg.sockPathTooLong, { path: path2, bytes, limit: SOCK_PATH_LIMIT }) : null;
 }
-function ipcEndpoint() {
-  if (platform2() === "win32") return `\\\\.\\pipe\\lark-connector-${createHash2("sha1").update(homeDir()).digest("hex").slice(0, 12)}`;
-  return sockPath();
+function ipcEndpointFor(home, pipePrefix = "lark-connector-") {
+  if (platform2() === "win32") return `\\\\.\\pipe\\${pipePrefix}${createHash2("sha1").update(home).digest("hex").slice(0, 12)}`;
+  return join2(home, "daemon.sock");
 }
 function projectRoot(cwd = process.cwd()) {
   try {
@@ -137018,13 +137018,14 @@ function writeProjectState(root, patch, opts = {}) {
   renameSync2(tmp, projectStatePath(root));
   return next;
 }
-var sockPath, SOCK_PATH_LIMIT, pidPath, logPath, bindingsPath, mediaDir, projectStateDir, projectStatePath;
+var sockPath, SOCK_PATH_LIMIT, ipcEndpoint, pidPath, logPath, bindingsPath, mediaDir, projectStateDir, projectStatePath;
 var init_paths = __esm({
   "src/paths.ts"() {
     "use strict";
     init_texts();
     sockPath = () => join2(homeDir(), "daemon.sock");
     SOCK_PATH_LIMIT = ["darwin", "freebsd", "openbsd", "netbsd"].includes(platform2()) ? 104 : 108;
+    ipcEndpoint = () => ipcEndpointFor(homeDir());
     pidPath = () => join2(homeDir(), "daemon.pid");
     logPath = () => join2(homeDir(), "daemon.log");
     bindingsPath = () => join2(homeDir(), "bindings.json");
@@ -137217,8 +137218,8 @@ var init_bindings = __esm({
 import { createConnection, createServer } from "node:net";
 import { unlinkSync as unlinkSync2 } from "node:fs";
 import { platform as platform3 } from "node:os";
-async function isDaemonListening(timeoutMs = 1e3) {
-  const res = await request({ type: "ping" }, { timeoutMs });
+async function isDaemonListening(timeoutMs = 1e3, opts = {}) {
+  const res = await request({ type: "ping" }, { timeoutMs, endpoint: opts.endpoint });
   return res.ok && res.kind === "pong";
 }
 function request(req, opts = {}) {
@@ -137233,8 +137234,9 @@ function request(req, opts = {}) {
       }
       resolve3(r);
     };
-    const pathProblem = sockPathProblem();
-    const sock = createConnection(ipcEndpoint());
+    const endpoint = opts.endpoint ?? ipcEndpoint();
+    const pathProblem = sockPathProblem(endpoint);
+    const sock = createConnection(endpoint);
     let buf = "";
     sock.on("connect", () => {
       sock.write(`${JSON.stringify(req)}

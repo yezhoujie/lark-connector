@@ -27,10 +27,13 @@ const SERVICE = process.env.LARK_CONNECTOR_KEYCHAIN?.trim() || 'lark-connector';
 const ACCOUNT = 'app';
 
 /** `$XDG_CONFIG_HOME/lark-connector`, i.e. `~/.config/lark-connector` by default. */
-export function configDir(): string {
+export const configDir = (): string => configDirFor('lark-connector');
+
+/** The per-user config directory another program name would get on this platform. */
+export function configDirFor(name: string): string {
   const xdg = process.env.XDG_CONFIG_HOME?.trim();
   const base = xdg || join(homedir(), platform() === 'win32' ? 'AppData/Roaming' : '.config');
-  return join(base, 'lark-connector');
+  return join(base, name);
 }
 
 export const credentialsFile = (): string => join(configDir(), 'credentials.json');
@@ -44,6 +47,9 @@ export function defaultStore(): StoreKind {
   if (forced === 'keychain' || forced === 'file' || forced === 'none') return forced;
   return keychainAvailable() ? 'keychain' : 'file';
 }
+
+/** The keychain service the credentials are filed under (`LARK_CONNECTOR_KEYCHAIN` overrides). */
+export const keychainService = (): string => SERVICE;
 
 /** Name of the per-platform secure store, for messages. */
 export function keychainName(): string {
@@ -111,21 +117,23 @@ function dpapiRead(): string | null {
 }
 
 // ---------------------------------------------------------------- keychain
+// `service` selects the entry on macOS and Linux; Windows keeps one DPAPI
+// file per config directory instead, so the argument means nothing there.
 
-function keychainRead(): AppCreds | null {
+export function keychainRead(service = SERVICE): AppCreds | null {
   try {
     if (platform() === 'win32') {
       const raw = dpapiRead();
       return raw ? (JSON.parse(raw) as AppCreds) : null;
     }
     if (platform() === 'darwin') {
-      const raw = execFileSync('security', ['find-generic-password', '-s', SERVICE, '-a', ACCOUNT, '-w'], {
+      const raw = execFileSync('security', ['find-generic-password', '-s', service, '-a', ACCOUNT, '-w'], {
         encoding: 'utf8',
         stdio: ['ignore', 'pipe', 'ignore'],
       }).trim();
       return raw ? (JSON.parse(raw) as AppCreds) : null;
     }
-    const raw = execFileSync('secret-tool', ['lookup', 'service', SERVICE, 'account', ACCOUNT], {
+    const raw = execFileSync('secret-tool', ['lookup', 'service', service, 'account', ACCOUNT], {
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'ignore'],
     }).trim();
@@ -135,7 +143,7 @@ function keychainRead(): AppCreds | null {
   }
 }
 
-function keychainWrite(creds: AppCreds): void {
+export function keychainWrite(creds: AppCreds, service = SERVICE): void {
   const blob = JSON.stringify(creds);
   if (platform() === 'win32') {
     dpapiWrite(blob);
@@ -144,26 +152,26 @@ function keychainWrite(creds: AppCreds): void {
   if (platform() === 'darwin') {
     // -U updates in place. The blob travels in argv of `security` only; it is
     // never written to a file we control and never printed.
-    execFileSync('security', ['add-generic-password', '-U', '-s', SERVICE, '-a', ACCOUNT, '-w', blob], {
+    execFileSync('security', ['add-generic-password', '-U', '-s', service, '-a', ACCOUNT, '-w', blob], {
       stdio: ['ignore', 'ignore', 'pipe'],
     });
     return;
   }
-  execFileSync('secret-tool', ['store', '--label', 'lark-connector', 'service', SERVICE, 'account', ACCOUNT], {
+  execFileSync('secret-tool', ['store', '--label', 'lark-connector', 'service', service, 'account', ACCOUNT], {
     input: blob,
     stdio: ['pipe', 'ignore', 'pipe'],
   });
 }
 
-function keychainClear(): void {
+export function keychainClear(service = SERVICE): void {
   try {
     if (platform() === 'win32') {
       if (existsSync(dpapiFile())) unlinkSync(dpapiFile());
       return;
     }
     if (platform() === 'darwin')
-      execFileSync('security', ['delete-generic-password', '-s', SERVICE, '-a', ACCOUNT], { stdio: 'ignore' });
-    else execFileSync('secret-tool', ['clear', 'service', SERVICE, 'account', ACCOUNT], { stdio: 'ignore' });
+      execFileSync('security', ['delete-generic-password', '-s', service, '-a', ACCOUNT], { stdio: 'ignore' });
+    else execFileSync('secret-tool', ['clear', 'service', service, 'account', ACCOUNT], { stdio: 'ignore' });
   } catch {
     // nothing stored
   }

@@ -93,9 +93,9 @@ export type FailureReason = 'down' | 'connect' | 'closed' | 'timeout' | 'parse' 
  */
 export type Frame = { frame: 'note'; text: string } | { frame: 'result'; body: Response };
 
-/** Is a daemon answering on this state dir's endpoint? Decided by a ping, never by a file: a socket file can outlive its process, a pipe cannot be probed any other way. */
-export async function isDaemonListening(timeoutMs = 1000): Promise<boolean> {
-  const res = await request({ type: 'ping' }, { timeoutMs });
+/** Is a daemon answering on this state dir's endpoint (or on `endpoint`)? Decided by a ping, never by a file: a socket file can outlive its process, a pipe cannot be probed any other way. */
+export async function isDaemonListening(timeoutMs = 1000, opts: { endpoint?: string } = {}): Promise<boolean> {
+  const res = await request({ type: 'ping' }, { timeoutMs, endpoint: opts.endpoint });
   return res.ok && res.kind === 'pong';
 }
 
@@ -103,10 +103,11 @@ export async function isDaemonListening(timeoutMs = 1000): Promise<boolean> {
  * One request, one connection. The connection stays open until the daemon
  * sends its result frame — that is what makes `ask` block, and what makes a
  * dead daemon surface immediately as a dropped connection instead of a hang.
+ * `endpoint` dials somewhere other than this state dir's daemon.
  */
 export function request(
   req: Request,
-  opts: { onNote?: (text: string) => void; timeoutMs?: number } = {},
+  opts: { onNote?: (text: string) => void; timeoutMs?: number; endpoint?: string } = {},
 ): Promise<Response> {
   return new Promise((resolve) => {
     let settled = false;
@@ -122,8 +123,9 @@ export function request(
     };
 
     // Judged on the path being dialed, before anything can change it.
-    const pathProblem = sockPathProblem();
-    const sock = createConnection(ipcEndpoint());
+    const endpoint = opts.endpoint ?? ipcEndpoint();
+    const pathProblem = sockPathProblem(endpoint);
+    const sock = createConnection(endpoint);
     let buf = '';
 
     sock.on('connect', () => {
