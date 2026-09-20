@@ -9,6 +9,7 @@ import { askCard, checkerName, notifyCard, optionIdOf, receiptCard, statusCard }
 import { resolveCreds } from './creds.js';
 import { agentList, findPaneForProject, promptPane, sendKeys, type AgentInfo } from './herdr.js';
 import { isDaemonListening, serve, type Candidate, type Request, type Response } from './ipc.js';
+import { legacyGroupMarker } from './migrate.js';
 import { ensureHomeDir, homeDir, ipcEndpoint, logPath, mediaDir, pidPath, sockPath, sockPathProblem, writeProjectState } from './paths.js';
 import { fill, msg, t } from './texts.js';
 import { validateAsk, validateNotify, ValidationError, type AskPayload, type Lang } from './validate.js';
@@ -1440,7 +1441,9 @@ export async function runDaemon(deps: DaemonDeps = {}): Promise<DaemonHandle> {
                 } catch {
                   continue;
                 }
-                if (info.description !== marker) continue;
+                // A group the earlier version made carries its marker; taking
+                // it back rewrites the description to the current one.
+                if (info.description !== marker && info.description !== legacyGroupMarker(req.root)) continue;
                 candidates.push({ chatId: id, name: info.name || null, releasedAt: null });
               }
             } else {

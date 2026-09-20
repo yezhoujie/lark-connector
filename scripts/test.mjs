@@ -9,8 +9,9 @@
 // Explicit file paths also keep the argument list free of shell glob rules,
 // which differ between sh and cmd.exe.
 import { spawnSync } from 'node:child_process';
-import { readdirSync, rmSync } from 'node:fs';
+import { mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { createRequire } from 'node:module';
+import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -23,6 +24,17 @@ rmSync(outDir, { recursive: true, force: true });
 // No test may reach Feishu, whatever it spawns: the CLI refuses both of
 // setup's network paths (QR registration, credential probe) under this.
 process.env.LARK_CONNECTOR_OFFLINE = '1';
+
+// Nor may any test reach the developer's own account: the first run of any
+// command carries over what the earlier name (agent-lark) left in the home
+// directory and in the keychain, and a spawned CLI would find the real ones.
+// A throwaway home directory for the whole run (HOME on Unix, USERPROFILE on
+// Windows — whichever homedir() reads), and credentials kept in a file
+// rather than the keychain.
+const fakeHome = mkdtempSync(join(tmpdir(), 'lark-connector-test-home-'));
+process.env.HOME = fakeHome;
+process.env.USERPROFILE = fakeHome;
+process.env.LARK_CONNECTOR_STORE = 'file';
 
 // Run tsc through the current Node binary rather than `npx`/`tsc` so no shell
 // lookup (or `.cmd` shim on Windows) is involved.
@@ -80,4 +92,5 @@ const run = spawnSync(process.execPath, ['--test', '--test-timeout=30000', ...fo
   stdio: 'inherit',
 });
 if (run.error) console.error(run.error);
+rmSync(fakeHome, { recursive: true, force: true });
 process.exit(run.status ?? 1);

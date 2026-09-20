@@ -10,6 +10,7 @@ import { closePane, currentPaneId, insideHerdr, promptPane, quoteForPaneShell, r
 import { InputInterrupted, terminalIO, type SetupIO } from './tty.js';
 import { taskNameProblem } from './bindings.js';
 import { isDaemonListening, request, type Request, type Response } from './ipc.js';
+import { LegacyDaemonRunning, migrateLegacy, migrateProjectState } from './migrate.js';
 import { ensureHomeDir, homeDir, ipcEndpoint, logPath, pidPath, projectLabel, projectRoot, readProjectState, sockPathProblem, writeProjectState } from './paths.js';
 import { both, en, fill, msg, zh } from './texts.js';
 import { validateAsk, validateNotify, ValidationError } from './validate.js';
@@ -184,6 +185,7 @@ async function readStdin(): Promise<string> {
 
 function ctx(): { root: string; label: string; paneId: string | null } {
   const root = projectRoot();
+  migrateProjectState(root);
   return { root, label: projectLabel(root), paneId: currentPaneId() };
 }
 
@@ -906,6 +908,7 @@ async function cmdStatus(): Promise<void> {
     const live = list.bindings.filter((b) => b.releasedAt === null);
     const released = list.bindings.filter((b) => b.releasedAt !== null);
     const here = projectRoot();
+    migrateProjectState(here);
     const mark = (root: string): string => (root === here ? '*' : ' ');
     if (!live.length) process.stdout.write(`${msg.statusNoBindings}\n`);
     else {
@@ -944,11 +947,26 @@ function takeHome(argv: string[]): string[] {
 
 async function main(): Promise<void> {
   const [cmd, ...args] = takeHome(process.argv.slice(2));
+  const isHelp = cmd === undefined || cmd === '--help' || cmd === '-h' || cmd === 'help';
   if (cmd === 'away') {
     const sub = argv('away', args).positional() ?? 'status';
     rejectUnknownOptions(`away ${sub}`, args);
-  } else if (cmd === undefined || cmd === '--help' || cmd === '-h' || cmd === 'help') rejectUnknownOptions('help', args);
+  } else if (isHelp) rejectUnknownOptions('help', args);
   else if (cmd in OPTIONS) rejectUnknownOptions(cmd, args);
+  // A misspelt command is refused here, before anything is done on its
+  // behalf: nothing of the earlier name is moved for it, and an old daemon
+  // still running does not turn a typo into exit 4.
+  else die(1, fill(msg.unknownCommand, { cmd }));
+  // What the earlier name left behind is carried over before any command
+  // looks for it; help has nothing to look for.
+  if (!isHelp) {
+    try {
+      await migrateLegacy();
+    } catch (err) {
+      if (err instanceof LegacyDaemonRunning) die(4, fill(msg.migrateOldDaemonRunning, { endpoint: err.endpoint }));
+      throw err;
+    }
+  }
   switch (cmd) {
     case 'setup':
       return cmdSetup(args);

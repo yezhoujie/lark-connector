@@ -8,8 +8,11 @@ import { fill, msg } from './texts.js';
 /** Daemon-side state directory. Everything the daemon owns lives here. */
 export function homeDir(): string {
   const override = process.env.LARK_CONNECTOR_HOME?.trim();
-  return override ? resolve(override) : join(homedir(), '.lark-connector');
+  return override ? resolve(override) : defaultHomeDir();
 }
+
+/** The state directory when nothing overrides it. */
+export const defaultHomeDir = (): string => join(homedir(), '.lark-connector');
 
 export function ensureHomeDir(): string {
   const dir = homeDir();

@@ -198,6 +198,18 @@ Exit codes: 0 ok · 1 bad input · 2 timed out, nobody answered · 3 channel fai
   unknownOption: 'unknown option {option}. See lark-connector --help.',
   offline: 'offline: refusing to contact Feishu (LARK_CONNECTOR_OFFLINE=1 is set)',
   unknownCommand: 'Unknown command "{cmd}". See lark-connector --help.',
+  // carry-over from the earlier name, agent-lark: printed on stderr by the
+  // first run after the upgrade, after the `lark-connector: ` prefix — a
+  // `note:` reports a move, a `warning:` something left for the user to do.
+  migrateMoved: 'note: moved the old directory {from} to {to}',
+  migrateMoveFailed: 'warning: could not move the old directory {from} to {to} ({error}); move it by hand',
+  migrateBothExist: 'warning: both the old directory {old} and {current} exist; the old one is left as it is, delete it yourself once it is not needed',
+  migrateKeychain: 'note: credentials in the keychain copied from service {from} to service {to}; the old entry was removed',
+  migrateKeychainCopyFailed:
+    'warning: could not copy the keychain entry from service {from} to service {to} ({error}); the old entry (service {from}, account {account}) is left as it is and is not looked at again: run lark-connector setup --reuse with the same App ID and App Secret, or copy the entry by hand',
+  migrateKeychainClearFailed: 'warning: the old keychain entry (service {service}, account {account}) is still there, it could not be removed; the new entry is in place, remove the old one by hand',
+  migrateEnvVars: 'warning: environment variables were renamed: {pairs}; the old names are not read any more, rename them',
+  migrateOldDaemonRunning: 'the daemon of the old agent-lark is still running at {endpoint}; stop it first with the old CLI (daemon --stop), then try again',
   needStdin: 'This command reads one JSON object from stdin. Feed it with a heredoc.',
   badJson: 'stdin is not valid JSON: {error}',
   askProblems: 'This question card has {n} problem(s); nothing was sent:',

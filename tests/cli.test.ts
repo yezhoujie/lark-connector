@@ -27,10 +27,12 @@ after(() => {
 });
 
 // Every spawned CLI is pointed away from the machine's real credentials: a
-// keychain service that never holds anything, and a throwaway config dir.
+// keychain service that never holds anything, a throwaway config dir, and the
+// file store — the carry-over from the earlier name would otherwise read the
+// keychain entry of that name, which a developer's machine may still hold.
 const isolatedEnv = (): NodeJS.ProcessEnv => {
-  const env: NodeJS.ProcessEnv = { ...process.env, LARK_CONNECTOR_KEYCHAIN: 'lark-connector-test-never-stored', XDG_CONFIG_HOME: tmp('lark-connector-cfg-') };
-  for (const k of ['LARK_CONNECTOR_APP_ID', 'LARK_CONNECTOR_APP_SECRET', 'LARK_CONNECTOR_OWNER_OPEN_ID', 'LARK_CONNECTOR_STORE']) delete env[k];
+  const env: NodeJS.ProcessEnv = { ...process.env, LARK_CONNECTOR_KEYCHAIN: 'lark-connector-test-never-stored', XDG_CONFIG_HOME: tmp('lark-connector-cfg-'), LARK_CONNECTOR_STORE: 'file' };
+  for (const k of ['LARK_CONNECTOR_APP_ID', 'LARK_CONNECTOR_APP_SECRET', 'LARK_CONNECTOR_OWNER_OPEN_ID']) delete env[k];
   return env;
 };
 
