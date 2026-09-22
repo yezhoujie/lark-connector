@@ -136271,6 +136271,19 @@ function selfCommand(entry = process.argv[1] ?? "", platform6 = process.platform
   const escaped = platform6 === "win32" ? resolved.replace(/"/g, '\\"') : resolved.replace(/[\\"]/g, "\\$&");
   return `node "${escaped}"`;
 }
+function resolveLang(explicit, env = process.env) {
+  if (explicit !== void 0) {
+    if (explicit === "zh" || explicit === "en") return explicit;
+    throw new Error(`--lang must be zh or en, got "${explicit}"`);
+  }
+  const fromEnv = env.LARK_CONNECTOR_LANG;
+  if (fromEnv) {
+    if (fromEnv === "zh" || fromEnv === "en") return fromEnv;
+    throw new Error(`LARK_CONNECTOR_LANG must be zh or en, got "${fromEnv}"`);
+  }
+  const locale = env.LC_ALL || env.LC_MESSAGES || env.LANG;
+  return locale?.startsWith("zh") ? "zh" : "en";
+}
 function fill(template, vars = {}) {
   return template.replace(/\{([a-zA-Z_]+)\}/g, (whole, name) => name in vars ? String(vars[name]) : whole);
 }
@@ -136323,6 +136336,13 @@ var init_texts = __esm({
       // "stuck" status card
       statusBlocked: "\u7B49\u4F60\u8F93\u5165",
       statusPane: "\u7A97\u683C {pane}",
+      // remote mode on/off card
+      awayOnTitle: "\u8FDC\u7A0B\u6A21\u5F0F\u5DF2\u5F00\u542F",
+      awayOffTitle: "\u8FDC\u7A0B\u6A21\u5F0F\u5373\u5C06\u5173\u95ED",
+      awayOnFull: "\u4F60\u5728\u7FA4\u91CC\u53D1\u7684\u6D88\u606F\u4F1A\u9001\u8FDB\u7EC8\u7AEF\uFF1B\u8981\u62CD\u677F\u7684\u4E8B\u4F1A\u4EE5\u5361\u7247\u53D1\u5230\u8FD9\u91CC\u3002",
+      awayOnNoHerdr: "\u8FD9\u53F0\u673A\u5668\u6CA1\u6709 herdr\uFF1A\u4F60\u4E3B\u52A8\u53D1\u7684\u6D88\u606F**\u4E0D\u4F1A**\u9001\u5230\u7EC8\u7AEF\uFF0C\u53EA\u6709\u5361\u7247\u6309\u94AE\u548C\u5BF9\u63D0\u95EE\u7684\u56DE\u590D\u80FD\u56DE\u5230 agent\u3002",
+      awayOnDaemonNoHerdr: "daemon \u627E\u4E0D\u5230 herdr\uFF0C\u91CD\u542F\u524D\u4F60\u4E3B\u52A8\u53D1\u7684\u6D88\u606F\u9001\u4E0D\u5230\uFF0C\u63A8\u8350\u8BA9 agent \u5E2E\u4F60\u91CD\u542F daemon \u6765\u4F7F\u7528\u5B8C\u6574\u529F\u80FD\u3002",
+      awayOffBody: "\u8FDC\u7A0B\u6A21\u5F0F\u5373\u5C06\u5173\u95ED\uFF0C\u4E4B\u540E\u8BF7\u56DE\u7EC8\u7AEF\u7EE7\u7EED\uFF1B\u7FA4\u91CC\u7684\u6D88\u606F\u4E0D\u518D\u9001\u8FBE\u3002",
       // button / form toasts
       toastAnswered: "\u5DF2\u56DE\u590D",
       toastClosed: "\u8FD9\u4E2A\u95EE\u9898\u5DF2\u7ECF\u7ED3\u675F\u4E86\uFF0C\u521A\u624D\u90A3\u4E0B\u5F53\u6210\u65B0\u6307\u4EE4\u53D1\u8FC7\u53BB\u4E86",
@@ -136396,6 +136416,12 @@ var init_texts = __esm({
       promptHerdrMissing: `The daemon cannot find the herdr executable (it was probably started before herdr was installed). Restart it from a herdr pane: ${CLI} daemon --stop, then ${CLI} away on`,
       statusBlocked: "waiting for you",
       statusPane: "pane {pane}",
+      awayOnTitle: "Remote mode is on",
+      awayOffTitle: "Remote mode is about to turn off",
+      awayOnFull: "Messages you send in this group are delivered into the terminal; decisions that need you arrive here as cards.",
+      awayOnNoHerdr: "This machine has no herdr: messages you send on your own **will not** reach the terminal \u2014 only button taps and replies to a question make it back to the agent.",
+      awayOnDaemonNoHerdr: "The daemon cannot find herdr; messages you send on your own will not get through until it is restarted \u2014 ask the agent to restart the daemon for full functionality.",
+      awayOffBody: "Remote mode is about to turn off; continue from the terminal from here on \u2014 messages in this group will no longer be delivered.",
       toastAnswered: "Replied",
       toastClosed: "This question is already closed; that tap was forwarded as a new instruction",
       toastBadOption: "That option does not match, try again",
@@ -136463,6 +136489,7 @@ Exit codes: 0 ok \xB7 1 bad input \xB7 2 timed out, nobody answered \xB7 3 chann
 `,
       prefix: "lark-connector: ",
       homeNeedsDir: "--home needs a directory",
+      badLang: "--lang must be zh or en",
       unknownOption: `unknown option {option}. See ${CLI} --help.`,
       offline: "offline: refusing to contact Feishu (LARK_CONNECTOR_OFFLINE=1 is set)",
       unknownCommand: `Unknown command "{cmd}". See ${CLI} --help.`,
@@ -136562,6 +136589,7 @@ Wait for the answer, or do it anyway: ${CLI} daemon --stop --force`,
       awayOff: "Remote mode is off.",
       awayOn: "Remote mode is on: decisions, and moments when the agent is stuck on a prompt that needs you, are pushed to this project's Feishu group.",
       awayDaemonNoHerdr: `warning: the daemon cannot find herdr on its PATH (was it started before herdr was installed?). Phone messages cannot be delivered until it is restarted from a herdr pane: ${CLI} daemon --stop, then ${CLI} away on`,
+      awayNotAnnounced: "(the group was not notified: the daemon could not send the card)",
       // status
       statusCredsYes: "credentials: configured, from {origin}",
       statusCredsNo: `credentials: not configured; run ${CLI} setup first`,
@@ -136652,7 +136680,6 @@ If this is a permission problem the app lacks the im:chat (create group) scope: 
       vRecommendEmpty: 'recommend: with select "multi" the array must be non-empty \u2014 at least one option to tick by default',
       vRecommendDupItem: 'recommend: "{id}" is listed twice',
       vSelect: 'select: must be "single" or "multi", got {value}',
-      vLang: 'lang: must be "zh" or "en", got {value}',
       vBodyRequired: "body: required and non-empty",
       vBodyTooLong: "body: over {max} characters",
       // credentials
@@ -137548,12 +137575,6 @@ var init_migrate = __esm({
 function str2(v) {
   return typeof v === "string" && v.trim() ? v.trim() : null;
 }
-function checkLang(v, problems) {
-  if (v === void 0 || v === null) return void 0;
-  if (v === "zh" || v === "en") return v;
-  problems.push(fill(msg.vLang, { value: JSON.stringify(v) }));
-  return void 0;
-}
 function validateAsk(raw) {
   const problems = [];
   const o = raw ?? {};
@@ -137637,7 +137658,6 @@ function validateAsk(raw) {
       recommend = one;
     }
   }
-  const lang = checkLang(o.lang, problems);
   if (problems.length) throw new ValidationError(problems);
   return {
     title,
@@ -137648,7 +137668,6 @@ function validateAsk(raw) {
     recommend,
     reasoning: values.reasoning,
     question: values.question,
-    lang,
     select
   };
 }
@@ -137662,9 +137681,8 @@ function validateNotify(raw) {
   else if (title.includes("\n")) problems.push(msg.vTitleNewline);
   if (!body) problems.push(msg.vBodyRequired);
   else if (body.length > LIMITS.body) problems.push(fill(msg.vBodyTooLong, { max: LIMITS.body }));
-  const lang = checkLang(o.lang, problems);
   if (problems.length) throw new ValidationError(problems);
-  return { title, body, lang };
+  return { title, body };
 }
 var LIMITS, ValidationError;
 var init_validate = __esm({
@@ -137760,7 +137778,7 @@ function optionForm(p, reqId, attempt, recommended, T) {
 }
 function askCard(ctx2) {
   const { payload: p, state } = ctx2;
-  const lang = p.lang ?? "en";
+  const lang = ctx2.lang ?? "en";
   const T = t(lang);
   const head = HEADER[state];
   const template = state === "pending" && ctx2.urgent ? "red" : head.template;
@@ -137807,6 +137825,13 @@ function receiptCard(projectLabel2, why, lang = "en", uncertain = false) {
 function statusCard(projectLabel2, detail, lang = "en") {
   const T = t(lang);
   return card({ icon: "\u{1F514}", title: `[${projectLabel2}] ${T.statusBlocked}`, template: "orange" }, [md(detail)]);
+}
+function awayCard(projectLabel2, on, detail, lang) {
+  const T = t(lang);
+  return card(
+    { icon: on ? "\u{1F4F1}" : "\u{1F319}", title: `[${projectLabel2}] ${on ? T.awayOnTitle : T.awayOffTitle}`, template: on ? "green" : "grey" },
+    [md(detail)]
+  );
 }
 var md, hr, note, HEADER, checkerName, optionIdOf;
 var init_cards = __esm({
@@ -138023,7 +138048,7 @@ async function runDaemon(deps = {}) {
     try {
       await channel.updateCard(
         p.messageId,
-        askCard({ payload: p.payload, projectLabel: p.label, reqId: p.reqId, state: "answered", reply })
+        askCard({ payload: p.payload, projectLabel: p.label, reqId: p.reqId, state: "answered", reply, lang: langOf(bindings.active(p.root)) })
       );
     } catch (err) {
       log("ask.update-failed", { reqId: p.reqId, err: String(err) });
@@ -138040,7 +138065,7 @@ async function runDaemon(deps = {}) {
     try {
       await channel.updateCard(
         p.messageId,
-        askCard({ payload: p.payload, projectLabel: p.label, reqId: p.reqId, state })
+        askCard({ payload: p.payload, projectLabel: p.label, reqId: p.reqId, state, lang: langOf(bindings.active(p.root)) })
       );
     } catch (err) {
       log("ask.update-failed", { reqId: p.reqId, err: String(err) });
@@ -138376,16 +138401,18 @@ ${text}`;
         }
         void inject(b, text).catch((err) => log("inject.failed", { err: String(err).slice(0, 200) }));
       }
-      return { toast: { type: "info", content: t(closed.get(value.reqId)?.lang ?? langOf(b)).toastClosed } };
+      return { toast: { type: "info", content: t(langOf(b)).toastClosed } };
     }
-    const T = t(p.payload.lang ?? "en");
+    const askBinding = bindings.active(p.root);
+    const askLang = langOf(askBinding);
+    const T = t(askLang);
     let reply;
     let via;
     if (form) {
       const picked = p.payload.options.filter((o) => isTicked(form[checkerName(o.id)]));
       if (!picked.length) {
         p.attempt += 1;
-        const retry2 = askCard({ payload: p.payload, projectLabel: p.label, reqId: p.reqId, state: "pending", urgent: p.urgent, attempt: p.attempt });
+        const retry2 = askCard({ payload: p.payload, projectLabel: p.label, reqId: p.reqId, state: "pending", urgent: p.urgent, attempt: p.attempt, lang: askLang });
         void channel.updateCard(p.messageId, retry2).catch((err) => log("ask.update-failed", { reqId: p.reqId, err: String(err).slice(0, 200) }));
         return { toast: { type: "error", content: T.pickAtLeastOne }, card: { type: "raw", data: retry2 } };
       }
@@ -138402,7 +138429,8 @@ ${text}`;
       projectLabel: p.label,
       reqId: p.reqId,
       state: "answered",
-      reply
+      reply,
+      lang: askLang
     });
     void answer(p, reply, via).catch((err) => log("answer.failed", { reqId: p.reqId, err: String(err).slice(0, 200) }));
     return {
@@ -138693,7 +138721,7 @@ ${msg.renamePermissionHint}` : text;
         });
         try {
           const outcome = await Promise.race([
-            channel.updateCard(p.messageId, askCard({ payload: p.payload, projectLabel: p.label, reqId: p.reqId, state: "cancelled" })),
+            channel.updateCard(p.messageId, askCard({ payload: p.payload, projectLabel: p.label, reqId: p.reqId, state: "cancelled", lang: langOf(bindings.active(p.root)) })),
             timeout
           ]);
           if (outcome === "timeout") log("ask.update-timeout", { reqId: p.reqId });
@@ -138941,13 +138969,50 @@ ${msg.renamePermissionHint}` : text;
           return { ok: true, kind: "rename", name: wanted };
         }
         case "setAway": {
-          const b = bindings.touch(req.root, { away: req.away, paneId: req.paneId });
-          if (!b && !req.away) return { ok: true, kind: "ack" };
+          if (!req.away) {
+            const live = bindings.active(req.root);
+            if (!live) return { ok: true, kind: "ack" };
+            let announced2;
+            if (connected) {
+              try {
+                await channel.send(live.chatId, { card: awayCard(live.label, false, t(langOf(live)).awayOffBody, langOf(live)) });
+                announced2 = true;
+              } catch (err) {
+                log("away.announce-failed", { root: req.root, on: false, err: String(err).slice(0, 200) });
+                announced2 = false;
+              }
+            } else {
+              log("away.announce-failed", { root: req.root, on: false, err: "not connected" });
+              announced2 = false;
+            }
+            bindings.touch(req.root, { away: false, paneId: req.paneId });
+            lastStatus.delete(req.root);
+            log("away", { root: req.root, away: false });
+            return { ok: true, kind: "ack", announced: announced2 };
+          }
+          const patch = { away: true, paneId: req.paneId };
+          if (req.lang) patch.lang = req.lang;
+          const b = bindings.touch(req.root, patch);
           if (!b) return { ok: false, code: 4, message: msg.notBound };
           lastStatus.delete(req.root);
-          log("away", { root: req.root, away: req.away });
-          if (!req.away) return { ok: true, kind: "ack" };
-          return { ok: true, kind: "ack", herdr: await herdr.view() };
+          log("away", { root: req.root, away: true });
+          const view = await herdr.view();
+          let announced;
+          if (connected) {
+            const T = t(langOf(b));
+            const detail = !req.paneId ? T.awayOnNoHerdr : view.bin !== null ? T.awayOnFull : T.awayOnDaemonNoHerdr;
+            try {
+              await channel.send(b.chatId, { card: awayCard(b.label, true, detail, langOf(b)) });
+              announced = true;
+            } catch (err) {
+              log("away.announce-failed", { root: req.root, on: true, err: String(err).slice(0, 200) });
+              announced = false;
+            }
+          } else {
+            log("away.announce-failed", { root: req.root, on: true, err: "not connected" });
+            announced = false;
+          }
+          return { ok: true, kind: "ack", herdr: view, announced };
         }
         case "notify": {
           const b = bindings.touch(req.root, { paneId: req.paneId, label: req.label });
@@ -138960,7 +139025,6 @@ ${msg.renamePermissionHint}` : text;
             if (err instanceof ValidationError) return { ok: false, code: 1, message: err.problems.join("\n") };
             throw err;
           }
-          if (payload.lang) bindings.touch(req.root, { lang: payload.lang });
           try {
             const sent = await channel.send(b.chatId, { card: notifyCard(payload, b.label) });
             rememberCard(sent.messageId, "notify", payload.title);
@@ -139003,13 +139067,12 @@ ${msg.renamePermissionHint}` : text;
             if (err instanceof ValidationError) return { ok: false, code: 1, message: err.problems.join("\n") };
             throw err;
           }
-          if (payload.lang) bindings.touch(req.root, { lang: payload.lang });
           const reqId = randomUUID2().replace(/-/g, "").slice(0, 16);
           const urgent = req.urgent === true;
           let messageId;
           try {
             const sent = await channel.send(b.chatId, {
-              card: askCard({ payload, projectLabel: b.label, reqId, state: "pending", urgent })
+              card: askCard({ payload, projectLabel: b.label, reqId, state: "pending", urgent, lang: langOf(b) })
             });
             messageId = sent.messageId;
           } catch (err) {
@@ -139211,6 +139274,7 @@ for (const stream of [process.stdout, process.stderr]) {
   });
 }
 var HELP = msg.help;
+var cliLang = "en";
 var DEFAULT_SCOPES = [
   "im:message",
   "im:message:send_as_bot",
@@ -139875,7 +139939,7 @@ async function cmdAway(args) {
 `);
     }
   }
-  const res = await request({ type: "setAway", root, away, paneId });
+  const res = await request({ type: "setAway", root, away, paneId, lang: cliLang });
   if (!away && !res.ok && (res.reason === "down" || res.reason === "path")) {
     const state = writeProjectState(root, { away: false });
     if (!state) process.stdout.write(`${msg.awayNeverUsed}
@@ -139893,6 +139957,10 @@ ${msg.awayOffLocal}
 `);
     if (away && res.ok && res.kind === "ack" && res.herdr && insideHerdr() && res.herdr.bin === null) {
       process.stderr.write(`${msg.awayDaemonNoHerdr}
+`);
+    }
+    if (res.ok && res.kind === "ack" && res.announced === false) {
+      process.stdout.write(`${msg.awayNotAnnounced}
 `);
     }
   });
@@ -139959,8 +140027,28 @@ function takeHome(argv2) {
   process.env.LARK_CONNECTOR_HOME = resolve3(dir);
   return [...argv2.slice(0, i), ...argv2.slice(i + (joined ? 1 : 2))];
 }
+function takeLang(argv2) {
+  const i = argv2.findIndex((a) => a === "--lang" || a.startsWith("--lang="));
+  if (i < 0) {
+    try {
+      cliLang = resolveLang();
+    } catch {
+      die(1, msg.badLang);
+    }
+    return argv2;
+  }
+  const joined = argv2[i].startsWith("--lang=");
+  const value = joined ? argv2[i].slice("--lang=".length) : argv2[i + 1];
+  if (!joined && (value === void 0 || value.startsWith("--"))) die(1, msg.badLang);
+  try {
+    cliLang = resolveLang(value, process.env);
+  } catch {
+    die(1, msg.badLang);
+  }
+  return [...argv2.slice(0, i), ...argv2.slice(i + (joined ? 1 : 2))];
+}
 async function main() {
-  const [cmd, ...args] = takeHome(process.argv.slice(2));
+  const [cmd, ...args] = takeLang(takeHome(process.argv.slice(2)));
   const isHelp = cmd === void 0 || cmd === "--help" || cmd === "-h" || cmd === "help";
   if (cmd === "away") {
     const sub = argv("away", args).positional() ?? "status";

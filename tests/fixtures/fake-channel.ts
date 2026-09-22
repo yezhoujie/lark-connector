@@ -10,6 +10,8 @@ export interface FakeChannelOptions {
   connect?: () => Promise<void>;
   /** Replaces the REST card update (the record in `sent` is still kept); lets a test make it hang. */
   updateCard?: (messageId: string, card: object) => Promise<void>;
+  /** Runs after a `send` is recorded, before it resolves; lets a test observe state at that exact moment, or make it hang / fail. */
+  send?: (chatId: string, input: unknown) => Promise<void>;
   getChatInfo?: ChannelLike['getChatInfo'];
   createChat?: ChannelLike['createChat'];
   addReaction?: ChannelLike['addReaction'];
@@ -202,6 +204,7 @@ export function createFakeChannel(opts: FakeChannelOptions = {}): FakeChannel {
     },
     async send(chatId: string, input: unknown) {
       fake.sent.push({ chatId, input });
+      if (opts.send) await opts.send(chatId, input);
       return { messageId: `om_${fake.sent.length}` };
     },
     async updateCard(messageId: string, card: object): Promise<void> {

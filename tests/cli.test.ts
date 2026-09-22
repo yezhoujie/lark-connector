@@ -199,6 +199,19 @@ test('say is gone: exit 1 as an unknown command', () => {
   assert.match(r.stderr, /say/);
 });
 
+test('--lang xx: exit 1, English hint on stderr, nothing else attempted', () => {
+  const r = run(['--lang', 'xx', 'status']);
+  assert.equal(r.status, 1, r.stdout + r.stderr);
+  assert.match(r.stderr, /^lark-connector: --lang must be zh or en$/m);
+  assert.equal(r.stdout, '');
+});
+
+test('--lang=xx (joined form) is refused the same way', () => {
+  const r = run(['--lang=xx', 'status']);
+  assert.equal(r.status, 1, r.stdout + r.stderr);
+  assert.match(r.stderr, /^lark-connector: --lang must be zh or en$/m);
+});
+
 test('ask with malformed JSON on stdin: exit 1, English, nothing sent', () => {
   const r = run(['ask'], { input: '{' });
   assert.equal(r.status, 1);
@@ -451,6 +464,18 @@ describe('with a fake daemon', () => {
     const text = cmd(['away', 'status']);
     assert.match(text.stdout, /remote mode: on {2}group: oc_old/);
     assert.doesNotMatch(text.stdout, /pane/);
+  });
+
+  // How the CLI test observes `--lang` reaching the daemon: setAway persists
+  // it on the binding the same way ask / notify already do (`bindings.touch`),
+  // and the daemon writes that binding straight to disk — no new plumbing
+  // needed to see it land, unlike IPC internals a spawned CLI cannot inspect.
+  test('global --lang reaches the daemon: away on --lang zh persists it on the binding', () => {
+    const r = cmd(['away', 'on', '--lang', 'zh']);
+    assert.equal(r.status, 0, r.stdout + r.stderr);
+    const saved = JSON.parse(readFileSync(join(home, 'bindings.json'), 'utf8')) as { bindings: Array<{ root: string; lang: string | null }> };
+    const mine = saved.bindings.find((b) => b.root === project);
+    assert.equal(mine?.lang, 'zh');
   });
 
   // The daemon runs in its own directory; a relative path only means anything
@@ -785,6 +810,34 @@ test('unbind --dissolve against a daemon that does not know the flag: exit 3 say
     assert.match(r.stderr, /^lark-connector: .*--dissolve.*daemon --stop/m);
     const s = JSON.parse(readFileSync(join(project, '.lark-connector', 'state.json'), 'utf8')) as { away: boolean; chatId: string | null };
     assert.deepEqual([s.away, s.chatId], [false, null]);
+  } finally {
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+    if (prev === undefined) delete process.env.LARK_CONNECTOR_HOME;
+    else process.env.LARK_CONNECTOR_HOME = prev;
+  }
+});
+
+test('away off: an ack with announced: false adds a note on stdout, the exit code unchanged', async () => {
+  const home = tmp('lark-connector-noannounce-');
+  const project = realpathSync(tmp('lark-connector-noannounce-proj-'));
+  mkdirSync(join(project, '.lark-connector'));
+  writeFileSync(join(project, '.lark-connector', 'state.json'), JSON.stringify({ away: true, chatId: 'oc_x', target: project, updated: '' }));
+  const prev = process.env.LARK_CONNECTOR_HOME;
+  process.env.LARK_CONNECTOR_HOME = home;
+  const server = await serve({ handle: async () => ({ ok: true, kind: 'ack', announced: false }) });
+  try {
+    const r = await new Promise<{ status: number | null; stdout: string; stderr: string }>((resolve, reject) => {
+      const child = spawn(process.execPath, [cli, 'away', 'off'], { env: { ...isolatedEnv(), LARK_CONNECTOR_HOME: home }, cwd: project, stdio: ['ignore', 'pipe', 'pipe'] });
+      let stdout = '';
+      let stderr = '';
+      child.stdout.on('data', (d: Buffer) => (stdout += d.toString()));
+      child.stderr.on('data', (d: Buffer) => (stderr += d.toString()));
+      child.on('error', reject);
+      child.on('close', (status) => resolve({ status, stdout, stderr }));
+    });
+    assert.equal(r.status, 0, r.stdout + r.stderr);
+    assert.match(r.stdout, /^Remote mode is off\.$/m);
+    assert.match(r.stdout, /the group was not notified: the daemon could not send the card/);
   } finally {
     await new Promise<void>((resolve) => server.close(() => resolve()));
     if (prev === undefined) delete process.env.LARK_CONNECTOR_HOME;

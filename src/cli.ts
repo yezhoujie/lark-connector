@@ -12,8 +12,8 @@ import { taskNameProblem } from './bindings.js';
 import { isDaemonListening, request, type Request, type Response } from './ipc.js';
 import { LegacyDaemonRunning, migrateLegacy, migrateProjectState } from './migrate.js';
 import { ensureHomeDir, homeDir, ipcEndpoint, logPath, pidPath, projectLabel, projectRoot, readProjectState, sockPathProblem, writeProjectState } from './paths.js';
-import { both, en, fill, msg, zh } from './texts.js';
-import { validateAsk, validateNotify, ValidationError } from './validate.js';
+import { both, en, fill, msg, resolveLang, zh } from './texts.js';
+import { validateAsk, validateNotify, ValidationError, type Lang } from './validate.js';
 
 // Piping into `head` / `less` closes our stdout early; an unhandled EPIPE
 // would crash with a stack trace instead of just ending quietly.
@@ -25,6 +25,13 @@ for (const stream of [process.stdout, process.stderr]) {
 }
 
 const HELP = msg.help;
+
+/**
+ * The language this run of the CLI speaks to a human: set once by `takeLang`
+ * before any command runs, and read only by `away` — carried to the daemon
+ * and recorded on the binding, the one place a project's language is set.
+ */
+let cliLang: Lang = 'en';
 
 /** Scopes the scan-code confirm page asks for. Override with --scopes. */
 const DEFAULT_SCOPES = [
@@ -897,7 +904,7 @@ async function cmdAway(args: string[]): Promise<void> {
       process.stdout.write(`${line}\n`);
     }
   }
-  const res = await request({ type: 'setAway', root, away, paneId });
+  const res = await request({ type: 'setAway', root, away, paneId, lang: cliLang });
   if (!away && !res.ok && (res.reason === 'down' || res.reason === 'path')) {
     // Switching off must not need the daemon: the file is what the agent's
     // rule reads, and the daemon's own copy is realigned by the next away on / off.
@@ -915,6 +922,9 @@ async function cmdAway(args: string[]): Promise<void> {
     // already says why nothing can be delivered, whatever the daemon's PATH holds.
     if (away && res.ok && res.kind === 'ack' && res.herdr && insideHerdr() && res.herdr.bin === null) {
       process.stderr.write(`${msg.awayDaemonNoHerdr}\n`);
+    }
+    if (res.ok && res.kind === 'ack' && res.announced === false) {
+      process.stdout.write(`${msg.awayNotAnnounced}\n`);
     }
   });
 }
@@ -978,8 +988,39 @@ function takeHome(argv: string[]): string[] {
   return [...argv.slice(0, i), ...argv.slice(i + (joined ? 1 : 2))];
 }
 
+/**
+ * Global `--lang <zh|en>`: taken out of argv once, here, like `--home`.
+ * Whether or not it is given, `cliLang` ends up resolved (explicit >
+ * LARK_CONNECTOR_LANG > system locale > 'en') before any command runs.
+ */
+function takeLang(argv: string[]): string[] {
+  const i = argv.findIndex((a) => a === '--lang' || a.startsWith('--lang='));
+  if (i < 0) {
+    try {
+      cliLang = resolveLang();
+    } catch {
+      die(1, msg.badLang);
+    }
+    return argv;
+  }
+  const joined = argv[i]!.startsWith('--lang=');
+  const value = joined ? argv[i]!.slice('--lang='.length) : argv[i + 1];
+  // A missing value, or the next token looking like another option, is an
+  // argv-shape problem `resolveLang` cannot see (it would read `undefined`
+  // as "no --lang given" and move on to the environment); everything about
+  // whether the value itself is `zh` or `en` is `resolveLang`'s call, made
+  // the same way an invalid LARK_CONNECTOR_LANG is.
+  if (!joined && (value === undefined || value.startsWith('--'))) die(1, msg.badLang);
+  try {
+    cliLang = resolveLang(value, process.env);
+  } catch {
+    die(1, msg.badLang);
+  }
+  return [...argv.slice(0, i), ...argv.slice(i + (joined ? 1 : 2))];
+}
+
 async function main(): Promise<void> {
-  const [cmd, ...args] = takeHome(process.argv.slice(2));
+  const [cmd, ...args] = takeLang(takeHome(process.argv.slice(2)));
   const isHelp = cmd === undefined || cmd === '--help' || cmd === '-h' || cmd === 'help';
   if (cmd === 'away') {
     const sub = argv('away', args).positional() ?? 'status';

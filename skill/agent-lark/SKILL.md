@@ -67,7 +67,12 @@ same words in a sentence). Each maps to one flow:
   daemon --stop` yourself. Exit 4 (a question is pending on another project) ⇒ relay the stderr to the
   user and wait for their call (wait for the answer, or `--stop --force`). Stopped cleanly ⇒ `away on`
   once more, then tell the user "the daemon was restarted; phone messages can be delivered now."
-- **`off`** — `away off` (the switch only; the group and the daemon stay).
+  The group is told automatically — a card lands there the moment remote mode turns on, spelling out
+  what it can and cannot do (full delivery, or the herdr/daemon limitations above) — so there is no
+  need to `notify` the human separately that the channel just opened.
+- **`off`** — `away off` (the switch only; the group and the daemon stay). The group is told
+  automatically too, before the switch actually flips, so nobody keeps typing into a channel that
+  stopped listening; again, no separate `notify` needed for this.
 
 ## Ask a question
 
@@ -87,15 +92,14 @@ ANSWER=$(node <skill dir>/dist/cli.mjs ask <<'JSON'
   ],
   "recommend": "keep",
   "reasoning": "Keep a fixed directory: users on this path are the ones most likely to have a broken setup, so a scene is worth having. Strongest objection: disk clutter accumulates.",
-  "question":  "Keep a fixed directory, or delete after use?",
-  "lang":      "en"
+  "question":  "Keep a fixed directory, or delete after use?"
 }
 JSON
 )
 rc=$?
 ```
 
-### The field contract: eight required fields, three optional
+### The field contract: eight required fields, two optional
 
 | field | what to write |
 |---|---|
@@ -109,9 +113,10 @@ rc=$?
 | `reasoning` | Why you lean that way **plus the strongest objection** |
 | `question` | One question answerable in one sentence |
 | `select` | Optional, `"single"` (default) or `"multi"`. Multi renders one tick box per option and a submit button, for "which of these" questions where several may apply. Single choice is the default for a reason: a button is one tap, a form is several |
-| `lang` | Optional, `zh` or `en`: the language of the fixed wording (section labels, hints, button texts, "Answered"). **Pass the language you are configured to reply to the user in: `zh` if you reply in Chinese, otherwise `en`.** Omitted means `en`; any other value is rejected |
 
-The content fields are written in whatever language you work in; only `lang` controls the wrapper.
+The content fields are written in whatever language you work in; the fixed wrapper (section labels,
+hints, button texts, "Answered") follows the project's language, set once when remote mode turns on —
+see "Remote mode and the per-project state file" below. There is no `lang` field here any more.
 Missing or empty fields, a wrong option count, a `recommend` that matches no id or names a danger
 option, or a field over its size cap all fail validation at once, before anything is sent (exit 1).
 The caps are generous (Feishu cards take far more text than a push notification), but the reader is on a
@@ -165,16 +170,15 @@ accepted it. `send-file` sends one image or file into the group, with an optiona
 node <skill dir>/dist/cli.mjs notify <<'JSON'
 {
   "title": "Tests green, starting the migration",
-  "body":  "All tests pass on the three CI runners.\n\nNext: **schema migration** on the staging database (about 10 minutes). I will notify again when it is done.",
-  "lang":  "en"
+  "body":  "All tests pass on the three CI runners.\n\nNext: **schema migration** on the staging database (about 10 minutes). I will notify again when it is done."
 }
 JSON
 
 node <skill dir>/dist/cli.mjs send-file ./shot.png --caption "Current layout"
 ```
 
-- `title` and `body` are required and non-empty; `lang` is optional (it sets the language of later
-  receipt and alert cards for this project; the notification card itself has no fixed wording). The
+- `title` and `body` are required and non-empty; there is no `lang` field. The notification card has no
+  fixed wording of its own (title and body only), so there is nothing for a language to control. The
   body is Feishu Markdown: bold, lists, tables and fenced code blocks all render.
 - `notify` exit codes: **0** sent (stdout: `Notification sent (a reply from the phone is injected into
   this pane as an instruction)`) · **1** input rejected, nothing sent · **3** channel failure (daemon not
@@ -328,6 +332,12 @@ node <skill dir>/dist/cli.mjs setup   # once per machine, on a terminal: menu �
   app owner is invited; the group description carries `lark-connector · <project root>` so it can be found
   again), `Took back Feishu group "…"` (a group this project used before, renamed to the new task),
   `Connected to Feishu group "…"` (already bound; `--name` renames it).
+- **Language**: a global `--lang zh|en` (put it before the subcommand: `node <skill dir>/dist/cli.mjs
+  --lang zh away on`) sets the project's language once, when remote mode turns on — every card this
+  project's daemon renders from then on (the on/off cards above, `ask`, `notify`, the stuck-on-a-prompt
+  alert) follows it. This is the only place the language is set; neither `ask` nor `notify` takes a
+  `lang` of its own any more. It falls back through `LARK_CONNECTOR_LANG` (an environment variable), then
+  the system locale, then `en`. **Pass the language you are configured to reply to the user in.**
 - **Exit 4 with earlier groups on offer**: when the project has no live group but groups it let go of
   earlier exist (on record, or found in Feishu by their description), `away on` refuses to pick for you:
   ```

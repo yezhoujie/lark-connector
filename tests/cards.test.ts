@@ -3,7 +3,7 @@
 // multi-choice one, and the language each card shell is rendered in.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { askCard, notifyCard, receiptCard, statusCard } from '../src/cards.js';
+import { askCard, awayCard, notifyCard, receiptCard, statusCard } from '../src/cards.js';
 import type { AskPayload } from '../src/validate.js';
 
 interface Card {
@@ -27,13 +27,12 @@ const single: AskPayload = {
   recommend: 'keep',
   reasoning: 'why',
   question: 'keep or drop?',
-  lang: 'zh',
   select: 'single',
 };
 const multi: AskPayload = { ...single, select: 'multi', recommend: ['keep', 'drop'] };
 
 test('pending single-choice: blue header, one button per option (primary = recommended, danger = confirm), hint last, no form', () => {
-  const c = asCard(askCard({ payload: single, projectLabel: 'proj', reqId: 'r1', state: 'pending' }));
+  const c = asCard(askCard({ payload: single, projectLabel: 'proj', reqId: 'r1', state: 'pending', lang: 'zh' }));
   assert.equal(c.schema, '2.0');
   assert.equal(c.header.template, 'blue');
   assert.equal(c.header.title.content, '🤔 [proj] Keep the scratch dir?');
@@ -57,7 +56,7 @@ test('pending single-choice: blue header, one button per option (primary = recom
 });
 
 test('pending multi-choice with a danger option: one form of checkers plus a submit button that asks for confirmation', () => {
-  const c = asCard(askCard({ payload: multi, projectLabel: 'proj', reqId: 'r2', state: 'pending' }));
+  const c = asCard(askCard({ payload: multi, projectLabel: 'proj', reqId: 'r2', state: 'pending', lang: 'zh' }));
   assert.equal(c.header.template, 'blue');
   assert.deepEqual(tags(c), ['markdown', 'markdown', 'markdown', 'hr', 'markdown', 'hr', 'markdown', 'markdown', 'form', 'markdown']);
   const options = c.body.elements[4]!.content as string;
@@ -108,10 +107,9 @@ test('checker names are prefixed, so an option id of "submit" or "ask" cannot co
 test('pending multi-choice without danger: the submit button carries no confirm; en shell wording', () => {
   const payload: AskPayload = {
     ...multi,
-    lang: 'en',
     options: multi.options.filter((o) => !o.danger),
   };
-  const c = asCard(askCard({ payload, projectLabel: 'proj', reqId: 'r3', state: 'pending' }));
+  const c = asCard(askCard({ payload, projectLabel: 'proj', reqId: 'r3', state: 'pending', lang: 'en' }));
   const form = c.body.elements.find((e) => e.tag === 'form')!;
   const submit = (form.elements as Array<Record<string, unknown>>).at(-1)!;
   assert.equal((submit.text as { content: string }).content, 'Submit');
@@ -141,24 +139,24 @@ test('pending --urgent: red header; the same card without urgent is blue', () =>
 
 test('answered / timed out / cancelled: green / grey / grey, reply pinned on top, no buttons and no form — for single and multi alike', () => {
   for (const payload of [single, multi]) {
-    const answered = asCard(askCard({ payload, projectLabel: 'proj', reqId: 'r5', state: 'answered', reply: 'Keep、Drop', urgent: true }));
+    const answered = asCard(askCard({ payload, projectLabel: 'proj', reqId: 'r5', state: 'answered', reply: 'Keep、Drop', urgent: true, lang: 'zh' }));
     assert.equal(answered.header.template, 'green');
     assert.equal(answered.header.title.content, '✅ [proj] Keep the scratch dir? · 已回答');
     assert.deepEqual(tags(answered).slice(0, 3), ['markdown', 'hr', 'markdown']);
     assert.equal(String(answered.body.elements[0]!.content), '**你的回复**　Keep、Drop');
     assert.equal(tags(answered).includes('button'), false);
     assert.equal(tags(answered).includes('form'), false);
-    const timedout = asCard(askCard({ payload, projectLabel: 'proj', reqId: 'r5', state: 'timedout' }));
+    const timedout = asCard(askCard({ payload, projectLabel: 'proj', reqId: 'r5', state: 'timedout', lang: 'zh' }));
     assert.equal(timedout.header.template, 'grey');
     assert.match(timedout.header.title.content, /^⌛ .* · 已超时$/);
-    const cancelled = asCard(askCard({ payload, projectLabel: 'proj', reqId: 'r5', state: 'cancelled' }));
+    const cancelled = asCard(askCard({ payload, projectLabel: 'proj', reqId: 'r5', state: 'cancelled', lang: 'zh' }));
     assert.equal(cancelled.header.template, 'grey');
     assert.match(cancelled.header.title.content, /^⚠️ .* · 已取消$/);
   }
 });
 
 test('notify: wathet header with the megaphone, one markdown body', () => {
-  const c = asCard(notifyCard({ title: 'Tests green', body: 'moving on', lang: 'en' }, 'proj'));
+  const c = asCard(notifyCard({ title: 'Tests green', body: 'moving on' }, 'proj'));
   assert.equal(c.header.template, 'wathet');
   assert.equal(c.header.title.content, '📣 [proj] Tests green');
   assert.deepEqual(c.body.elements, [{ tag: 'markdown', content: 'moving on' }]);
@@ -174,13 +172,12 @@ test('receipt card: orange, shell wording follows the language it is asked for',
   assert.match(String(en.body.elements[0]!.content), /never reached the terminal: nowhere to go/);
 });
 
-test('an ask card with no lang renders the English shell, like the receipt and status cards', () => {
-  const { lang: _omitted, ...noLang } = single;
-  const c = asCard(askCard({ payload: noLang as AskPayload, projectLabel: 'proj', reqId: 'r1', state: 'pending' }));
+test('an ask card with no lang in the context renders the English shell, like the receipt and status cards', () => {
+  const c = asCard(askCard({ payload: single, projectLabel: 'proj', reqId: 'r1', state: 'pending' }));
   assert.match(String(c.body.elements[0]!.content), /^\*\*Doing\*\*/);
   // `single` carries a danger option, so the hint is the danger variant — in English.
   assert.match(String(c.body.elements.at(-1)!.content), /Red buttons ask for confirmation/);
-  const done = asCard(askCard({ payload: noLang as AskPayload, projectLabel: 'proj', reqId: 'r1', state: 'answered', reply: 'Keep' }));
+  const done = asCard(askCard({ payload: single, projectLabel: 'proj', reqId: 'r1', state: 'answered', reply: 'Keep' }));
   assert.equal(done.header.title.content, '✅ [proj] Keep the scratch dir? · Answered');
 });
 
@@ -196,4 +193,25 @@ test('status card: orange, shell wording follows the language it is asked for', 
   const en = asCard(statusCard('proj', 'pane w1:p1', 'en'));
   assert.equal(en.header.title.content, '🔔 [proj] waiting for you');
   assert.deepEqual(en.body.elements, [{ tag: 'markdown', content: 'pane w1:p1' }]);
+});
+
+test('awayCard on: green, phone icon, title "[label] Remote mode is on", one markdown body', () => {
+  const c = asCard(awayCard('proj', true, 'body text', 'en'));
+  assert.equal(c.header.template, 'green');
+  assert.equal(c.header.title.content, '📱 [proj] Remote mode is on');
+  assert.deepEqual(c.body.elements, [{ tag: 'markdown', content: 'body text' }]);
+});
+
+test('awayCard off: grey, moon icon, title "[label] Remote mode is about to turn off"', () => {
+  const c = asCard(awayCard('proj', false, 'body text', 'en'));
+  assert.equal(c.header.template, 'grey');
+  assert.equal(c.header.title.content, '🌙 [proj] Remote mode is about to turn off');
+  assert.deepEqual(c.body.elements, [{ tag: 'markdown', content: 'body text' }]);
+});
+
+test('awayCard: the shell title follows lang, like the other cards', () => {
+  const c = asCard(awayCard('proj', true, '正文', 'zh'));
+  assert.equal(c.header.title.content, '📱 [proj] 远程模式已开启');
+  const off = asCard(awayCard('proj', false, '正文', 'zh'));
+  assert.equal(off.header.title.content, '🌙 [proj] 远程模式即将关闭');
 });

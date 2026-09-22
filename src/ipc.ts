@@ -4,6 +4,7 @@ import { platform } from 'node:os';
 import type { HerdrView } from './herdr.js';
 import { ensureHomeDir, ipcEndpoint, sockPath, sockPathProblem } from './paths.js';
 import { fill, msg } from './texts.js';
+import type { Lang } from './validate.js';
 
 /** Every request a thin client can make of the daemon. */
 export type Request =
@@ -19,7 +20,8 @@ export type Request =
   /** `dissolve`: also dissolve the group in Feishu and forget the record, instead of keeping it to offer back. */
   | { type: 'unbind'; root: string; dissolve?: boolean }
   | { type: 'rename'; root: string; paneId: string | null; name: string }
-  | { type: 'setAway'; root: string; away: boolean; paneId: string | null }
+  /** `lang`, when given, is recorded on the binding before the on/off card is built: an explicit switch of the project's remembered language. */
+  | { type: 'setAway'; root: string; away: boolean; paneId: string | null; lang?: Lang }
   | { type: 'ask'; root: string; label: string; paneId: string | null; payload: unknown; timeoutMs: number; urgent?: boolean }
   | { type: 'notify'; root: string; label: string; paneId: string | null; payload: unknown }
   /** `path` is absolute: the CLI resolves it against the caller's directory, the daemon has its own. */
@@ -56,8 +58,12 @@ export type Response =
   | { ok: true; kind: 'unbind'; chatId: string; name: string; dissolved?: boolean; problem?: string }
   | { ok: true; kind: 'rename'; name: string }
   | { ok: true; kind: 'list'; bindings: BindingSummary[] }
-  /** `herdr`: only `setAway` fills it in, and only when switching on. */
-  | { ok: true; kind: 'ack'; herdr?: HerdrView }
+  /**
+   * `herdr`: only `setAway` fills it in, and only when switching on.
+   * `announced`: only `setAway` fills it in, once a live group exists to
+   * announce to — whether the on/off card actually reached the group.
+   */
+  | { ok: true; kind: 'ack'; herdr?: HerdrView; announced?: boolean }
   /**
    * code maps 1:1 onto the CLI exit code the client should use. `reason` is
    * set by the client library for failures it produced itself, so callers can

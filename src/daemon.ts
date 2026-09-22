@@ -5,7 +5,7 @@ import { homedir, platform, tmpdir } from 'node:os';
 import type { Server, Socket } from 'node:net';
 import { createLarkChannel, type CardActionEvent, type LarkChannel, type LarkChannelOptions, type NormalizedMessage, type ReactionEvent } from '@larksuite/channel';
 import { BindingStore, BindingsFileError, groupName, taskNameProblem, type Binding } from './bindings.js';
-import { askCard, checkerName, notifyCard, optionIdOf, receiptCard, statusCard } from './cards.js';
+import { askCard, awayCard, checkerName, notifyCard, optionIdOf, receiptCard, statusCard } from './cards.js';
 import { resolveCreds } from './creds.js';
 import { agentList, findPaneForProject, herdrView, promptPane, sendKeys, type AgentInfo } from './herdr.js';
 import { isDaemonListening, serve, type Candidate, type Request, type Response } from './ipc.js';
@@ -369,7 +369,7 @@ export async function runDaemon(deps: DaemonDeps = {}): Promise<DaemonHandle> {
     try {
       await channel.updateCard(
         p.messageId,
-        askCard({ payload: p.payload, projectLabel: p.label, reqId: p.reqId, state: 'answered', reply }),
+        askCard({ payload: p.payload, projectLabel: p.label, reqId: p.reqId, state: 'answered', reply, lang: langOf(bindings.active(p.root)) }),
       );
     } catch (err) {
       log('ask.update-failed', { reqId: p.reqId, err: String(err) });
@@ -387,14 +387,14 @@ export async function runDaemon(deps: DaemonDeps = {}): Promise<DaemonHandle> {
     try {
       await channel.updateCard(
         p.messageId,
-        askCard({ payload: p.payload, projectLabel: p.label, reqId: p.reqId, state }),
+        askCard({ payload: p.payload, projectLabel: p.label, reqId: p.reqId, state, lang: langOf(bindings.active(p.root)) }),
       );
     } catch (err) {
       log('ask.update-failed', { reqId: p.reqId, err: String(err) });
     }
   };
 
-  /** The language of cards the daemon sends on its own: the project's last ask / notify, else English. */
+  /** The language of cards the daemon sends on its own: the project's recorded language (set by `away on`), else English. */
   const langOf = (b: Binding | undefined): Lang => b?.lang ?? 'en';
 
   const receipt = async (b: Binding, why: string, uncertain = false): Promise<void> => {
@@ -890,9 +890,11 @@ export async function runDaemon(deps: DaemonDeps = {}): Promise<DaemonHandle> {
         }
         void inject(b, text).catch((err) => log('inject.failed', { err: String(err).slice(0, 200) }));
       }
-      return { toast: { type: 'info', content: t(closed.get(value.reqId)?.lang ?? langOf(b)).toastClosed } };
+      return { toast: { type: 'info', content: t(langOf(b)).toastClosed } };
     }
-    const T = t(p.payload.lang ?? 'en');
+    const askBinding = bindings.active(p.root);
+    const askLang = langOf(askBinding);
+    const T = t(askLang);
     let reply: string;
     let via: 'button' | 'form';
     if (form) {
@@ -901,7 +903,7 @@ export async function runDaemon(deps: DaemonDeps = {}): Promise<DaemonHandle> {
         // Refused, and the card is rewritten with the next attempt so the
         // human's corrected submit is not deduplicated away by the SDK.
         p.attempt += 1;
-        const retry = askCard({ payload: p.payload, projectLabel: p.label, reqId: p.reqId, state: 'pending', urgent: p.urgent, attempt: p.attempt });
+        const retry = askCard({ payload: p.payload, projectLabel: p.label, reqId: p.reqId, state: 'pending', urgent: p.urgent, attempt: p.attempt, lang: askLang });
         void channel.updateCard(p.messageId, retry).catch((err) => log('ask.update-failed', { reqId: p.reqId, err: String(err).slice(0, 200) }));
         return { toast: { type: 'error', content: T.pickAtLeastOne }, card: { type: 'raw', data: retry } };
       }
@@ -922,6 +924,7 @@ export async function runDaemon(deps: DaemonDeps = {}): Promise<DaemonHandle> {
       reqId: p.reqId,
       state: 'answered',
       reply,
+      lang: askLang,
     });
     void answer(p, reply, via).catch((err) => log('answer.failed', { reqId: p.reqId, err: String(err).slice(0, 200) }));
     return {
@@ -1296,7 +1299,7 @@ export async function runDaemon(deps: DaemonDeps = {}): Promise<DaemonHandle> {
         });
         try {
           const outcome = await Promise.race([
-            channel.updateCard(p.messageId, askCard({ payload: p.payload, projectLabel: p.label, reqId: p.reqId, state: 'cancelled' })),
+            channel.updateCard(p.messageId, askCard({ payload: p.payload, projectLabel: p.label, reqId: p.reqId, state: 'cancelled', lang: langOf(bindings.active(p.root)) })),
             timeout,
           ]);
           if (outcome === 'timeout') log('ask.update-timeout', { reqId: p.reqId });
@@ -1591,17 +1594,62 @@ export async function runDaemon(deps: DaemonDeps = {}): Promise<DaemonHandle> {
         }
 
         case 'setAway': {
-          const b = bindings.touch(req.root, { away: req.away, paneId: req.paneId });
-          // Switching off with nothing bound is nothing to do, not a mistake.
-          if (!b && !req.away) return { ok: true, kind: 'ack' };
+          if (!req.away) {
+            // Switching off with nothing bound is nothing to do, not a mistake.
+            const live = bindings.active(req.root);
+            if (!live) return { ok: true, kind: 'ack' };
+            // The off card goes out first, while remote mode is still on, so
+            // the human on the phone is told before the channel actually
+            // stops listening to them — flipping the switch first would leave
+            // a window where messages they send are already ignored but no
+            // card has told them so.
+            let announced: boolean | undefined;
+            if (connected) {
+              try {
+                await channel.send(live.chatId, { card: awayCard(live.label, false, t(langOf(live)).awayOffBody, langOf(live)) });
+                announced = true;
+              } catch (err) {
+                log('away.announce-failed', { root: req.root, on: false, err: String(err).slice(0, 200) });
+                announced = false;
+              }
+            } else {
+              log('away.announce-failed', { root: req.root, on: false, err: 'not connected' });
+              announced = false;
+            }
+            bindings.touch(req.root, { away: false, paneId: req.paneId });
+            lastStatus.delete(req.root);
+            log('away', { root: req.root, away: false });
+            return { ok: true, kind: 'ack', announced };
+          }
+
+          const patch: Partial<Pick<Binding, 'paneId' | 'away' | 'lang'>> = { away: true, paneId: req.paneId };
+          if (req.lang) patch.lang = req.lang;
+          const b = bindings.touch(req.root, patch);
           if (!b) return { ok: false, code: 4, message: msg.notBound };
           lastStatus.delete(req.root);
-          log('away', { root: req.root, away: req.away });
-          // Switching on: the daemon's own herdr view rides back on the ack, so
-          // the CLI can warn when phone messages have nowhere to go. Off does
-          // not need it — nothing is about to be delivered.
-          if (!req.away) return { ok: true, kind: 'ack' };
-          return { ok: true, kind: 'ack', herdr: await herdr.view() };
+          log('away', { root: req.root, away: true });
+          // The daemon's own herdr view rides back on the ack, so the CLI can
+          // warn when phone messages have nowhere to go.
+          const view = await herdr.view();
+          // The on card is built only once the language just recorded above
+          // is on the binding, so it renders in the language the human just
+          // asked for rather than whatever was there before this call.
+          let announced: boolean | undefined;
+          if (connected) {
+            const T = t(langOf(b));
+            const detail = !req.paneId ? T.awayOnNoHerdr : view.bin !== null ? T.awayOnFull : T.awayOnDaemonNoHerdr;
+            try {
+              await channel.send(b.chatId, { card: awayCard(b.label, true, detail, langOf(b)) });
+              announced = true;
+            } catch (err) {
+              log('away.announce-failed', { root: req.root, on: true, err: String(err).slice(0, 200) });
+              announced = false;
+            }
+          } else {
+            log('away.announce-failed', { root: req.root, on: true, err: 'not connected' });
+            announced = false;
+          }
+          return { ok: true, kind: 'ack', herdr: view, announced };
         }
 
         case 'notify': {
@@ -1615,7 +1663,6 @@ export async function runDaemon(deps: DaemonDeps = {}): Promise<DaemonHandle> {
             if (err instanceof ValidationError) return { ok: false, code: 1, message: err.problems.join('\n') };
             throw err;
           }
-          if (payload.lang) bindings.touch(req.root, { lang: payload.lang });
           try {
             const sent = await channel.send(b.chatId, { card: notifyCard(payload, b.label) });
             rememberCard(sent.messageId, 'notify', payload.title);
@@ -1664,13 +1711,12 @@ export async function runDaemon(deps: DaemonDeps = {}): Promise<DaemonHandle> {
             if (err instanceof ValidationError) return { ok: false, code: 1, message: err.problems.join('\n') };
             throw err;
           }
-          if (payload.lang) bindings.touch(req.root, { lang: payload.lang });
           const reqId = randomUUID().replace(/-/g, '').slice(0, 16);
           const urgent = req.urgent === true;
           let messageId: string;
           try {
             const sent = await channel.send(b.chatId, {
-              card: askCard({ payload, projectLabel: b.label, reqId, state: 'pending', urgent }),
+              card: askCard({ payload, projectLabel: b.label, reqId, state: 'pending', urgent, lang: langOf(b) }),
             });
             messageId = sent.messageId;
           } catch (err) {

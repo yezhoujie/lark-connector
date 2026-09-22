@@ -114,9 +114,11 @@ im:message   im:message:send_as_bot   im:message.group_msg   im:chat   im:resour
 
 三个来源，高到低：环境变量 `LARK_CONNECTOR_APP_ID` / `LARK_CONNECTOR_APP_SECRET`（运行时覆盖）、系统钥匙串（`setup` 默认写这里：macOS `security`、Linux `secret-tool`、Windows 上是 DPAPI 加密文件）、`~/.config/lark-connector/credentials.json`（权限 `0600`）。别的一概不读——没有 env 文件。`node "<agent-lark 的路径>/dist/cli.mjs" status` 会标出用的是哪一个，**但不打印值**。细节与全部环境变量：[references/daemon.md](skill/agent-lark/references/daemon.md) §7。
 
+另外，`LARK_CONNECTOR_LANG`（`zh` 或 `en`）决定 daemon 主动发的一切用什么语言——下面的远程模式开关卡、卡在提示上的提醒。全局 `--lang zh|en` 参数可以对单次运行覆盖它；两者都没给时看系统 locale，再没有就是 `en`。
+
 ## 5. 怎么用：你说什么，agent 做什么
 
-**开启。** 说「开启远程交互模式」/「我走了，有事发手机」，或输入 `/agent-lark on`。agent 从它自己的终端窗格跑 `away on --name "<任务名>"`（你手机上的消息以后就打进这个窗格）：daemon 没跑就起，飞书里建一个叫 `<任务名> [<项目目录名>]` 的群、把你拉进去，开关打开。**这个项目以前用过群的话**（上一个任务结束了，或本地记录丢了），agent 不会再建一个：它把旧群列出来**问你**拿回哪一个——改成新任务名——还是新建；不替你选。不在 herdr 里时它还会告诉你：手机上发的消息不会打进它的会话。
+**开启。** 说「开启远程交互模式」/「我走了，有事发手机」，或输入 `/agent-lark on`。agent 从它自己的终端窗格跑 `away on --name "<任务名>"`（你手机上的消息以后就打进这个窗格）：daemon 没跑就起，飞书里建一个叫 `<任务名> [<项目目录名>]` 的群、把你拉进去，开关打开。**这个项目以前用过群的话**（上一个任务结束了，或本地记录丢了），agent 不会再建一个：它把旧群列出来**问你**拿回哪一个——改成新任务名——还是新建；不替你选。不在 herdr 里时它还会告诉你：手机上发的消息不会打进它的会话。开关打开的那一刻，群里会自动收到一张卡，说清此刻手机上能做什么——完整功能，还是刚提到的那种 herdr / daemon 限制——不用你自己猜这时候打字管不管用。
 
 **离开期间——手机上会看到什么。**
 
@@ -126,7 +128,7 @@ im:message   im:message:send_as_bot   im:message.group_msg   im:chat   im:resour
 - **🔔「[<项目目录名>] 等你输入」**（橙色；只在 herdr 里有）表示 agent 卡在只有你能回答的提示上——权限确认、选择题——它会一直等到你回到键盘旁。
 - 提问是 agent 写的 JSON（契约在 [SKILL.md](skill/agent-lark/SKILL.md)）；你永远不用写。
 
-**回来。** 说「我回来了」或输入 `/agent-lark off`：agent 跑 `away off`——只关开关，群和 daemon 都留着。任务结束时 agent 先问你群留不留：留 ⇒ `unbind`（群留在飞书里，这个项目下次开启远程模式时 agent 会把它提出来）；不留 ⇒ `unbind --dissolve`（解散群、忘掉记录）。远程模式只换通道，不降标准：不可逆动作仍要你明确批准，超时不算批准。
+**回来。** 说「我回来了」或输入 `/agent-lark off`：agent 跑 `away off`——只关开关，群和 daemon 都留着。开关真正关掉之前，群里会先收到一张卡，说以后请回终端继续、群里再发的消息不会送达。任务结束时 agent 先问你群留不留：留 ⇒ `unbind`（群留在飞书里，这个项目下次开启远程模式时 agent 会把它提出来）；不留 ⇒ `unbind --dissolve`（解散群、忘掉记录）。远程模式只换通道，不降标准：不可逆动作仍要你明确批准，超时不算批准。
 
 ## 6. 日常
 

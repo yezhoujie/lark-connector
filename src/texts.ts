@@ -78,6 +78,13 @@ export const zh = {
   // "stuck" status card
   statusBlocked: '等你输入',
   statusPane: '窗格 {pane}',
+  // remote mode on/off card
+  awayOnTitle: '远程模式已开启',
+  awayOffTitle: '远程模式即将关闭',
+  awayOnFull: '你在群里发的消息会送进终端；要拍板的事会以卡片发到这里。',
+  awayOnNoHerdr: '这台机器没有 herdr：你主动发的消息**不会**送到终端，只有卡片按钮和对提问的回复能回到 agent。',
+  awayOnDaemonNoHerdr: 'daemon 找不到 herdr，重启前你主动发的消息送不到，推荐让 agent 帮你重启 daemon 来使用完整功能。',
+  awayOffBody: '远程模式即将关闭，之后请回终端继续；群里的消息不再送达。',
   // button / form toasts
   toastAnswered: '已回复',
   toastClosed: '这个问题已经结束了，刚才那下当成新指令发过去了',
@@ -153,6 +160,14 @@ export const en: Record<keyof typeof zh, string> = {
   promptHerdrMissing: `The daemon cannot find the herdr executable (it was probably started before herdr was installed). Restart it from a herdr pane: ${CLI} daemon --stop, then ${CLI} away on`,
   statusBlocked: 'waiting for you',
   statusPane: 'pane {pane}',
+  awayOnTitle: 'Remote mode is on',
+  awayOffTitle: 'Remote mode is about to turn off',
+  awayOnFull: 'Messages you send in this group are delivered into the terminal; decisions that need you arrive here as cards.',
+  awayOnNoHerdr:
+    'This machine has no herdr: messages you send on your own **will not** reach the terminal — only button taps and replies to a question make it back to the agent.',
+  awayOnDaemonNoHerdr:
+    'The daemon cannot find herdr; messages you send on your own will not get through until it is restarted — ask the agent to restart the daemon for full functionality.',
+  awayOffBody: 'Remote mode is about to turn off; continue from the terminal from here on — messages in this group will no longer be delivered.',
   toastAnswered: 'Replied',
   toastClosed: 'This question is already closed; that tap was forwarded as a new instruction',
   toastBadOption: 'That option does not match, try again',
@@ -222,6 +237,7 @@ Exit codes: 0 ok · 1 bad input · 2 timed out, nobody answered · 3 channel fai
 `,
   prefix: 'lark-connector: ',
   homeNeedsDir: '--home needs a directory',
+  badLang: '--lang must be zh or en',
   unknownOption: `unknown option {option}. See ${CLI} --help.`,
   offline: 'offline: refusing to contact Feishu (LARK_CONNECTOR_OFFLINE=1 is set)',
   unknownCommand: `Unknown command "{cmd}". See ${CLI} --help.`,
@@ -324,6 +340,7 @@ Exit codes: 0 ok · 1 bad input · 2 timed out, nobody answered · 3 channel fai
   awayOff: 'Remote mode is off.',
   awayOn: 'Remote mode is on: decisions, and moments when the agent is stuck on a prompt that needs you, are pushed to this project\'s Feishu group.',
   awayDaemonNoHerdr: `warning: the daemon cannot find herdr on its PATH (was it started before herdr was installed?). Phone messages cannot be delivered until it is restarted from a herdr pane: ${CLI} daemon --stop, then ${CLI} away on`,
+  awayNotAnnounced: '(the group was not notified: the daemon could not send the card)',
   // status
   statusCredsYes: 'credentials: configured, from {origin}',
   statusCredsNo: `credentials: not configured; run ${CLI} setup first`,
@@ -415,7 +432,6 @@ Exit codes: 0 ok · 1 bad input · 2 timed out, nobody answered · 3 channel fai
   vRecommendEmpty: 'recommend: with select "multi" the array must be non-empty — at least one option to tick by default',
   vRecommendDupItem: 'recommend: "{id}" is listed twice',
   vSelect: 'select: must be "single" or "multi", got {value}',
-  vLang: 'lang: must be "zh" or "en", got {value}',
   vBodyRequired: 'body: required and non-empty',
   vBodyTooLong: 'body: over {max} characters',
   // credentials
@@ -430,6 +446,33 @@ Exit codes: 0 ok · 1 bad input · 2 timed out, nobody answered · 3 channel fai
 } as const;
 
 export const t = (lang: Lang = 'zh'): Record<keyof typeof zh, string> => (lang === 'en' ? en : zh);
+
+/**
+ * The language the CLI and the daemon fall back to when nothing else says
+ * otherwise: `explicit` (a `--lang` value, still unvalidated) beats
+ * `env.LARK_CONNECTOR_LANG` beats the system locale (`LC_ALL`, else
+ * `LC_MESSAGES`, else `LANG`; a value starting with `zh` picks `'zh'`) beats
+ * `'en'`. `explicit`, when given at all, and `LARK_CONNECTOR_LANG` are held
+ * to the same rule: `'zh'` or `'en'` is used, anything else throws — a typo
+ * on the command line or in the environment fails loud rather than silently
+ * falling through to the next source. Undefined (no `--lang` given) is the
+ * only value of `explicit` that is not itself validated; it just moves on to
+ * `LARK_CONNECTOR_LANG`. The one caller (the `--lang` parser in `cli.ts`)
+ * turns any throw here into the same exit code, whichever source raised it.
+ */
+export function resolveLang(explicit?: string, env: NodeJS.ProcessEnv = process.env): Lang {
+  if (explicit !== undefined) {
+    if (explicit === 'zh' || explicit === 'en') return explicit;
+    throw new Error(`--lang must be zh or en, got "${explicit}"`);
+  }
+  const fromEnv = env.LARK_CONNECTOR_LANG;
+  if (fromEnv) {
+    if (fromEnv === 'zh' || fromEnv === 'en') return fromEnv;
+    throw new Error(`LARK_CONNECTOR_LANG must be zh or en, got "${fromEnv}"`);
+  }
+  const locale = env.LC_ALL || env.LC_MESSAGES || env.LANG;
+  return locale?.startsWith('zh') ? 'zh' : 'en';
+}
 
 /** `{name}` → vars.name; placeholders without a value are left as they are. */
 export function fill(template: string, vars: Record<string, string | number> = {}): string {
