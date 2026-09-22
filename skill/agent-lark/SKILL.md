@@ -62,6 +62,11 @@ same words in a sentence). Each maps to one flow:
   --name "<task>"` from your own pane, relay stdout). No credentials yet ⇒ the `setup` flow above first
   (outside herdr that means handing the user the `setup --reuse` command for a terminal window of their
   own, never for this session), then `away on` again.
+  `away on`'s stderr carrying `warning: the daemon cannot find herdr on its PATH` means the daemon was
+  started before herdr was installed and cannot inject anything: run `node <skill dir>/dist/cli.mjs
+  daemon --stop` yourself. Exit 4 (a question is pending on another project) ⇒ relay the stderr to the
+  user and wait for their call (wait for the answer, or `--stop --force`). Stopped cleanly ⇒ `away on`
+  once more, then tell the user "the daemon was restarted; phone messages can be delivered now."
 - **`off`** — `away off` (the switch only; the group and the daemon stay).
 
 ## Ask a question
@@ -376,7 +381,9 @@ daemon keeps that on the binding.
   happens for a human-made group adopted with `bind --chat` — so the record is gone but the human has
   to dissolve the group by hand; the daemon
   clears the group's marker so it is not offered back meanwhile, and says so if that failed too). `away off` is
-  the human's call, not yours. `status` shows credentials, herdr, the daemon and every binding, live and
+  the human's call, not yours. `status` shows credentials, whether you are inside herdr, the daemon's own
+  view of herdr on its PATH (`herdr (daemon's view): …` — a snapshot from when the daemon started, so it
+  can say "not found" even while you are inside herdr right now), the daemon and every binding, live and
   released.
 - Records of groups that no longer exist in Feishu (dissolved, or the bot removed from them) are
   forgotten by the daemon once a day, right after its first handshake with Feishu, and whenever `away on` /

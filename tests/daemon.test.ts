@@ -113,6 +113,15 @@ test('starts, answers ping as connected, stop() makes ping fail and leaves the p
   if (!after.ok) assert.equal(after.code, 3);
 });
 
+test('ping reports the daemon\'s own herdr view, exactly as herdr.view answers it', PER_TEST, async () => {
+  const { daemon, herdr } = await start();
+  herdr.view = { bin: '/opt/herdr/bin/herdr', reachable: true };
+  assert.deepEqual((await ping())?.herdr, { bin: '/opt/herdr/bin/herdr', reachable: true });
+  herdr.view = { bin: null, reachable: false, error: 'not found on PATH' };
+  assert.deepEqual((await ping())?.herdr, { bin: null, reachable: false, error: 'not found on PATH' });
+  await daemon.stop();
+});
+
 test('IPC is up before Feishu is: two failed connects, ask is refused with the last error, then it recovers', PER_TEST, async () => {
   let attempt = 0;
   const { daemon } = await start({
@@ -925,6 +934,18 @@ test('setAway false with no live group is a no-op ack; setAway true still needs 
   await daemon.stop();
 });
 
+test('setAway true acks with the herdr view; setAway false does not query it', PER_TEST, async () => {
+  const { daemon, herdr } = await start();
+  await connected();
+  await bindChat('/p', 'oc_x');
+  herdr.view = { bin: null, reachable: false, error: 'not found on PATH' };
+  const on = await request({ type: 'setAway', root: '/p', away: true, paneId: 'w1:p1' });
+  assert.deepEqual(on, { ok: true, kind: 'ack', herdr: { bin: null, reachable: false, error: 'not found on PATH' } });
+  const off = await request({ type: 'setAway', root: '/p', away: false, paneId: 'w1:p1' });
+  assert.deepEqual(off, { ok: true, kind: 'ack' });
+  await daemon.stop();
+});
+
 test('a state directory whose socket path is over the limit stops the daemon with code 4 and the path sentence, before credentials are looked at', { ...PER_TEST, skip: platform() === 'win32' ? 'named pipes have no sun_path' : false }, async () => {
   const long = homeOfSockBytes(SOCK_PATH_LIMIT + 1, 'al-daemon-long-');
   homes.push(dirname(long));
@@ -1175,6 +1196,24 @@ test('injection refused by herdr: no reaction, and the receipt card speaks the l
   assert.equal(card.header.title.content, '⚠️ [p] Not delivered');
   assert.match(String(card.body.elements[0]!.content), /stuck on a prompt only you can answer/);
   assert.equal(fake.reactions.length, 0);
+  await daemon.stop();
+});
+
+test('promptPane refused as herdr_missing: the receipt card explains the daemon cannot find herdr and how to restart it', PER_TEST, async () => {
+  const { daemon, fake, herdr } = await start();
+  await connected();
+  await request({ type: 'bind', root: '/p', label: 'p', paneId: 'w1:p1', chatId: 'oc_x' });
+  await request({ type: 'notify', root: '/p', label: 'p', paneId: 'w1:p1', payload: { title: 't', body: 'b', lang: 'en' } });
+  herdr.outcome = { ok: false, code: 'herdr_missing', message: 'not found on PATH' };
+  await fake.message({ chatId: 'oc_x', content: 'hello there', messageId: 'om_human_1' });
+  const receipt = await waitFor(() => {
+    const l = fake.sent.at(-1);
+    return l && 'input' in l && fake.sent.length === 2 ? l : null;
+  }, 'the receipt card');
+  const card = (receipt.input as { card: Card }).card;
+  const body = String(card.body.elements[0]!.content);
+  assert.match(body, /cannot find the herdr executable/);
+  assert.match(body, /node "/);
   await daemon.stop();
 });
 

@@ -1,6 +1,7 @@
 import { createConnection, createServer, type Server, type Socket } from 'node:net';
 import { unlinkSync } from 'node:fs';
 import { platform } from 'node:os';
+import type { HerdrView } from './herdr.js';
 import { ensureHomeDir, ipcEndpoint, sockPath, sockPathProblem } from './paths.js';
 import { fill, msg } from './texts.js';
 
@@ -37,6 +38,8 @@ export interface DaemonStatus {
   startedAt: string;
   /** The daemon's media directory: retention in days (0 = never swept) and what it held at the last sweep (`at`, ISO time). */
   media: { ttlDays: number; files: number; bytes: number; at: string };
+  /** The daemon's own view of herdr — its PATH is a snapshot taken when it started, not this machine's current one. */
+  herdr: HerdrView;
 }
 
 export type Response =
@@ -53,7 +56,8 @@ export type Response =
   | { ok: true; kind: 'unbind'; chatId: string; name: string; dissolved?: boolean; problem?: string }
   | { ok: true; kind: 'rename'; name: string }
   | { ok: true; kind: 'list'; bindings: BindingSummary[] }
-  | { ok: true; kind: 'ack' }
+  /** `herdr`: only `setAway` fills it in, and only when switching on. */
+  | { ok: true; kind: 'ack'; herdr?: HerdrView }
   /**
    * code maps 1:1 onto the CLI exit code the client should use. `reason` is
    * set by the client library for failures it produced itself, so callers can

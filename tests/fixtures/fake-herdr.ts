@@ -1,6 +1,6 @@
 // herdr as the daemon sees it, without spawning anything.
 import type { HerdrDeps } from '../../src/daemon.js';
-import { findPaneForProject, type AgentInfo, type PromptOutcome } from '../../src/herdr.js';
+import { findPaneForProject, type AgentInfo, type HerdrView, type PromptOutcome } from '../../src/herdr.js';
 
 export interface FakeHerdr {
   deps: HerdrDeps;
@@ -12,6 +12,8 @@ export interface FakeHerdr {
   outcome: PromptOutcome;
   /** What sendKeys answers; defaults to accepted. */
   keysOutcome: PromptOutcome;
+  /** What deps.view() answers; defaults to a herdr found on PATH and reachable. */
+  view: HerdrView;
 }
 
 /** An agent entry as `herdr agent list` reports it, with the fields a test cares about on top. */
@@ -19,13 +21,14 @@ export function agentEntry(over: Partial<AgentInfo> & { pane_id: string }): Agen
   return { agent: 'claude', agent_status: 'idle', cwd: '/p', focused: false, ...over };
 }
 
-export function createFakeHerdr(opts: { agents?: AgentInfo[]; outcome?: PromptOutcome } = {}): FakeHerdr {
+export function createFakeHerdr(opts: { agents?: AgentInfo[]; outcome?: PromptOutcome; view?: HerdrView } = {}): FakeHerdr {
   const fake: FakeHerdr = {
     agents: opts.agents ?? [],
     prompts: [],
     keys: [],
     outcome: opts.outcome ?? { ok: true },
     keysOutcome: { ok: true },
+    view: opts.view ?? { bin: '/fake/herdr', reachable: true },
     deps: {
       agentList: async () => fake.agents,
       promptPane: async (paneId, text) => {
@@ -37,6 +40,7 @@ export function createFakeHerdr(opts: { agents?: AgentInfo[]; outcome?: PromptOu
         return fake.keysOutcome;
       },
       findPaneForProject,
+      view: async () => fake.view,
     },
   };
   return fake;

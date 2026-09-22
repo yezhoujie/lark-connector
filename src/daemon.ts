@@ -7,7 +7,7 @@ import { createLarkChannel, type CardActionEvent, type LarkChannel, type LarkCha
 import { BindingStore, BindingsFileError, groupName, taskNameProblem, type Binding } from './bindings.js';
 import { askCard, checkerName, notifyCard, optionIdOf, receiptCard, statusCard } from './cards.js';
 import { resolveCreds } from './creds.js';
-import { agentList, findPaneForProject, promptPane, sendKeys, type AgentInfo } from './herdr.js';
+import { agentList, findPaneForProject, herdrView, promptPane, sendKeys, type AgentInfo } from './herdr.js';
 import { isDaemonListening, serve, type Candidate, type Request, type Response } from './ipc.js';
 import { legacyGroupMarker } from './migrate.js';
 import { ensureHomeDir, homeDir, ipcEndpoint, logPath, mediaDir, pidPath, sockPath, sockPathProblem, writeProjectState } from './paths.js';
@@ -145,6 +145,7 @@ export interface HerdrDeps {
   promptPane: typeof promptPane;
   sendKeys: typeof sendKeys;
   findPaneForProject: typeof findPaneForProject;
+  view: typeof herdrView;
 }
 
 export interface DaemonDeps {
@@ -286,7 +287,7 @@ export async function runDaemon(deps: DaemonDeps = {}): Promise<DaemonHandle> {
   ensureHomeDir();
   // A live daemon must not be duplicated; a dead socket file is not a daemon.
   if (await isDaemonListening(2000)) throw new DaemonStartError(3, msg.daemonAlready);
-  const herdr: HerdrDeps = deps.herdr ?? { agentList, promptPane, sendKeys, findPaneForProject };
+  const herdr: HerdrDeps = deps.herdr ?? { agentList, promptPane, sendKeys, findPaneForProject, view: herdrView };
   const retryMs = deps.connectRetryMs ?? CONNECT_RETRY_MS;
   const ttl = mediaTtlDays();
   if (ttl.invalid !== undefined) {
@@ -416,6 +417,8 @@ export async function runDaemon(deps: DaemonDeps = {}): Promise<DaemonHandle> {
         return T.promptPaneGone;
       case 'spawn_failed':
         return T.promptNoHerdr;
+      case 'herdr_missing':
+        return T.promptHerdrMissing;
       default:
         return fill(T.promptRefused, { code: code ?? '?', message: message ?? '' }).trim();
     }
@@ -1341,6 +1344,7 @@ export async function runDaemon(deps: DaemonDeps = {}): Promise<DaemonHandle> {
               bindings: bindings.activeAll().length,
               startedAt,
               media: { ttlDays: ttl.days, ...mediaSeen },
+              herdr: await herdr.view(),
             },
           };
 
@@ -1593,7 +1597,11 @@ export async function runDaemon(deps: DaemonDeps = {}): Promise<DaemonHandle> {
           if (!b) return { ok: false, code: 4, message: msg.notBound };
           lastStatus.delete(req.root);
           log('away', { root: req.root, away: req.away });
-          return { ok: true, kind: 'ack' };
+          // Switching on: the daemon's own herdr view rides back on the ack, so
+          // the CLI can warn when phone messages have nowhere to go. Off does
+          // not need it — nothing is about to be delivered.
+          if (!req.away) return { ok: true, kind: 'ack' };
+          return { ok: true, kind: 'ack', herdr: await herdr.view() };
         }
 
         case 'notify': {

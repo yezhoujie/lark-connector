@@ -39,6 +39,7 @@ One project (the directory the agent works in) gets one Feishu group; whichever 
   - The whole question round trip (card → tap or type → answer back to the agent), notifications and files work **without** herdr.
   - Messages you send on your own initiative — an instruction, a photo, a voice note, a reply to an old card — are typed into the agent's terminal by herdr; without it they cannot be delivered, and you get a receipt card in the group saying so.
   - The 🔔 *waiting for you* card (pushed when the agent is stuck on a prompt only you can answer) also needs herdr; so does the pane the agent opens for you in §4.2.
+  - If the daemon was already running when you installed herdr, restart it once from a herdr pane (`away on` will print a warning on stderr until then, and the agent handles it — see §7). If herdr itself listens on a non-default socket path, the daemon has to be started from a herdr pane too, so it inherits that setting.
 
 ### 2.1 Two Feishu accounts on one Mac
 
@@ -143,7 +144,8 @@ Three places, highest first: `LARK_CONNECTOR_APP_ID` / `LARK_CONNECTOR_APP_SECRE
 ```bash
 node "<agent-lark dir>/dist/cli.mjs" status            # credentials (which layer, never the value), herdr, daemon, every project's group
 node "<agent-lark dir>/dist/cli.mjs" daemon --status   # daemon: pid …  connected true  connection connected  pending questions 0  bound projects 1  started …
-                                 # media: ttl 7 days, … MB in … files (as of last sweep …)
+                                                       # herdr (daemon's view): reachable via /usr/local/bin/herdr
+                                                       # media: ttl 7 days, … MB in … files (as of last sweep …)
 node "<agent-lark dir>/dist/cli.mjs" daemon --stop     # before an upgrade (§9); refused while a question is pending — --stop --force cancels it and stops
 ```
 
@@ -154,6 +156,7 @@ node "<agent-lark dir>/dist/cli.mjs" daemon --stop     # before an upgrade (§9)
 - **No card arrives, the agent reports exit 3.** The daemon is not running or cannot reach Feishu: `node "<agent-lark dir>/dist/cli.mjs" daemon --status` shows the last error (wrong credentials, no network); the daemon keeps retrying by itself, so fix the cause and let the agent try again. Not running at all ⇒ the agent starts it; you can too: `node "<agent-lark dir>/dist/cli.mjs" daemon --detach`.
 - **The card says "Read 0/0".** That is Feishu's read counter for bot messages, not a delivery status. The signs that count: an answered question turns green, and your own message gets a `Get` reaction once it reached the agent.
 - **Your message got a "Not delivered" receipt card.** The reason is on the card: no herdr on that machine, the agent's pane is gone, or the agent is stuck on a prompt only you can answer. Turning remote mode on again from the agent records its pane afresh; for the last case, handle the prompt when you are back.
+- **The card says the daemon cannot find herdr, though you know it is installed.** The daemon was started before herdr was — it only sees the PATH it had at launch. Restart it from a herdr pane (`node "<agent-lark dir>/dist/cli.mjs" daemon --stop`, then `away on` again); `status` shows the daemon's own view of herdr (`herdr (daemon's view): …`) alongside whether you are inside herdr right now — the two can disagree.
 - **Voice notes are saved but not transcribed.** Transcription needs the `speech_to_text:speech` scope **and a paid Feishu tenant**; on a free / personal tenant Feishu refuses (HTTP 400, code 99991400) even with the scope granted. Type instead. Keep a voice note under a minute.
 - **The QR code expired.** Run `setup` again (by hand, or ask the agent again).
 - **A reused app sends nothing / creating the group fails with a permission error.** Its scopes, event and callback are not enabled, or no version was published: §4.3, then try again.

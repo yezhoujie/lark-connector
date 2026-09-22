@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 import { spawn } from 'node:child_process';
 import { existsSync, openSync, realpathSync, unlinkSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { delimiter, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createLarkChannel, registerApp } from '@larksuite/channel';
 import QRCode from 'qrcode';
 import { clearCreds, credsReport, defaultStore, resolveCreds, writeCreds, type StoreKind } from './creds.js';
-import { closePane, currentPaneId, insideHerdr, promptPane, quoteForPaneShell, runInPane, splitPane, type HerdrRun } from './herdr.js';
+import { closePane, currentPaneId, insideHerdr, promptPane, quoteForPaneShell, runInPane, splitPane, type HerdrRun, type HerdrView } from './herdr.js';
 import { InputInterrupted, terminalIO, type SetupIO } from './tty.js';
 import { taskNameProblem } from './bindings.js';
 import { isDaemonListening, request, type Request, type Response } from './ipc.js';
@@ -554,6 +554,25 @@ async function cmdSetup(args: string[]): Promise<void> {
 const daemonAlive = (): Promise<boolean> => isDaemonListening(2000);
 
 /**
+ * Extra PATH for spawning the daemon: when this pane's herdr set
+ * HERDR_BIN_PATH and that directory is not already on PATH, prepend it, so a
+ * daemon started before herdr was installed can find it once it is
+ * restarted from a pane that has it (the daemon's own PATH is a snapshot
+ * taken right here, at spawn time — see `findHerdrOnPath` in herdr.ts).
+ * `undefined` means nothing to add; passed as `env: undefined` to `spawn()`
+ * it keeps that call's current behavior (inherit `process.env` untouched).
+ */
+export function daemonEnv(): NodeJS.ProcessEnv | undefined {
+  if (!insideHerdr()) return undefined;
+  const bin = process.env.HERDR_BIN_PATH;
+  if (!bin) return undefined;
+  const dir = dirname(bin);
+  const path = process.env.PATH ?? '';
+  if (path.split(delimiter).includes(dir)) return undefined;
+  return { ...process.env, PATH: `${dir}${delimiter}${path}` };
+}
+
+/**
  * Start the daemon in its own session. It must outlive the caller: started as
  * a child of a shell command it would die with it, and every message the human
  * sends afterwards would be lost with no error on their side.
@@ -567,7 +586,7 @@ async function startDaemonDetached(): Promise<{ ok: true; message: string } | { 
   ensureHomeDir();
   const out = openSync(logPath(), 'a');
   const self = fileURLToPath(import.meta.url);
-  const child = spawn(process.execPath, [self, 'daemon'], { detached: true, stdio: ['ignore', out, out] });
+  const child = spawn(process.execPath, [self, 'daemon'], { detached: true, stdio: ['ignore', out, out], env: daemonEnv() });
   child.unref();
   const deadline = Date.now() + 10_000;
   while (Date.now() < deadline) {
@@ -577,6 +596,13 @@ async function startDaemonDetached(): Promise<{ ok: true; message: string } | { 
   return { ok: false, code: 3, message: fill(msg.daemonNoReply, { log: logPath() }) };
 }
 
+
+/** One line summarizing the daemon's own view of herdr, shared by `status` and `daemon --status`. */
+function herdrDaemonViewLine(view: HerdrView): string {
+  if (view.bin === null) return msg.statusHerdrDaemonMissing;
+  if (view.reachable) return fill(msg.statusHerdrDaemonOk, { bin: view.bin });
+  return fill(msg.statusHerdrDaemonUnreachable, { bin: view.bin, error: view.error ?? '?' });
+}
 
 async function cmdDaemon(args: string[]): Promise<void> {
   const a = argv('daemon', args);
@@ -588,6 +614,7 @@ async function cmdDaemon(args: string[]): Promise<void> {
     process.stdout.write(
       `${fill(msg.daemonStatusLine, { pid: s.pid, connected: String(s.connected), connection: s.connection, pending: s.pendingAsks, bindings: s.bindings, startedAt: s.startedAt })}\n`,
     );
+    process.stdout.write(`${herdrDaemonViewLine(s.herdr)}\n`);
     if (s.lastError) process.stdout.write(`${fill(msg.daemonLastError, { error: s.lastError })}\n`);
     const mb = (s.media.bytes / 1024 / 1024).toFixed(1);
     process.stdout.write(
@@ -884,6 +911,11 @@ async function cmdAway(args: string[]): Promise<void> {
     writeProjectState(root, chatId ? { away, chatId } : { away }, { create: away });
     process.stdout.write(`${away ? msg.awayOn : msg.awayOff}\n`);
     if (away && !insideHerdr()) process.stdout.write(`${msg.awayOutsideHerdr}\n`);
+    // Only worth a warning inside herdr: outside it, awayOutsideHerdr above
+    // already says why nothing can be delivered, whatever the daemon's PATH holds.
+    if (away && res.ok && res.kind === 'ack' && res.herdr && insideHerdr() && res.herdr.bin === null) {
+      process.stderr.write(`${msg.awayDaemonNoHerdr}\n`);
+    }
   });
 }
 
@@ -901,6 +933,7 @@ async function cmdStatus(): Promise<void> {
     process.stdout.write(
       `${fill(msg.statusDaemonLine, { pid: ping.status.pid, connected: String(ping.status.connected), connection: ping.status.connection, pending: ping.status.pendingAsks })}\n`,
     );
+    process.stdout.write(`${herdrDaemonViewLine(ping.status.herdr)}\n`);
     if (ping.status.lastError) process.stdout.write(`${fill(msg.daemonLastError, { error: ping.status.lastError })}\n`);
   }
   const list = await request({ type: 'list' }, { timeoutMs: 5000 });

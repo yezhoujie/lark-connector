@@ -11,7 +11,7 @@
  *
  * Placeholders are `{name}`; substitute with `fill()`.
  */
-import { resolve } from 'node:path';
+import { posix, win32 } from 'node:path';
 import type { Lang } from './validate.js';
 
 /**
@@ -22,12 +22,22 @@ import type { Lang } from './validate.js';
  * throwing, since the result only ever feeds into text, never runs.
  * `process.execPath` is deliberately not used here — it names the node
  * binary (e.g. a long `/opt/homebrew/Cellar/node/...` path), not this file.
+ *
+ * `platform` picks which of `path`'s two resolvers reads `entry` (so a
+ * Windows-shaped path is resolved the same way on any host, for tests) and
+ * how the result is escaped: POSIX backslash-escapes `"` and `\`; win32
+ * escapes only `"` — a path's own backslashes are separators, not something
+ * to double.
  */
-export function selfCommand(entry: string = process.argv[1] ?? ''): string {
+export function selfCommand(entry: string = process.argv[1] ?? '', platform: NodeJS.Platform = process.platform): string {
   if (!entry) return 'node "<path to agent-lark>/dist/cli.mjs"';
-  return `node "${resolve(entry).replace(/[\\"]/g, '\\$&')}"`;
+  const path = platform === 'win32' ? win32 : posix;
+  const resolved = path.resolve(entry);
+  const escaped = platform === 'win32' ? resolved.replace(/"/g, '\\"') : resolved.replace(/[\\"]/g, '\\$&');
+  return `node "${escaped}"`;
 }
 
+/** This CLI's own runnable command, computed once from how this process was launched. Every `${CLI}`-bearing entry below shares this value. */
 const CLI = selfCommand();
 
 export const zh = {
@@ -64,6 +74,7 @@ export const zh = {
   promptPaneGone: `记录的 herdr 窗格已经不在了。到项目里跑一次 ${CLI} away on 或任意 ${CLI} 命令，重新记录窗格。`,
   promptNoHerdr: '这台机器没有 herdr，或 herdr 没在跑，手机上发的消息没处注入。',
   promptRefused: 'herdr 拒绝了这次注入：{code} {message}',
+  promptHerdrMissing: `daemon 找不到 herdr 可执行文件（多半它比 herdr 先启动）。从 herdr 窗格里重启它：${CLI} daemon --stop，再 ${CLI} away on`,
   // "stuck" status card
   statusBlocked: '等你输入',
   statusPane: '窗格 {pane}',
@@ -139,6 +150,7 @@ export const en: Record<keyof typeof zh, string> = {
   promptPaneGone: `The recorded herdr pane is gone. Run ${CLI} away on (or any ${CLI} command) inside the project to record the pane again.`,
   promptNoHerdr: 'This machine has no herdr, or herdr is not running; messages from the phone have nowhere to go.',
   promptRefused: 'herdr refused the injection: {code} {message}',
+  promptHerdrMissing: `The daemon cannot find the herdr executable (it was probably started before herdr was installed). Restart it from a herdr pane: ${CLI} daemon --stop, then ${CLI} away on`,
   statusBlocked: 'waiting for you',
   statusPane: 'pane {pane}',
   toastAnswered: 'Replied',
@@ -311,11 +323,16 @@ Exit codes: 0 ok · 1 bad input · 2 timed out, nobody answered · 3 channel fai
   awayBoundChat: 'Bound to Feishu group {chatId}',
   awayOff: 'Remote mode is off.',
   awayOn: 'Remote mode is on: decisions, and moments when the agent is stuck on a prompt that needs you, are pushed to this project\'s Feishu group.',
+  awayDaemonNoHerdr: `warning: the daemon cannot find herdr on its PATH (was it started before herdr was installed?). Phone messages cannot be delivered until it is restarted from a herdr pane: ${CLI} daemon --stop, then ${CLI} away on`,
   // status
   statusCredsYes: 'credentials: configured, from {origin}',
   statusCredsNo: `credentials: not configured; run ${CLI} setup first`,
   statusHerdrIn: 'herdr: inside herdr, pane {pane}',
   statusHerdrOut: 'herdr: not inside herdr',
+  // the daemon's own view of herdr, on its own PATH (a startup snapshot) — shown by `status` and `daemon --status`
+  statusHerdrDaemonOk: "herdr (daemon's view): reachable via {bin}",
+  statusHerdrDaemonUnreachable: "herdr (daemon's view): {bin} found but not answering ({error})",
+  statusHerdrDaemonMissing: `herdr (daemon's view): not found on the daemon's PATH — restart it from a herdr pane: ${CLI} daemon --stop, then ${CLI} away on`,
   statusDaemonDown: `daemon: not running (${CLI} daemon --detach)`,
   statusDaemonPath: 'daemon: cannot run here ({problem})',
   statusDaemonLine: 'daemon: pid {pid}, connected {connected}, connection {connection}, pending questions {pending}',

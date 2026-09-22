@@ -37,12 +37,16 @@ test('fill substitutes every placeholder and leaves unknown braces alone', () =>
   assert.equal(fill('{a} {b}', { a: 'x' }), 'x {b}');
 });
 
-test('the four herdr prompt failure codes have card wording in both languages', () => {
-  for (const key of ['promptAgentBlocked', 'promptPaneGone', 'promptNoHerdr', 'promptRefused'] as const) {
+test('the five herdr prompt failure codes have card wording in both languages', () => {
+  for (const key of ['promptAgentBlocked', 'promptPaneGone', 'promptNoHerdr', 'promptRefused', 'promptHerdrMissing'] as const) {
     assert.ok(zh[key].trim());
     assert.ok(en[key].trim());
   }
   assert.deepEqual(placeholders(zh.promptRefused), ['{code}', '{message}']);
+  // Baked with ${CLI} at module load, like its sibling promptPaneGone — no
+  // {cli} placeholder left for fill() to substitute at the call site.
+  assert.deepEqual(placeholders(zh.promptHerdrMissing), []);
+  assert.deepEqual(placeholders(en.promptHerdrMissing), []);
 });
 
 test('selfCommand: a given entry becomes node "<absolute path>"', () => {
@@ -51,6 +55,11 @@ test('selfCommand: a given entry becomes node "<absolute path>"', () => {
 
 test('selfCommand: a double quote in the path is escaped', () => {
   assert.equal(selfCommand('/a"b/c.mjs'), 'node "/a\\"b/c.mjs"');
+});
+
+test('selfCommand: win32 escapes only the double quote — backslashes in the path are left alone', () => {
+  assert.equal(selfCommand('C:\\Users\\x\\cli.mjs', 'win32'), 'node "C:\\Users\\x\\cli.mjs"');
+  assert.equal(selfCommand('C:\\a "b"\\c.mjs', 'win32'), 'node "C:\\a \\"b\\"\\c.mjs"');
 });
 
 test('selfCommand: an empty entry returns a placeholder instead of throwing', () => {

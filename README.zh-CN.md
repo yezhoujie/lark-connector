@@ -39,6 +39,7 @@ agent ──提问──▶ daemon ──▶ 飞书 ──▶ 你的手机：点
   - 提问整条来回（卡片 → 点按钮或打字 → 答复回到 agent）、通知、文件，**不装** herdr 也能用。
   - 你主动发的消息——一句指令、一张图、一条语音、对旧卡片的回复——是由 herdr 打进 agent 终端的；不装就送不到，群里会收到一张回执卡说明。
   - 🔔「等你输入」卡（agent 卡在只有你能回答的提示上时推）也要 herdr；§4.2 里 agent 替你开的那个窗格同样要。
+  - 装 herdr 之前 daemon 就已经在跑的话，从 herdr 窗格里重启它一次（重启前 `away on` 会在 stderr 打一条 warning，agent 会自己处理——见 §7）。herdr 本身配了非缺省的 socket 路径，daemon 同样要从 herdr 窗格里起，才能继承这个设置。
 
 ### 2.1 macOS 上两个飞书账号同时在线
 
@@ -143,7 +144,8 @@ im:message   im:message:send_as_bot   im:message.group_msg   im:chat   im:resour
 ```bash
 node "<agent-lark 的路径>/dist/cli.mjs" status            # 凭据（哪一层，不打印值）、herdr、daemon、每个项目的群
 node "<agent-lark 的路径>/dist/cli.mjs" daemon --status   # daemon: pid …  connected true  connection connected  pending questions 0  bound projects 1  started …
-                                 # media: ttl 7 days, … MB in … files (as of last sweep …)
+                                                       # herdr (daemon's view): reachable via /usr/local/bin/herdr
+                                                       # media: ttl 7 days, … MB in … files (as of last sweep …)
 node "<agent-lark 的路径>/dist/cli.mjs" daemon --stop     # 升级前（§9）；有提问挂着时拒绝——--stop --force 取消提问并停掉
 ```
 
@@ -154,6 +156,7 @@ node "<agent-lark 的路径>/dist/cli.mjs" daemon --stop     # 升级前（§9�
 - **卡片没来，agent 说退出码 3。** daemon 没跑，或连不上飞书：`node "<agent-lark 的路径>/dist/cli.mjs" daemon --status` 显示最后一次错误（凭据不对、没网）；daemon 会自己不断重连，排除原因后让 agent 再试。根本没在跑 ⇒ agent 会起它；你也可以：`node "<agent-lark 的路径>/dist/cli.mjs" daemon --detach`。
 - **卡片上显示「已读 0/0」。** 那是飞书对机器人消息的已读计数，不是送达状态。真正算数的标记：提问被回答会变绿；你主动发的消息送到 agent 后会被贴上 `Get` 表情。
 - **你发的消息收到一张「没能送达」回执卡。** 原因写在卡上：那台机器没有 herdr、agent 的窗格没了、或 agent 正卡在只有你能回答的提示上。让 agent 重新开一次远程模式会重新记录它的窗格；最后一种情况回到电脑前处理那个提示。
+- **卡片说 daemon 找不到 herdr，可你明明装了。** daemon 是在 herdr 装好之前启动的——它只看得到启动那一刻的 PATH。从 herdr 窗格里重启它（`node "<agent-lark 的路径>/dist/cli.mjs" daemon --stop`，再 `away on` 一次）；`status` 会同时显示 daemon 自己的 herdr 视角（`herdr (daemon's view): …`）与你现在在不在 herdr 里——这两者可能不一致。
 - **语音存下来了但没转成文字。** 转写需要 `speech_to_text:speech` 权限**且飞书付费租户**；免费 / 个人版租户即使已开通权限，飞书也会拒绝（HTTP 400，code 99991400）。改打字。语音控制在一分钟内。
 - **二维码过期了。** 重跑 `setup`（手动，或再让 agent 来一次）。
 - **复用的应用发不出东西 / 建群报权限错误。** 权限、事件、回调没开，或没发布版本：按 §4.3 做完再试。

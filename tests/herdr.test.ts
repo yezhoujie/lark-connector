@@ -1,9 +1,23 @@
 // The pane side of the herdr adapter: quoting for `pane run`, and the three
 // calls the interactive setup hand-off makes, against a scripted `herdr`.
-import { test } from 'node:test';
+import { after, test } from 'node:test';
 import assert from 'node:assert/strict';
+import { mkdtempSync, rmSync, writeFileSync, chmodSync } from 'node:fs';
+import { platform as hostPlatform, tmpdir } from 'node:os';
+import { delimiter, join } from 'node:path';
 
-import { closePane, promptPane, quoteForPaneShell, runInPane, sendKeys, splitPane, type HerdrRun, type HerdrRunner } from '../src/herdr.js';
+import {
+  closePane,
+  findHerdrOnPath,
+  herdrView,
+  promptPane,
+  quoteForPaneShell,
+  runInPane,
+  sendKeys,
+  splitPane,
+  type HerdrRun,
+  type HerdrRunner,
+} from '../src/herdr.js';
 
 function recorder(answer: (args: string[]) => HerdrRun): { run: HerdrRunner; calls: string[][] } {
   const calls: string[][] = [];
@@ -90,4 +104,182 @@ test('promptPane: bad_output on a zero exit names what was on stderr when stdout
   const out = await promptPane('w1:p1', 'hi', noisy.run);
   assert.equal(out.code, 'bad_output');
   assert.match(out.message ?? '', /something odd/);
+});
+
+test('outcomeOf via promptPane: a spawn failure whose error code is ENOENT is herdr_missing, not spawn_failed', async () => {
+  const rec = recorder(() => ({ ok: false, stdout: '', stderr: '', error: 'spawn herdr ENOENT', code: 'ENOENT' }));
+  const out = await promptPane('w1:p1', 'hi', rec.run);
+  assert.equal(out.ok, false);
+  assert.equal(out.code, 'herdr_missing');
+});
+
+test('outcomeOf via promptPane: a spawn failure with a different (or no) error code stays spawn_failed', async () => {
+  const rec = recorder(() => ({ ok: false, stdout: '', stderr: '', error: 'spawn herdr EACCES', code: 'EACCES' }));
+  const out = await promptPane('w1:p1', 'hi', rec.run);
+  assert.equal(out.code, 'spawn_failed');
+});
+
+// ---- findHerdrOnPath: a pure PATH walk, no process spawned ----
+
+const scratch: string[] = [];
+function freshDir(prefix: string): string {
+  const dir = mkdtempSync(join(tmpdir(), prefix));
+  scratch.push(dir);
+  return dir;
+}
+function writeExecutable(path: string, mode = 0o755): void {
+  writeFileSync(path, '#!/bin/sh\nexit 0\n');
+  chmodSync(path, mode);
+}
+
+after(() => {
+  for (const dir of scratch) rmSync(dir, { recursive: true, force: true });
+});
+
+test('findHerdrOnPath: finds an executable herdr on a later PATH entry, ahead of dirs without it', () => {
+  const empty = freshDir('al-path-empty-');
+  const withBin = freshDir('al-path-has-herdr-');
+  const bin = join(withBin, 'herdr');
+  writeExecutable(bin);
+  const env = { PATH: [empty, withBin].join(delimiter) };
+  assert.equal(findHerdrOnPath(env, 'darwin'), bin);
+});
+
+test('findHerdrOnPath: nothing on PATH is null', () => {
+  const empty = freshDir('al-path-empty-');
+  assert.equal(findHerdrOnPath({ PATH: empty }, 'darwin'), null);
+});
+
+test('findHerdrOnPath: a non-executable file on PATH is skipped on POSIX', { skip: hostPlatform() === 'win32' }, () => {
+  const dir = freshDir('al-path-noexec-');
+  const bin = join(dir, 'herdr');
+  writeExecutable(bin, 0o644);
+  assert.equal(findHerdrOnPath({ PATH: dir }, 'linux'), null);
+});
+
+test('findHerdrOnPath: win32 tries PATHEXT-suffixed names, defaulting to .EXE;.CMD;.BAT;.COM, across a `;`-joined multi-entry PATH', () => {
+  const empty = freshDir('al-path-win-empty-');
+  const dir = freshDir('al-path-win-');
+  const bin = join(dir, 'herdr.CMD');
+  writeFileSync(bin, '@echo off\n');
+  // Joined with a literal `;`, not the host's own `path.delimiter` (`:` on
+  // this test's POSIX host): the win32 branch must split on `;` regardless
+  // of what OS is actually running the test.
+  const env = { PATH: [empty, dir].join(';') };
+  assert.equal(findHerdrOnPath(env, 'win32'), bin);
+});
+
+test('findHerdrOnPath: win32 honors a custom PATHEXT', () => {
+  const dir = freshDir('al-path-win-ext-');
+  const bin = join(dir, 'herdr.FOO');
+  writeFileSync(bin, 'x');
+  assert.equal(findHerdrOnPath({ PATH: dir, PATHEXT: '.FOO' }, 'win32'), bin);
+});
+
+// ---- herdrView: findHerdrOnPath plus (when found) a probe run ----
+
+test('herdrView: bin null when nothing is on PATH; the probe is never run', async () => {
+  const empty = freshDir('al-view-empty-');
+  const saved = process.env.PATH;
+  process.env.PATH = empty;
+  let called = false;
+  try {
+    const view = await herdrView(async () => {
+      called = true;
+      return { ok: true, stdout: '{}' };
+    });
+    assert.deepEqual(view, { bin: null, reachable: false, error: 'not found on PATH' });
+  } finally {
+    process.env.PATH = saved;
+  }
+  assert.equal(called, false);
+});
+
+test('herdrView: bin found and `agent list` answers ok is reachable, no error', async () => {
+  const dir = freshDir('al-view-ok-');
+  const bin = join(dir, 'herdr');
+  writeExecutable(bin);
+  const saved = process.env.PATH;
+  process.env.PATH = dir;
+  try {
+    const view = await herdrView(async () => ({ ok: true, stdout: JSON.stringify({ id: 'x', result: { agents: [] } }) }));
+    assert.deepEqual(view, { bin, reachable: true });
+  } finally {
+    process.env.PATH = saved;
+  }
+});
+
+test('herdrView: bin found but the envelope refuses is not reachable, error is the envelope code', async () => {
+  const dir = freshDir('al-view-refused-');
+  const bin = join(dir, 'herdr');
+  writeExecutable(bin);
+  const saved = process.env.PATH;
+  process.env.PATH = dir;
+  try {
+    const view = await herdrView(async () => ({
+      ok: false,
+      stdout: '',
+      stderr: JSON.stringify({ error: { code: 'agent_blocked', message: 'busy' } }),
+    }));
+    assert.equal(view.bin, bin);
+    assert.equal(view.reachable, false);
+    assert.equal(view.error, 'agent_blocked');
+  } finally {
+    process.env.PATH = saved;
+  }
+});
+
+test('herdrView: a non-envelope spawn failure surfaces the real diagnostic, not the bare "spawn_failed" label', async () => {
+  const dir = freshDir('al-view-spawnfail-');
+  const bin = join(dir, 'herdr');
+  writeExecutable(bin);
+  const saved = process.env.PATH;
+  process.env.PATH = dir;
+  try {
+    const view = await herdrView(async () => ({
+      ok: false,
+      stdout: '',
+      stderr: 'boom: cannot connect to server',
+      error: 'Command failed: herdr agent list',
+    }));
+    assert.equal(view.bin, bin);
+    assert.equal(view.reachable, false);
+    assert.notEqual(view.error, 'spawn_failed');
+    assert.match(view.error ?? '', /Command failed: herdr agent list/);
+  } finally {
+    process.env.PATH = saved;
+  }
+});
+
+test('herdrView: bad_output (zero exit, unparseable stdout) surfaces the stdout excerpt, not the bare "bad_output" label', async () => {
+  const dir = freshDir('al-view-badoutput-');
+  const bin = join(dir, 'herdr');
+  writeExecutable(bin);
+  const saved = process.env.PATH;
+  process.env.PATH = dir;
+  try {
+    const view = await herdrView(async () => ({ ok: true, stdout: 'not json at all garbage', stderr: '' }));
+    assert.equal(view.bin, bin);
+    assert.equal(view.reachable, false);
+    assert.notEqual(view.error, 'bad_output');
+    assert.match(view.error ?? '', /not json at all garbage/);
+  } finally {
+    process.env.PATH = saved;
+  }
+});
+
+test('herdrView: bad_output with an empty message (zero exit, whitespace-only output on both streams) falls back to the label, never an empty string', async () => {
+  const dir = freshDir('al-view-badoutput-empty-');
+  const bin = join(dir, 'herdr');
+  writeExecutable(bin);
+  const saved = process.env.PATH;
+  process.env.PATH = dir;
+  try {
+    const view = await herdrView(async () => ({ ok: true, stdout: '  ', stderr: '' }));
+    assert.equal(view.bin, bin);
+    assert.equal(view.reachable, false);
+    assert.equal(view.error, 'bad_output');
+  } finally {
+    process.env.PATH = saved;
+  }
 });

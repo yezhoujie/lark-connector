@@ -1,4 +1,6 @@
 import { execFile, execFileSync } from 'node:child_process';
+import { accessSync, constants as fsConstants, statSync } from 'node:fs';
+import { join, posix, win32 } from 'node:path';
 import { promisify } from 'node:util';
 
 const execFileAsync = promisify(execFile);
@@ -37,6 +39,50 @@ export function insideHerdr(): boolean {
 export function currentPaneId(): string | null {
   const id = process.env.HERDR_PANE_ID?.trim();
   return id || null;
+}
+
+/** Default `PATHEXT` on a Windows machine that has never set one of its own. */
+const DEFAULT_PATHEXT = '.EXE;.CMD;.BAT;.COM';
+
+/**
+ * `herdr` walked off `env.PATH` the way a shell would, without spawning
+ * anything: this is the daemon asking "would my own PATH find it right now",
+ * not "can it be run" (a probe run is a separate, async step). Returns the
+ * absolute path to the first match, or null when no directory on PATH holds
+ * one. A pure function of its arguments, so a daemon's real snapshot and a
+ * test's constructed one are read the same way.
+ */
+export function findHerdrOnPath(env: NodeJS.ProcessEnv = process.env, platform: NodeJS.Platform = process.platform): string | null {
+  // path.delimiter is fixed to the host running this process; PATH must be
+  // split on the injected platform's own delimiter instead, or a win32 PATH
+  // handed in on a POSIX test host never splits at all.
+  const delim = platform === 'win32' ? win32.delimiter : posix.delimiter;
+  const dirs = (env.PATH ?? '').split(delim).filter(Boolean);
+  const names =
+    platform === 'win32'
+      ? (env.PATHEXT || DEFAULT_PATHEXT).split(';').filter(Boolean).map((ext) => `herdr${ext}`)
+      : ['herdr'];
+  for (const dir of dirs) {
+    for (const name of names) {
+      const candidate = join(dir, name);
+      let st;
+      try {
+        st = statSync(candidate);
+      } catch {
+        continue;
+      }
+      if (!st.isFile()) continue;
+      if (platform !== 'win32') {
+        try {
+          accessSync(candidate, fsConstants.X_OK);
+        } catch {
+          continue;
+        }
+      }
+      return candidate;
+    }
+  }
+  return null;
 }
 
 function parse<T>(stdout: string): HerdrEnvelope<T> {
@@ -87,6 +133,7 @@ function outcomeOf(r: HerdrRun): PromptOutcome {
     return { ok: true };
   }
   if (r.ok) return { ok: false, code: 'bad_output', message: (r.stdout.trim() || r.stderr || '').slice(0, 200) };
+  if (r.code === 'ENOENT') return { ok: false, code: 'herdr_missing', message: r.error ?? 'herdr not found' };
   return { ok: false, code: 'spawn_failed', message: r.error ?? 'herdr failed' };
 }
 
@@ -120,6 +167,8 @@ export interface HerdrRun {
   stdout: string;
   stderr?: string;
   error?: string;
+  /** The spawn error's own `err.code` (e.g. `ENOENT` when there is no binary to run at all). */
+  code?: string;
 }
 export type HerdrRunner = (args: string[]) => Promise<HerdrRun>;
 
@@ -129,10 +178,47 @@ export const runHerdr = async (args: string[], timeoutMs = 10_000): Promise<Herd
     const { stdout, stderr } = await execFileAsync('herdr', args, { timeout: timeoutMs, maxBuffer: 1024 * 1024 });
     return { ok: true, stdout, stderr };
   } catch (err) {
-    const e = err as { stdout?: string; stderr?: string; message?: string };
-    return { ok: false, stdout: e.stdout ?? '', stderr: e.stderr ?? '', error: e.message ?? String(err) };
+    const e = err as { stdout?: string; stderr?: string; message?: string; code?: string | number | null };
+    return {
+      ok: false,
+      stdout: e.stdout ?? '',
+      stderr: e.stderr ?? '',
+      error: e.message ?? String(err),
+      code: typeof e.code === 'string' ? e.code : undefined,
+    };
   }
 };
+
+/** The daemon's own view of herdr: whether the binary is on its PATH at all, and — if so — whether it actually answers. */
+export interface HerdrView {
+  bin: string | null;
+  reachable: boolean;
+  error?: string;
+}
+
+/**
+ * `bin` is `findHerdrOnPath()`'s answer, read fresh on every call (never
+ * cached): the daemon's PATH is a startup snapshot, but the view of it is
+ * not. When a binary is there, one probe (`agent list`) says whether it
+ * actually answers. `bad_output` and `spawn_failed` are labels this module
+ * invents for a run `outcomeOf` could not read an envelope out of — the
+ * diagnostic there is `message` (the raw output, or the spawn error), not
+ * the label; any other code came straight from herdr's own envelope and
+ * already says what went wrong. Either way, cut to 100 characters.
+ */
+export async function herdrView(run: HerdrRunner = runHerdr): Promise<HerdrView> {
+  const bin = findHerdrOnPath();
+  if (bin === null) return { bin: null, reachable: false, error: 'not found on PATH' };
+  const outcome = outcomeOf(await run(['agent', 'list']));
+  if (outcome.ok) return { bin, reachable: true };
+  // `||`, not `??`: outcomeOf's bad_output message is `''` for a zero-exit
+  // herdr that printed only whitespace, and an empty string must still fall
+  // back to the label — `??` only catches null/undefined, so it would have
+  // let `error` come out empty (worse than the label it stands in for).
+  const internal = outcome.code === 'bad_output' || outcome.code === 'spawn_failed';
+  const detail = (internal ? outcome.message || outcome.code : outcome.code || outcome.message) || 'unreachable';
+  return { bin, reachable: false, error: detail.slice(0, 100) };
+}
 
 /**
  * Open a new pane below `pane` (cwd set; the new pane takes focus, since the
