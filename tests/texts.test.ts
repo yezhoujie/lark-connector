@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { both, en, fill, msg, zh } from '../src/texts.js';
+import { both, en, fill, msg, selfCommand, zh } from '../src/texts.js';
 
 const placeholders = (s: string): string[] => [...new Set(s.match(/\{[a-zA-Z_]+\}/g) ?? [])].sort();
 
@@ -43,6 +43,22 @@ test('the four herdr prompt failure codes have card wording in both languages', 
     assert.ok(en[key].trim());
   }
   assert.deepEqual(placeholders(zh.promptRefused), ['{code}', '{message}']);
+});
+
+test('selfCommand: a given entry becomes node "<absolute path>"', () => {
+  assert.equal(selfCommand('/a b/c.mjs'), 'node "/a b/c.mjs"');
+});
+
+test('selfCommand: a double quote in the path is escaped', () => {
+  assert.equal(selfCommand('/a"b/c.mjs'), 'node "/a\\"b/c.mjs"');
+});
+
+test('selfCommand: an empty entry returns a placeholder instead of throwing', () => {
+  assert.equal(selfCommand(''), 'node "<path to agent-lark>/dist/cli.mjs"');
+});
+
+test('msg.awayNoCreds hands over a runnable node "<path>" command, not the bare CLI name', () => {
+  assert.match(msg.awayNoCreds, /^No Feishu app credentials yet\. Run once: node "[^"]+" setup$/);
 });
 
 test('both(): a single-line value is zh and en side by side; a multi-line value is the zh block, then the en block, never joined on one line', () => {

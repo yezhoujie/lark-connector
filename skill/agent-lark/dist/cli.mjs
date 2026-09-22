@@ -10977,12 +10977,12 @@ var require_promisify = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     function promisify2(fn) {
       return function(req, opts) {
-        return new Promise((resolve4, reject) => {
+        return new Promise((resolve5, reject) => {
           fn.call(this, req, opts, (err, rtn) => {
             if (err) {
               reject(err);
             } else {
-              resolve4(rtn);
+              resolve5(rtn);
             }
           });
         });
@@ -11186,7 +11186,7 @@ var require_parse_proxy_response = __commonJS({
     var debug_1 = __importDefault(require_src());
     var debug3 = debug_1.default("https-proxy-agent:parse-proxy-response");
     function parseProxyResponse2(socket) {
-      return new Promise((resolve4, reject) => {
+      return new Promise((resolve5, reject) => {
         let buffersLength = 0;
         const buffers = [];
         function read() {
@@ -11226,7 +11226,7 @@ var require_parse_proxy_response = __commonJS({
           const firstLine = buffered.toString("ascii", 0, buffered.indexOf("\r\n"));
           const statusCode = +firstLine.split(" ")[1];
           debug3("got proxy server response: %o", firstLine);
-          resolve4({
+          resolve5({
             statusCode,
             buffered
           });
@@ -11247,11 +11247,11 @@ var require_agent = __commonJS({
     "use strict";
     var __awaiter = exports && exports.__awaiter || function(thisArg, _arguments, P, generator) {
       function adopt(value) {
-        return value instanceof P ? value : new P(function(resolve4) {
-          resolve4(value);
+        return value instanceof P ? value : new P(function(resolve5) {
+          resolve5(value);
         });
       }
-      return new (P || (P = Promise))(function(resolve4, reject) {
+      return new (P || (P = Promise))(function(resolve5, reject) {
         function fulfilled(value) {
           try {
             step(generator.next(value));
@@ -11267,7 +11267,7 @@ var require_agent = __commonJS({
           }
         }
         function step(result) {
-          result.done ? resolve4(result.value) : adopt(result.value).then(fulfilled, rejected);
+          result.done ? resolve5(result.value) : adopt(result.value).then(fulfilled, rejected);
         }
         step((generator = generator.apply(thisArg, _arguments || [])).next());
       });
@@ -13685,10 +13685,10 @@ var require_axios = __commonJS({
         this.__CANCEL__ = true;
       }
     };
-    function settle(resolve4, reject, response) {
+    function settle(resolve5, reject, response) {
       const validateStatus = response.config.validateStatus;
       if (!response.status || !validateStatus || validateStatus(response.status)) {
-        resolve4(response);
+        resolve5(response);
       } else {
         reject(new AxiosError("Request failed with status code " + response.status, response.status >= 400 && response.status < 500 ? AxiosError.ERR_BAD_REQUEST : AxiosError.ERR_BAD_RESPONSE, response.config, response.request, response));
       }
@@ -14955,7 +14955,7 @@ var require_axios = __commonJS({
     }
     var isHttpAdapterSupported = typeof process !== "undefined" && utils$1.kindOf(process) === "process";
     var wrapAsync = (asyncExecutor) => {
-      return new Promise((resolve4, reject) => {
+      return new Promise((resolve5, reject) => {
         let onDone;
         let isDone;
         const done = (value, isRejected) => {
@@ -14965,7 +14965,7 @@ var require_axios = __commonJS({
         };
         const _resolve = (value) => {
           done(value);
-          resolve4(value);
+          resolve5(value);
         };
         const _reject = (reason) => {
           done(reason, true);
@@ -15050,7 +15050,7 @@ var require_axios = __commonJS({
       }
     };
     var httpAdapter = isHttpAdapterSupported && function httpAdapter2(config) {
-      return wrapAsync(async function dispatchHttpRequest(resolve4, reject, onDone) {
+      return wrapAsync(async function dispatchHttpRequest(resolve5, reject, onDone) {
         const own2 = (key) => utils$1.getSafeProp(config, key);
         const transitional = own2("transitional") || transitionalDefaults;
         let data = own2("data");
@@ -15163,7 +15163,7 @@ var require_axios = __commonJS({
           }
           let convertedData;
           if (method !== "GET") {
-            return settle(resolve4, reject, {
+            return settle(resolve5, reject, {
               status: 405,
               statusText: "method not allowed",
               headers: {},
@@ -15185,7 +15185,7 @@ var require_axios = __commonJS({
           } else if (responseType === "stream") {
             convertedData = stream.Readable.from(convertedData);
           }
-          return settle(resolve4, reject, {
+          return settle(resolve5, reject, {
             data: convertedData,
             status: 200,
             statusText: "OK",
@@ -15478,7 +15478,7 @@ var require_axios = __commonJS({
               });
             }
             response.data = responseStream;
-            settle(resolve4, reject, response);
+            settle(resolve5, reject, response);
           } else {
             const responseBuffer = [];
             let totalResponseBytes = 0;
@@ -15516,7 +15516,7 @@ var require_axios = __commonJS({
               } catch (err) {
                 return reject(AxiosError.from(err, null, config, response.request, response));
               }
-              settle(resolve4, reject, response);
+              settle(resolve5, reject, response);
             });
           }
           abortEmitter.once("abort", (err) => {
@@ -15849,7 +15849,7 @@ var require_axios = __commonJS({
     }
     var isXHRAdapterSupported = typeof XMLHttpRequest !== "undefined";
     var xhrAdapter = isXHRAdapterSupported && function(config) {
-      return new Promise(function dispatchXhrRequest(resolve4, reject) {
+      return new Promise(function dispatchXhrRequest(resolve5, reject) {
         const _config = resolveConfig(config);
         let requestData = _config.data;
         const requestHeaders = AxiosHeaders.from(_config.headers).normalize();
@@ -15905,7 +15905,7 @@ var require_axios = __commonJS({
             request: request2
           };
           settle(function _resolve(value) {
-            resolve4(value);
+            resolve5(value);
             done();
           }, function _reject(err) {
             reject(err);
@@ -16454,8 +16454,8 @@ var require_axios = __commonJS({
             }
           }
           !isStreamResponse && unsubscribe && unsubscribe();
-          return await new Promise((resolve4, reject) => {
-            settle(resolve4, reject, {
+          return await new Promise((resolve5, reject) => {
+            settle(resolve5, reject, {
               data: responseData,
               headers: AxiosHeaders.from(response.headers),
               status: response.status,
@@ -16893,8 +16893,8 @@ var require_axios = __commonJS({
           throw new TypeError("executor must be a function.");
         }
         let resolvePromise;
-        this.promise = new Promise(function promiseExecutor(resolve4) {
-          resolvePromise = resolve4;
+        this.promise = new Promise(function promiseExecutor(resolve5) {
+          resolvePromise = resolve5;
         });
         const token = this;
         this.promise.then((cancel) => {
@@ -16907,9 +16907,9 @@ var require_axios = __commonJS({
         });
         this.promise.then = (onfulfilled) => {
           let _resolve;
-          const promise = new Promise((resolve4) => {
-            token.subscribe(resolve4);
-            _resolve = resolve4;
+          const promise = new Promise((resolve5) => {
+            token.subscribe(resolve5);
+            _resolve = resolve5;
           }).then(onfulfilled);
           promise.cancel = function reject() {
             token.unsubscribe(_resolve);
@@ -24218,7 +24218,7 @@ var require_aspromise = __commonJS({
       var params = new Array(arguments.length - 1), offset = 0, index = 2, pending = true;
       while (index < arguments.length)
         params[offset++] = arguments[index++];
-      return new Promise(function executor(resolve4, reject) {
+      return new Promise(function executor(resolve5, reject) {
         params[offset] = function callback(err) {
           if (pending) {
             pending = false;
@@ -24228,7 +24228,7 @@ var require_aspromise = __commonJS({
               var params2 = new Array(arguments.length - 1), offset2 = 0;
               while (offset2 < params2.length)
                 params2[offset2++] = arguments[offset2];
-              resolve4.apply(null, params2);
+              resolve5.apply(null, params2);
             }
           }
         };
@@ -26660,11 +26660,11 @@ var require_lib2 = __commonJS({
     }
     function __awaiter(thisArg, _arguments, P, generator) {
       function adopt(value) {
-        return value instanceof P ? value : new P(function(resolve4) {
-          resolve4(value);
+        return value instanceof P ? value : new P(function(resolve5) {
+          resolve5(value);
         });
       }
-      return new (P || (P = Promise))(function(resolve4, reject) {
+      return new (P || (P = Promise))(function(resolve5, reject) {
         function fulfilled(value) {
           try {
             step(generator.next(value));
@@ -26680,7 +26680,7 @@ var require_lib2 = __commonJS({
           }
         }
         function step(result) {
-          result.done ? resolve4(result.value) : adopt(result.value).then(fulfilled, rejected);
+          result.done ? resolve5(result.value) : adopt(result.value).then(fulfilled, rejected);
         }
         step((generator = generator.apply(thisArg, _arguments || [])).next());
       });
@@ -26740,14 +26740,14 @@ var require_lib2 = __commonJS({
       }, i);
       function verb(n) {
         i[n] = o[n] && function(v) {
-          return new Promise(function(resolve4, reject) {
-            v = o[n](v), settle(resolve4, reject, v.done, v.value);
+          return new Promise(function(resolve5, reject) {
+            v = o[n](v), settle(resolve5, reject, v.done, v.value);
           });
         };
       }
-      function settle(resolve4, reject, d, v) {
+      function settle(resolve5, reject, d, v) {
         Promise.resolve(v).then(function(v2) {
-          resolve4({ value: v2, done: d });
+          resolve5({ value: v2, done: d });
         }, reject);
       }
     }
@@ -27101,10 +27101,10 @@ var require_lib2 = __commonJS({
               return {
                 writeFile: (filePath) => __awaiter(this, void 0, void 0, function* () {
                   checkIsReadable();
-                  return new Promise((resolve4, reject) => {
+                  return new Promise((resolve5, reject) => {
                     const writableStream = fs__default["default"].createWriteStream(filePath);
                     writableStream.on("finish", () => {
-                      resolve4(filePath);
+                      resolve5(filePath);
                     });
                     writableStream.on("error", (e) => {
                       reject(e);
@@ -27284,10 +27284,10 @@ var require_lib2 = __commonJS({
               return {
                 writeFile: (filePath) => __awaiter(this, void 0, void 0, function* () {
                   checkIsReadable();
-                  return new Promise((resolve4, reject) => {
+                  return new Promise((resolve5, reject) => {
                     const writableStream = fs__default["default"].createWriteStream(filePath);
                     writableStream.on("finish", () => {
-                      resolve4(filePath);
+                      resolve5(filePath);
                     });
                     writableStream.on("error", (e) => {
                       reject(e);
@@ -27620,10 +27620,10 @@ var require_lib2 = __commonJS({
                 return {
                   writeFile: (filePath) => __awaiter(this, void 0, void 0, function* () {
                     checkIsReadable();
-                    return new Promise((resolve4, reject) => {
+                    return new Promise((resolve5, reject) => {
                       const writableStream = fs__default["default"].createWriteStream(filePath);
                       writableStream.on("finish", () => {
-                        resolve4(filePath);
+                        resolve5(filePath);
                       });
                       writableStream.on("error", (e) => {
                         reject(e);
@@ -27805,10 +27805,10 @@ var require_lib2 = __commonJS({
                 return {
                   writeFile: (filePath) => __awaiter(this, void 0, void 0, function* () {
                     checkIsReadable();
-                    return new Promise((resolve4, reject) => {
+                    return new Promise((resolve5, reject) => {
                       const writableStream = fs__default["default"].createWriteStream(filePath);
                       writableStream.on("finish", () => {
-                        resolve4(filePath);
+                        resolve5(filePath);
                       });
                       writableStream.on("error", (e) => {
                         reject(e);
@@ -36648,10 +36648,10 @@ var require_lib2 = __commonJS({
               return {
                 writeFile: (filePath) => __awaiter(this, void 0, void 0, function* () {
                   checkIsReadable();
-                  return new Promise((resolve4, reject) => {
+                  return new Promise((resolve5, reject) => {
                     const writableStream = fs__default["default"].createWriteStream(filePath);
                     writableStream.on("finish", () => {
-                      resolve4(filePath);
+                      resolve5(filePath);
                     });
                     writableStream.on("error", (e) => {
                       reject(e);
@@ -37830,10 +37830,10 @@ var require_lib2 = __commonJS({
                 return {
                   writeFile: (filePath) => __awaiter(this, void 0, void 0, function* () {
                     checkIsReadable();
-                    return new Promise((resolve4, reject) => {
+                    return new Promise((resolve5, reject) => {
                       const writableStream = fs__default["default"].createWriteStream(filePath);
                       writableStream.on("finish", () => {
-                        resolve4(filePath);
+                        resolve5(filePath);
                       });
                       writableStream.on("error", (e) => {
                         reject(e);
@@ -40036,10 +40036,10 @@ var require_lib2 = __commonJS({
               return {
                 writeFile: (filePath) => __awaiter(this, void 0, void 0, function* () {
                   checkIsReadable();
-                  return new Promise((resolve4, reject) => {
+                  return new Promise((resolve5, reject) => {
                     const writableStream = fs__default["default"].createWriteStream(filePath);
                     writableStream.on("finish", () => {
-                      resolve4(filePath);
+                      resolve5(filePath);
                     });
                     writableStream.on("error", (e) => {
                       reject(e);
@@ -40562,10 +40562,10 @@ var require_lib2 = __commonJS({
                 return {
                   writeFile: (filePath) => __awaiter(this, void 0, void 0, function* () {
                     checkIsReadable();
-                    return new Promise((resolve4, reject) => {
+                    return new Promise((resolve5, reject) => {
                       const writableStream = fs__default["default"].createWriteStream(filePath);
                       writableStream.on("finish", () => {
-                        resolve4(filePath);
+                        resolve5(filePath);
                       });
                       writableStream.on("error", (e) => {
                         reject(e);
@@ -44583,10 +44583,10 @@ var require_lib2 = __commonJS({
                 return {
                   writeFile: (filePath) => __awaiter(this, void 0, void 0, function* () {
                     checkIsReadable();
-                    return new Promise((resolve4, reject) => {
+                    return new Promise((resolve5, reject) => {
                       const writableStream = fs__default["default"].createWriteStream(filePath);
                       writableStream.on("finish", () => {
-                        resolve4(filePath);
+                        resolve5(filePath);
                       });
                       writableStream.on("error", (e) => {
                         reject(e);
@@ -55556,10 +55556,10 @@ var require_lib2 = __commonJS({
               return {
                 writeFile: (filePath) => __awaiter(this, void 0, void 0, function* () {
                   checkIsReadable();
-                  return new Promise((resolve4, reject) => {
+                  return new Promise((resolve5, reject) => {
                     const writableStream = fs__default["default"].createWriteStream(filePath);
                     writableStream.on("finish", () => {
-                      resolve4(filePath);
+                      resolve5(filePath);
                     });
                     writableStream.on("error", (e) => {
                       reject(e);
@@ -58313,10 +58313,10 @@ var require_lib2 = __commonJS({
                 return {
                   writeFile: (filePath) => __awaiter(this, void 0, void 0, function* () {
                     checkIsReadable();
-                    return new Promise((resolve4, reject) => {
+                    return new Promise((resolve5, reject) => {
                       const writableStream = fs__default["default"].createWriteStream(filePath);
                       writableStream.on("finish", () => {
-                        resolve4(filePath);
+                        resolve5(filePath);
                       });
                       writableStream.on("error", (e) => {
                         reject(e);
@@ -61752,10 +61752,10 @@ var require_lib2 = __commonJS({
                 return {
                   writeFile: (filePath) => __awaiter(this, void 0, void 0, function* () {
                     checkIsReadable();
-                    return new Promise((resolve4, reject) => {
+                    return new Promise((resolve5, reject) => {
                       const writableStream = fs__default["default"].createWriteStream(filePath);
                       writableStream.on("finish", () => {
-                        resolve4(filePath);
+                        resolve5(filePath);
                       });
                       writableStream.on("error", (e) => {
                         reject(e);
@@ -68377,10 +68377,10 @@ var require_lib2 = __commonJS({
               return {
                 writeFile: (filePath) => __awaiter(this, void 0, void 0, function* () {
                   checkIsReadable();
-                  return new Promise((resolve4, reject) => {
+                  return new Promise((resolve5, reject) => {
                     const writableStream = fs__default["default"].createWriteStream(filePath);
                     writableStream.on("finish", () => {
-                      resolve4(filePath);
+                      resolve5(filePath);
                     });
                     writableStream.on("error", (e) => {
                       reject(e);
@@ -68629,10 +68629,10 @@ var require_lib2 = __commonJS({
               return {
                 writeFile: (filePath) => __awaiter(this, void 0, void 0, function* () {
                   checkIsReadable();
-                  return new Promise((resolve4, reject) => {
+                  return new Promise((resolve5, reject) => {
                     const writableStream = fs__default["default"].createWriteStream(filePath);
                     writableStream.on("finish", () => {
-                      resolve4(filePath);
+                      resolve5(filePath);
                     });
                     writableStream.on("error", (e) => {
                       reject(e);
@@ -69250,10 +69250,10 @@ var require_lib2 = __commonJS({
               return {
                 writeFile: (filePath) => __awaiter(this, void 0, void 0, function* () {
                   checkIsReadable();
-                  return new Promise((resolve4, reject) => {
+                  return new Promise((resolve5, reject) => {
                     const writableStream = fs__default["default"].createWriteStream(filePath);
                     writableStream.on("finish", () => {
-                      resolve4(filePath);
+                      resolve5(filePath);
                     });
                     writableStream.on("error", (e) => {
                       reject(e);
@@ -70196,10 +70196,10 @@ var require_lib2 = __commonJS({
                 return {
                   writeFile: (filePath) => __awaiter(this, void 0, void 0, function* () {
                     checkIsReadable();
-                    return new Promise((resolve4, reject) => {
+                    return new Promise((resolve5, reject) => {
                       const writableStream = fs__default["default"].createWriteStream(filePath);
                       writableStream.on("finish", () => {
-                        resolve4(filePath);
+                        resolve5(filePath);
                       });
                       writableStream.on("error", (e) => {
                         reject(e);
@@ -70448,10 +70448,10 @@ var require_lib2 = __commonJS({
                 return {
                   writeFile: (filePath) => __awaiter(this, void 0, void 0, function* () {
                     checkIsReadable();
-                    return new Promise((resolve4, reject) => {
+                    return new Promise((resolve5, reject) => {
                       const writableStream = fs__default["default"].createWriteStream(filePath);
                       writableStream.on("finish", () => {
-                        resolve4(filePath);
+                        resolve5(filePath);
                       });
                       writableStream.on("error", (e) => {
                         reject(e);
@@ -71075,10 +71075,10 @@ var require_lib2 = __commonJS({
                 return {
                   writeFile: (filePath) => __awaiter(this, void 0, void 0, function* () {
                     checkIsReadable();
-                    return new Promise((resolve4, reject) => {
+                    return new Promise((resolve5, reject) => {
                       const writableStream = fs__default["default"].createWriteStream(filePath);
                       writableStream.on("finish", () => {
-                        resolve4(filePath);
+                        resolve5(filePath);
                       });
                       writableStream.on("error", (e) => {
                         reject(e);
@@ -71914,10 +71914,10 @@ var require_lib2 = __commonJS({
               return {
                 writeFile: (filePath) => __awaiter(this, void 0, void 0, function* () {
                   checkIsReadable();
-                  return new Promise((resolve4, reject) => {
+                  return new Promise((resolve5, reject) => {
                     const writableStream = fs__default["default"].createWriteStream(filePath);
                     writableStream.on("finish", () => {
-                      resolve4(filePath);
+                      resolve5(filePath);
                     });
                     writableStream.on("error", (e) => {
                       reject(e);
@@ -72050,10 +72050,10 @@ var require_lib2 = __commonJS({
                 return {
                   writeFile: (filePath) => __awaiter(this, void 0, void 0, function* () {
                     checkIsReadable();
-                    return new Promise((resolve4, reject) => {
+                    return new Promise((resolve5, reject) => {
                       const writableStream = fs__default["default"].createWriteStream(filePath);
                       writableStream.on("finish", () => {
-                        resolve4(filePath);
+                        resolve5(filePath);
                       });
                       writableStream.on("error", (e) => {
                         reject(e);
@@ -72885,10 +72885,10 @@ var require_lib2 = __commonJS({
               return {
                 writeFile: (filePath) => __awaiter(this, void 0, void 0, function* () {
                   checkIsReadable();
-                  return new Promise((resolve4, reject) => {
+                  return new Promise((resolve5, reject) => {
                     const writableStream = fs__default["default"].createWriteStream(filePath);
                     writableStream.on("finish", () => {
-                      resolve4(filePath);
+                      resolve5(filePath);
                     });
                     writableStream.on("error", (e) => {
                       reject(e);
@@ -73283,10 +73283,10 @@ var require_lib2 = __commonJS({
               return {
                 writeFile: (filePath) => __awaiter(this, void 0, void 0, function* () {
                   checkIsReadable();
-                  return new Promise((resolve4, reject) => {
+                  return new Promise((resolve5, reject) => {
                     const writableStream = fs__default["default"].createWriteStream(filePath);
                     writableStream.on("finish", () => {
-                      resolve4(filePath);
+                      resolve5(filePath);
                     });
                     writableStream.on("error", (e) => {
                       reject(e);
@@ -74323,10 +74323,10 @@ var require_lib2 = __commonJS({
                 return {
                   writeFile: (filePath) => __awaiter(this, void 0, void 0, function* () {
                     checkIsReadable();
-                    return new Promise((resolve4, reject) => {
+                    return new Promise((resolve5, reject) => {
                       const writableStream = fs__default["default"].createWriteStream(filePath);
                       writableStream.on("finish", () => {
-                        resolve4(filePath);
+                        resolve5(filePath);
                       });
                       writableStream.on("error", (e) => {
                         reject(e);
@@ -74725,10 +74725,10 @@ var require_lib2 = __commonJS({
                 return {
                   writeFile: (filePath) => __awaiter(this, void 0, void 0, function* () {
                     checkIsReadable();
-                    return new Promise((resolve4, reject) => {
+                    return new Promise((resolve5, reject) => {
                       const writableStream = fs__default["default"].createWriteStream(filePath);
                       writableStream.on("finish", () => {
-                        resolve4(filePath);
+                        resolve5(filePath);
                       });
                       writableStream.on("error", (e) => {
                         reject(e);
@@ -89424,10 +89424,10 @@ var require_lib2 = __commonJS({
               return {
                 writeFile: (filePath) => __awaiter(this, void 0, void 0, function* () {
                   checkIsReadable();
-                  return new Promise((resolve4, reject) => {
+                  return new Promise((resolve5, reject) => {
                     const writableStream = fs__default["default"].createWriteStream(filePath);
                     writableStream.on("finish", () => {
-                      resolve4(filePath);
+                      resolve5(filePath);
                     });
                     writableStream.on("error", (e) => {
                       reject(e);
@@ -89662,10 +89662,10 @@ var require_lib2 = __commonJS({
               return {
                 writeFile: (filePath) => __awaiter(this, void 0, void 0, function* () {
                   checkIsReadable();
-                  return new Promise((resolve4, reject) => {
+                  return new Promise((resolve5, reject) => {
                     const writableStream = fs__default["default"].createWriteStream(filePath);
                     writableStream.on("finish", () => {
-                      resolve4(filePath);
+                      resolve5(filePath);
                     });
                     writableStream.on("error", (e) => {
                       reject(e);
@@ -89747,10 +89747,10 @@ var require_lib2 = __commonJS({
               return {
                 writeFile: (filePath) => __awaiter(this, void 0, void 0, function* () {
                   checkIsReadable();
-                  return new Promise((resolve4, reject) => {
+                  return new Promise((resolve5, reject) => {
                     const writableStream = fs__default["default"].createWriteStream(filePath);
                     writableStream.on("finish", () => {
-                      resolve4(filePath);
+                      resolve5(filePath);
                     });
                     writableStream.on("error", (e) => {
                       reject(e);
@@ -91569,10 +91569,10 @@ var require_lib2 = __commonJS({
                 return {
                   writeFile: (filePath) => __awaiter(this, void 0, void 0, function* () {
                     checkIsReadable();
-                    return new Promise((resolve4, reject) => {
+                    return new Promise((resolve5, reject) => {
                       const writableStream = fs__default["default"].createWriteStream(filePath);
                       writableStream.on("finish", () => {
-                        resolve4(filePath);
+                        resolve5(filePath);
                       });
                       writableStream.on("error", (e) => {
                         reject(e);
@@ -91809,10 +91809,10 @@ var require_lib2 = __commonJS({
                 return {
                   writeFile: (filePath) => __awaiter(this, void 0, void 0, function* () {
                     checkIsReadable();
-                    return new Promise((resolve4, reject) => {
+                    return new Promise((resolve5, reject) => {
                       const writableStream = fs__default["default"].createWriteStream(filePath);
                       writableStream.on("finish", () => {
-                        resolve4(filePath);
+                        resolve5(filePath);
                       });
                       writableStream.on("error", (e) => {
                         reject(e);
@@ -91894,10 +91894,10 @@ var require_lib2 = __commonJS({
                 return {
                   writeFile: (filePath) => __awaiter(this, void 0, void 0, function* () {
                     checkIsReadable();
-                    return new Promise((resolve4, reject) => {
+                    return new Promise((resolve5, reject) => {
                       const writableStream = fs__default["default"].createWriteStream(filePath);
                       writableStream.on("finish", () => {
-                        resolve4(filePath);
+                        resolve5(filePath);
                       });
                       writableStream.on("error", (e) => {
                         reject(e);
@@ -92399,10 +92399,10 @@ var require_lib2 = __commonJS({
                 return {
                   writeFile: (filePath) => __awaiter(this, void 0, void 0, function* () {
                     checkIsReadable();
-                    return new Promise((resolve4, reject) => {
+                    return new Promise((resolve5, reject) => {
                       const writableStream = fs__default["default"].createWriteStream(filePath);
                       writableStream.on("finish", () => {
-                        resolve4(filePath);
+                        resolve5(filePath);
                       });
                       writableStream.on("error", (e) => {
                         reject(e);
@@ -99573,10 +99573,10 @@ var require_lib2 = __commonJS({
                 return {
                   writeFile: (filePath) => __awaiter(this, void 0, void 0, function* () {
                     checkIsReadable();
-                    return new Promise((resolve4, reject) => {
+                    return new Promise((resolve5, reject) => {
                       const writableStream = fs__default["default"].createWriteStream(filePath);
                       writableStream.on("finish", () => {
-                        resolve4(filePath);
+                        resolve5(filePath);
                       });
                       writableStream.on("error", (e) => {
                         reject(e);
@@ -114236,10 +114236,10 @@ var require_lib2 = __commonJS({
               return {
                 writeFile: (filePath) => __awaiter(this, void 0, void 0, function* () {
                   checkIsReadable();
-                  return new Promise((resolve4, reject) => {
+                  return new Promise((resolve5, reject) => {
                     const writableStream = fs__default["default"].createWriteStream(filePath);
                     writableStream.on("finish", () => {
-                      resolve4(filePath);
+                      resolve5(filePath);
                     });
                     writableStream.on("error", (e) => {
                       reject(e);
@@ -117567,10 +117567,10 @@ var require_lib2 = __commonJS({
                 return {
                   writeFile: (filePath) => __awaiter(this, void 0, void 0, function* () {
                     checkIsReadable();
-                    return new Promise((resolve4, reject) => {
+                    return new Promise((resolve5, reject) => {
                       const writableStream = fs__default["default"].createWriteStream(filePath);
                       writableStream.on("finish", () => {
-                        resolve4(filePath);
+                        resolve5(filePath);
                       });
                       writableStream.on("error", (e) => {
                         reject(e);
@@ -120504,7 +120504,7 @@ var require_lib2 = __commonJS({
         });
       }
     };
-    var pickRequestData = (req) => new Promise((resolve4) => {
+    var pickRequestData = (req) => new Promise((resolve5) => {
       let chunks = "";
       req.on("data", (chunk) => {
         chunks += chunk;
@@ -120512,9 +120512,9 @@ var require_lib2 = __commonJS({
       req.on("end", () => {
         try {
           const data = JSON.parse(chunks);
-          resolve4(data);
+          resolve5(data);
         } catch (e) {
-          resolve4("");
+          resolve5("");
         }
       });
     });
@@ -121461,7 +121461,7 @@ var require_lib2 = __commonJS({
         if (!wsInstance) {
           return Promise.resolve(false);
         }
-        return new Promise((resolve4) => {
+        return new Promise((resolve5) => {
           let settled = false;
           let timer;
           const settleOnce = (ok) => {
@@ -121470,7 +121470,7 @@ var require_lib2 = __commonJS({
             settled = true;
             if (timer)
               clearTimeout(timer);
-            resolve4(ok);
+            resolve5(ok);
           };
           if (this.handshakeTimeoutMs && this.handshakeTimeoutMs > 0) {
             timer = setTimeout(() => {
@@ -121942,7 +121942,7 @@ var require_lib2 = __commonJS({
             throw EExecStatus.ERROR;
           }
           const polling = () => __awaiter(this, void 0, void 0, function* () {
-            return new Promise((resolve4) => {
+            return new Promise((resolve5) => {
               setTimeout(() => __awaiter(this, void 0, void 0, function* () {
                 var _a2, _b2;
                 const runStatusInfo = yield this.client.aily.v1.ailySessionRun.get({
@@ -121952,7 +121952,7 @@ var require_lib2 = __commonJS({
                   }
                 }, options);
                 if (!(runStatusInfo.code === 0 && runStatusInfo.data)) {
-                  resolve4(3);
+                  resolve5(3);
                   return;
                 }
                 const status = (_b2 = (_a2 = runStatusInfo.data) === null || _a2 === void 0 ? void 0 : _a2.run) === null || _b2 === void 0 ? void 0 : _b2.status;
@@ -121961,18 +121961,18 @@ var require_lib2 = __commonJS({
                   case "IN_PROGRESS":
                     yield (() => __awaiter(this, void 0, void 0, function* () {
                       const ret = yield polling();
-                      resolve4(ret);
+                      resolve5(ret);
                     }))();
                   case "COMPLETED":
-                    resolve4(EExecStatus.SUCCESS);
+                    resolve5(EExecStatus.SUCCESS);
                   case "EXPIRED":
-                    resolve4(EExecStatus.EXPIRED);
+                    resolve5(EExecStatus.EXPIRED);
                   case "CANCELLED":
-                    resolve4(EExecStatus.CANCELLED);
+                    resolve5(EExecStatus.CANCELLED);
                   case "FAILED":
-                    resolve4(EExecStatus.FAILED);
+                    resolve5(EExecStatus.FAILED);
                   default:
-                    resolve4(EExecStatus.OTHER);
+                    resolve5(EExecStatus.OTHER);
                 }
               }), 500);
             });
@@ -122243,7 +122243,7 @@ var require_lib2 = __commonJS({
       });
     }
     function startPolling(ctx2) {
-      return new Promise((resolve4, reject) => {
+      return new Promise((resolve5, reject) => {
         var _a, _b;
         let { baseUrl, interval } = ctx2;
         let domainSwitched = false;
@@ -122268,7 +122268,7 @@ var require_lib2 = __commonJS({
           }
           settled = true;
           cleanup();
-          resolve4(result);
+          resolve5(result);
         };
         const fail = (err) => {
           if (settled) {
@@ -125190,7 +125190,7 @@ ${lines.join("\n")}
        * corresponding public events.
        */
       connectWebSocket(timeoutMs) {
-        return new Promise((resolve4, reject) => {
+        return new Promise((resolve5, reject) => {
           var _a;
           let settled = false;
           const timer = setTimeout(() => {
@@ -125217,7 +125217,7 @@ ${lines.join("\n")}
                 return;
               settled = true;
               clearTimeout(timer);
-              resolve4();
+              resolve5();
             },
             onError: (err) => {
               if (settled)
@@ -125610,12 +125610,12 @@ ${lines.join("\n")}
       });
     }
     function readableToBuffer2(stream) {
-      return new Promise((resolve4, reject) => {
+      return new Promise((resolve5, reject) => {
         const chunks = [];
         stream.on("data", (chunk) => {
           chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
         });
-        stream.on("end", () => resolve4(Buffer.concat(chunks)));
+        stream.on("end", () => resolve5(Buffer.concat(chunks)));
         stream.on("error", reject);
       });
     }
@@ -125798,7 +125798,7 @@ var init_dist = __esm({
 
 // node_modules/https-proxy-agent/dist/parse-proxy-response.js
 function parseProxyResponse(socket) {
-  return new Promise((resolve4, reject) => {
+  return new Promise((resolve5, reject) => {
     let buffersLength = 0;
     const buffers = [];
     function read() {
@@ -125864,7 +125864,7 @@ function parseProxyResponse(socket) {
       }
       debug("got proxy server response: %o %o", firstLine, headers);
       cleanup();
-      resolve4({
+      resolve5({
         connect: {
           statusCode,
           statusText,
@@ -127582,12 +127582,12 @@ async function bufferFromStream(raw) {
   throw new LarkChannelError("unknown", "unexpected download response type");
 }
 function readableToBuffer(stream) {
-  return new Promise((resolve4, reject) => {
+  return new Promise((resolve5, reject) => {
     const chunks = [];
     stream.on("data", (chunk) => {
       chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
     });
-    stream.on("end", () => resolve4(Buffer.concat(chunks)));
+    stream.on("end", () => resolve5(Buffer.concat(chunks)));
     stream.on("error", reject);
   });
 }
@@ -130909,7 +130909,7 @@ ${lines.join("\n")}
       * corresponding public events.
       */
       connectWebSocket(timeoutMs) {
-        return new Promise((resolve4, reject) => {
+        return new Promise((resolve5, reject) => {
           let settled = false;
           let attemptClient;
           const timer = setTimeout(() => {
@@ -130938,7 +130938,7 @@ ${lines.join("\n")}
               if (settled) return;
               settled = true;
               clearTimeout(timer);
-              resolve4();
+              resolve5();
             },
             onError: (err) => {
               if (settled) return;
@@ -136110,10 +136110,10 @@ var require_browser2 = __commonJS({
           text = canvas;
           canvas = void 0;
         }
-        return new Promise(function(resolve4, reject) {
+        return new Promise(function(resolve5, reject) {
           try {
             const data = QRCode2.create(text, opts);
-            resolve4(renderFunc(data, canvas, opts));
+            resolve5(renderFunc(data, canvas, opts));
           } catch (e) {
             reject(e);
           }
@@ -136194,11 +136194,11 @@ var require_server = __commonJS({
     }
     function render(renderFunc, text, params) {
       if (!params.cb) {
-        return new Promise(function(resolve4, reject) {
+        return new Promise(function(resolve5, reject) {
           try {
             const data = QRCode2.create(text, params.opts);
             return renderFunc(data, params.opts, function(err, data2) {
-              return err ? reject(err) : resolve4(data2);
+              return err ? reject(err) : resolve5(data2);
             });
           } catch (e) {
             reject(e);
@@ -136263,6 +136263,11 @@ var require_lib3 = __commonJS({
 });
 
 // src/texts.ts
+import { resolve } from "node:path";
+function selfCommand(entry = process.argv[1] ?? "") {
+  if (!entry) return 'node "<path to agent-lark>/dist/cli.mjs"';
+  return `node "${resolve(entry).replace(/[\\"]/g, "\\$&")}"`;
+}
 function fill(template, vars = {}) {
   return template.replace(/\{([a-zA-Z_]+)\}/g, (whole, name) => name in vars ? String(vars[name]) : whole);
 }
@@ -136272,10 +136277,11 @@ function both(key, vars = {}, varsEn = vars) {
   return z.includes("\n") || e.includes("\n") ? `${z}
 ${e}` : `${z}\u3000/\u3000${e}`;
 }
-var zh, en, msg, t;
+var CLI, zh, en, msg, t;
 var init_texts = __esm({
   "src/texts.ts"() {
     "use strict";
+    CLI = selfCommand();
     zh = {
       // ask card
       doing: "\u5728\u505A",
@@ -136307,7 +136313,7 @@ var init_texts = __esm({
       interruptFailed: "\u6253\u65AD\u6CA1\u53D1\u51FA\u53BB\uFF08{why}\uFF09\u3002\u6D88\u606F\u8FD8\u5728 agent \u7684\u961F\u5217\u91CC\uFF0C\u5B83\u8DD1\u5B8C\u624B\u5934\u7684\u547D\u4EE4\u5C31\u4F1A\u8BFB\u5230\u3002",
       receiptNoPane: "\u8FD9\u4E2A\u9879\u76EE\u8FD8\u6CA1\u6709\u8BB0\u5F55\u5230 herdr \u7A97\u683C\uFF0C\u6D88\u606F\u6CA1\u5904\u53EF\u9001\u3002",
       promptAgentBlocked: "\u7EC8\u7AEF\u91CC\u7684 agent \u6B63\u5361\u5728\u4E00\u4E2A\u9700\u8981\u4F60\u672C\u4EBA\u786E\u8BA4\u7684\u63D0\u793A\u4E0A\uFF0C\u6536\u4E0D\u4E86\u65B0\u8F93\u5165\u3002\u56DE\u7535\u8111\u524D\u5904\u7406\u4E00\u4E0B\u3002",
-      promptPaneGone: "\u8BB0\u5F55\u7684 herdr \u7A97\u683C\u5DF2\u7ECF\u4E0D\u5728\u4E86\u3002\u5230\u9879\u76EE\u91CC\u8DD1\u4E00\u6B21 lark-connector away on \u6216\u4EFB\u610F lark-connector \u547D\u4EE4\uFF0C\u91CD\u65B0\u8BB0\u5F55\u7A97\u683C\u3002",
+      promptPaneGone: `\u8BB0\u5F55\u7684 herdr \u7A97\u683C\u5DF2\u7ECF\u4E0D\u5728\u4E86\u3002\u5230\u9879\u76EE\u91CC\u8DD1\u4E00\u6B21 ${CLI} away on \u6216\u4EFB\u610F ${CLI} \u547D\u4EE4\uFF0C\u91CD\u65B0\u8BB0\u5F55\u7A97\u683C\u3002`,
       promptNoHerdr: "\u8FD9\u53F0\u673A\u5668\u6CA1\u6709 herdr\uFF0C\u6216 herdr \u6CA1\u5728\u8DD1\uFF0C\u624B\u673A\u4E0A\u53D1\u7684\u6D88\u606F\u6CA1\u5904\u6CE8\u5165\u3002",
       promptRefused: "herdr \u62D2\u7EDD\u4E86\u8FD9\u6B21\u6CE8\u5165\uFF1A{code} {message}",
       // "stuck" status card
@@ -136318,7 +136324,7 @@ var init_texts = __esm({
       toastClosed: "\u8FD9\u4E2A\u95EE\u9898\u5DF2\u7ECF\u7ED3\u675F\u4E86\uFF0C\u521A\u624D\u90A3\u4E0B\u5F53\u6210\u65B0\u6307\u4EE4\u53D1\u8FC7\u53BB\u4E86",
       toastBadOption: "\u8FD9\u4E2A\u9009\u9879\u5BF9\u4E0D\u4E0A\uFF0C\u518D\u8BD5\u4E00\u6B21",
       // setup walkthrough (each line is printed as "zh　/　en")
-      setupHaveCreds: "\u5DF2\u7ECF\u6709\u51ED\u636E\u4E86\uFF08\u6765\u81EA {origin}\uFF09\u3002\u60F3\u91CD\u65B0\u6388\u6743\u6216\u8865\u6743\u9650\uFF0C\u52A0 --update\uFF1B\u60F3\u6362\u4E00\u4E2A\u5E94\u7528\uFF0C\u5148 lark-connector setup --reset\u3002",
+      setupHaveCreds: `\u5DF2\u7ECF\u6709\u51ED\u636E\u4E86\uFF08\u6765\u81EA {origin}\uFF09\u3002\u60F3\u91CD\u65B0\u6388\u6743\u6216\u8865\u6743\u9650\uFF0C\u52A0 --update\uFF1B\u60F3\u6362\u4E00\u4E2A\u5E94\u7528\uFF0C\u5148 ${CLI} setup --reset\u3002`,
       setupMenu: "\u600E\u4E48\u63A5\u5165\u98DE\u4E66\uFF1F\n  1) \u626B\u7801\u65B0\u5EFA\u4E00\u4E2A\u5E94\u7528\uFF08\u7528\u98DE\u4E66\u626B\u7EC8\u7AEF\u91CC\u7684\u4E8C\u7EF4\u7801\uFF09\n  2) \u590D\u7528\u4E00\u4E2A\u5DF2\u6709\u7684\u5E94\u7528\uFF08\u8F93\u5165 App ID \u4E0E App Secret\uFF09",
       setupMenuPrompt: "\u9009 [1/2]\uFF1A",
       setupMenuBad: "\u53EA\u80FD\u8F93 1 \u6216 2\u3002",
@@ -136332,7 +136338,7 @@ var init_texts = __esm({
       setupSaved: "\u51ED\u636E\u5DF2\u4FDD\u5B58\u5230\uFF1A{where}",
       setupSavedQr: "\u2705 \u5E94\u7528\u5DF2\u7ED1\u5B9A\uFF0C\u51ED\u636E\u4FDD\u5B58\u5230\uFF1A{where}\uFF08\u660E\u6587\u4E0D\u4F1A\u51FA\u73B0\u5728\u4EFB\u4F55\u8F93\u51FA\u91CC\uFF09\u3002",
       setupNext: "\u4E0B\u4E00\u6B65\uFF1A\u56DE\u5230 agent \u4F1A\u8BDD\uFF0C\u8BF4\u300C\u5F00\u542F\u8FDC\u7A0B\u4EA4\u4E92\u6A21\u5F0F\u300D\u6216\u8F93\u5165 /agent-lark on\u2014\u2014daemon \u4E0E\u7FA4\u7ED1\u5B9A\u7531 agent \u4ECE\u5B83\u81EA\u5DF1\u7684\u7A97\u683C\u5B8C\u6210\uFF0C\u4E0D\u7528\u4F60\u624B\u52A8\u8DD1\u3002",
-      setupReuseGaveUp: "\u8FDE\u7EED {n} \u6B21\u6CA1\u901A\u8FC7\uFF0C\u5148\u5230\u5F00\u53D1\u8005\u540E\u53F0\u6838\u5BF9 App ID / App Secret\uFF0C\u518D\u8DD1\u4E00\u6B21 lark-connector setup --reuse\u3002",
+      setupReuseGaveUp: `\u8FDE\u7EED {n} \u6B21\u6CA1\u901A\u8FC7\uFF0C\u5148\u5230\u5F00\u53D1\u8005\u540E\u53F0\u6838\u5BF9 App ID / App Secret\uFF0C\u518D\u8DD1\u4E00\u6B21 ${CLI} setup --reuse\u3002`,
       setupManualScopes: "\u8FD9\u4E2A\u5E94\u7528\u8981\u5728\u5F00\u53D1\u8005\u540E\u53F0\u624B\u52A8\u5F00\u901A\uFF08\u5E94\u7528 \u2192 \u6743\u9650\u7BA1\u7406 \u2192 \u5F00\u901A\u6743\u9650\uFF09\uFF1A",
       setupManualEvents: "\u4E8B\u4EF6\u8BA2\u9605\uFF1Aim.message.receive_v1\u3001im.message.reaction.created_v1\uFF08\u8BA2\u9605\u65B9\u5F0F\u9009\u300C\u4F7F\u7528\u957F\u8FDE\u63A5\u63A5\u6536\u4E8B\u4EF6\u300D\uFF09\xB7 \u56DE\u8C03\uFF1Acard.action.trigger\uFF08\u540C\u6837\u9009\u957F\u8FDE\u63A5\uFF09",
       setupManualPublish: "\u5F00\u901A\u540E\u53D1\u5E03\u4E00\u4E2A\u7248\u672C\uFF0C\u6743\u9650\u624D\u751F\u6548\u3002",
@@ -136346,7 +136352,7 @@ var init_texts = __esm({
       setupExpiry: "\u23F3 \u4E8C\u7EF4\u7801 {minutes} \u5206\u949F\u5185\u6709\u6548\uFF08{time} \u8FC7\u671F\uFF09\uFF0C\u8FC7\u671F\u5C31\u91CD\u8DD1 setup\u3002",
       setupWaiting: "  \u8FD8\u5728\u7B49\u4F60\u626B\u2026\u2026\u5269 {seconds} \u79D2",
       setupStatus: "  \u72B6\u6001\uFF1A{status}",
-      setupExpired: "\u4E8C\u7EF4\u7801\u8FC7\u671F\u4E86\uFF0C\u6CA1\u7B49\u5230\u626B\u7801\u3002\u91CD\u8DD1\u4E00\u6B21\uFF1Alark-connector setup\uFF08\u539F\u59CB\u9519\u8BEF\uFF1A{error}\uFF09",
+      setupExpired: `\u4E8C\u7EF4\u7801\u8FC7\u671F\u4E86\uFF0C\u6CA1\u7B49\u5230\u626B\u7801\u3002\u91CD\u8DD1\u4E00\u6B21\uFF1A${CLI} setup\uFF08\u539F\u59CB\u9519\u8BEF\uFF1A{error}\uFF09`,
       setupRegisterFailed: "\u626B\u7801\u6CE8\u518C\u5931\u8D25\uFF1A{error}",
       setupRetry: "\u7F51\u7EDC\u6296\u52A8\uFF08{error}\uFF09\uFF0C\u91CD\u65B0\u7533\u8BF7\u4E00\u5F20\u4E8C\u7EF4\u7801\uFF08\u7B2C {n}/{max} \u6B21\uFF09\u2026\u2026",
       appDesc: "\u628A\u7EC8\u7AEF\u91CC agent \u7684\u63D0\u95EE\u63A8\u5230\u624B\u673A\uFF0C\u7B54\u590D\u6CE8\u5165\u56DE\u7EC8\u7AEF"
@@ -136380,7 +136386,7 @@ var init_texts = __esm({
       interruptFailed: "The interrupt could not be sent ({why}). The message is still in the agent's queue; it will be read once the current command finishes.",
       receiptNoPane: "No herdr pane is recorded for this project, so there is nowhere to deliver the message.",
       promptAgentBlocked: "The agent in the terminal is stuck on a prompt only you can answer and cannot take new input. Deal with it when you are back at the computer.",
-      promptPaneGone: "The recorded herdr pane is gone. Run lark-connector away on (or any lark-connector command) inside the project to record the pane again.",
+      promptPaneGone: `The recorded herdr pane is gone. Run ${CLI} away on (or any ${CLI} command) inside the project to record the pane again.`,
       promptNoHerdr: "This machine has no herdr, or herdr is not running; messages from the phone have nowhere to go.",
       promptRefused: "herdr refused the injection: {code} {message}",
       statusBlocked: "waiting for you",
@@ -136388,7 +136394,7 @@ var init_texts = __esm({
       toastAnswered: "Replied",
       toastClosed: "This question is already closed; that tap was forwarded as a new instruction",
       toastBadOption: "That option does not match, try again",
-      setupHaveCreds: "Credentials already exist (from {origin}). Add --update to re-authorize or add scopes; run lark-connector setup --reset first to switch apps.",
+      setupHaveCreds: `Credentials already exist (from {origin}). Add --update to re-authorize or add scopes; run ${CLI} setup --reset first to switch apps.`,
       setupMenu: "How do you want to connect to Feishu?\n  1) Create a new app by QR code (scan it with Feishu)\n  2) Reuse an app you already have (enter its App ID and App Secret)",
       setupMenuPrompt: "Choose [1/2]: ",
       setupMenuBad: "Type 1 or 2.",
@@ -136402,7 +136408,7 @@ var init_texts = __esm({
       setupSaved: "Credentials saved to: {where}",
       setupSavedQr: "\u2705 App linked; credentials saved to {where} (the secret never appears in any output).",
       setupNext: 'Next: back in your agent session, say "turn remote mode on" or type /agent-lark on \u2014 the agent starts the daemon and binds the group from its own pane; nothing to run by hand.',
-      setupReuseGaveUp: "{n} attempts failed; check the App ID / App Secret in the developer console, then run lark-connector setup --reuse again.",
+      setupReuseGaveUp: `{n} attempts failed; check the App ID / App Secret in the developer console, then run ${CLI} setup --reuse again.`,
       setupManualScopes: "Enable these scopes for the app by hand in the developer console (app \u2192 Permissions & Scopes):",
       setupManualEvents: "Event subscription: im.message.receive_v1, im.message.reaction.created_v1 (delivery: long connection) \xB7 callback: card.action.trigger (long connection as well)",
       setupManualPublish: "Publish a version afterwards; scopes take effect only then.",
@@ -136416,7 +136422,7 @@ var init_texts = __esm({
       setupExpiry: "\u23F3 The QR code is valid for {minutes} minutes (expires {time}); rerun setup if it expires.",
       setupWaiting: "  still waiting for the scan\u2026 {seconds} s left",
       setupStatus: "  status: {status}",
-      setupExpired: "The QR code expired before it was scanned. Run again: lark-connector setup (original error: {error})",
+      setupExpired: `The QR code expired before it was scanned. Run again: ${CLI} setup (original error: {error})`,
       setupRegisterFailed: "QR-code registration failed: {error}",
       setupRetry: "Network hiccup ({error}); asking for a fresh QR code (attempt {n}/{max})\u2026",
       appDesc: "Agent questions pushed to your phone, answers back to the terminal"
@@ -136452,9 +136458,9 @@ Exit codes: 0 ok \xB7 1 bad input \xB7 2 timed out, nobody answered \xB7 3 chann
 `,
       prefix: "lark-connector: ",
       homeNeedsDir: "--home needs a directory",
-      unknownOption: "unknown option {option}. See lark-connector --help.",
+      unknownOption: `unknown option {option}. See ${CLI} --help.`,
       offline: "offline: refusing to contact Feishu (LARK_CONNECTOR_OFFLINE=1 is set)",
-      unknownCommand: 'Unknown command "{cmd}". See lark-connector --help.',
+      unknownCommand: `Unknown command "{cmd}". See ${CLI} --help.`,
       // carry-over from the earlier name, agent-lark: printed on stderr by the
       // first run after the upgrade, after the `lark-connector: ` prefix — a
       // `note:` reports a move, a `warning:` something left for the user to do.
@@ -136462,7 +136468,7 @@ Exit codes: 0 ok \xB7 1 bad input \xB7 2 timed out, nobody answered \xB7 3 chann
       migrateMoveFailed: "warning: could not move the old directory {from} to {to} ({error}); move it by hand",
       migrateBothExist: "warning: both the old directory {old} and {current} exist; the old one is left as it is, delete it yourself once it is not needed",
       migrateKeychain: "note: credentials in the keychain copied from service {from} to service {to}; the old entry was removed",
-      migrateKeychainCopyFailed: "warning: could not copy the keychain entry from service {from} to service {to} ({error}); the old entry (service {from}, account {account}) is left as it is and is not looked at again: run lark-connector setup --reuse with the same App ID and App Secret, or copy the entry by hand",
+      migrateKeychainCopyFailed: `warning: could not copy the keychain entry from service {from} to service {to} ({error}); the old entry (service {from}, account {account}) is left as it is and is not looked at again: run ${CLI} setup --reuse with the same App ID and App Secret, or copy the entry by hand`,
       migrateKeychainClearFailed: "warning: the old keychain entry (service {service}, account {account}) is still there, it could not be removed; the new entry is in place, remove the old one by hand",
       migrateEnvVars: "warning: environment variables were renamed: {pairs}; the old names are not read any more, rename them",
       migrateOldDaemonRunning: "the daemon of the old agent-lark is still running at {endpoint}; stop it first with the old CLI (daemon --stop), then try again",
@@ -136471,9 +136477,9 @@ Exit codes: 0 ok \xB7 1 bad input \xB7 2 timed out, nobody answered \xB7 3 chann
       askProblems: "This question card has {n} problem(s); nothing was sent:",
       notifyProblems: "This notification has {n} problem(s); nothing was sent:",
       timeoutArg: "--timeout must be a positive integer (seconds)",
-      sendFileUsage: "Usage: lark-connector send-file <path> [--caption <text>]",
-      awayUsage: "Usage: lark-connector away on [--name <task>] [--reuse <chat_id> | --new] | off | status [--json]",
-      renameUsage: 'Usage: lark-connector rename "<task name>"',
+      sendFileUsage: `Usage: ${CLI} send-file <path> [--caption <text>]`,
+      awayUsage: `Usage: ${CLI} away on [--name <task>] [--reuse <chat_id> | --new] | off | status [--json]`,
+      renameUsage: `Usage: ${CLI} rename "<task name>"`,
       taskNameTooLong: "task name: over {max} characters (code points), got {n}",
       setupHandoffStarted: 'The interactive setup is running in herdr pane {pane}: the user enters the App ID and App Secret there (they never pass through this session). When it ends, one line prefixed "[lark-connector] setup:" arrives here (that pane has focus now).',
       setupHandoffFailed: "could not open a herdr pane for the interactive setup ({why}). Ask the user to run it in their own terminal:\n  {command}",
@@ -136481,7 +136487,7 @@ Exit codes: 0 ok \xB7 1 bad input \xB7 2 timed out, nobody answered \xB7 3 chann
       setupReportOk: "[lark-connector] setup: credentials stored for {appId} ({app}); the scopes must be enabled in the developer console before use",
       setupReportFailed: "[lark-connector] setup: failed: {why}",
       setupReportInterrupted: "[lark-connector] setup: interrupted before any credentials were stored",
-      setupReportExists: "[lark-connector] setup: credentials already stored ({origin}); nothing changed. To switch apps run lark-connector setup --reset --reuse",
+      setupReportExists: `[lark-connector] setup: credentials already stored ({origin}); nothing changed. To switch apps run ${CLI} setup --reset --reuse`,
       setupReportNotDelivered: "lark-connector: the result could not be reported to pane {pane} ({why})",
       awayOffLocal: "daemon is not running; local state cleared",
       // daemon command
@@ -136495,12 +136501,13 @@ Exit codes: 0 ok \xB7 1 bad input \xB7 2 timed out, nobody answered \xB7 3 chann
       mediaTtlInvalid: "lark-connector: warning: LARK_CONNECTOR_MEDIA_TTL_DAYS={value} is not a whole number of days; using {fallback}",
       daemonStopStuck: "daemon: still answering 10 s after the stop request; see the log: {log}",
       daemonWasNotRunning: "daemon: was not running",
-      daemonStopRefused: '{n} question(s) still pending on the phone. Stopping the daemon now turns those cards into "\u26A0\uFE0F Cancelled" \u2014 a dead card for the human.\nWait for the answer, or do it anyway: lark-connector daemon --stop --force',
+      daemonStopRefused: `{n} question(s) still pending on the phone. Stopping the daemon now turns those cards into "\u26A0\uFE0F Cancelled" \u2014 a dead card for the human.
+Wait for the answer, or do it anyway: ${CLI} daemon --stop --force`,
       daemonStopped: "daemon: stopped",
       daemonAlready: "daemon is already running",
       daemonStarted: "daemon: started in the background, pid {pid} (log {log})",
       daemonNoReply: "daemon started but did not answer within 10 s; see the log: {log}",
-      daemonNoCreds: "no Feishu app credentials found. Run lark-connector setup first (or set LARK_CONNECTOR_APP_ID / LARK_CONNECTOR_APP_SECRET)",
+      daemonNoCreds: `no Feishu app credentials found. Run ${CLI} setup first (or set LARK_CONNECTOR_APP_ID / LARK_CONNECTOR_APP_SECRET)`,
       daemonReady: "lark-connector daemon: pid {pid}, listening at {sock}, connecting to Feishu in the background",
       notConnected: "not connected to Feishu ({error}); the daemon keeps retrying, try again shortly",
       reconnecting: "the connection to Feishu dropped, reconnecting",
@@ -136526,7 +136533,7 @@ Exit codes: 0 ok \xB7 1 bad input \xB7 2 timed out, nobody answered \xB7 3 chann
       bindUpdateSkipped: "not connected to Feishu; the group's name and description were left as they are",
       unbound: 'Unbound. The Feishu group "{name}" stays in Feishu; the next away on in this directory offers to rename and reuse it.',
       dissolved: 'Dissolved Feishu group "{name}"; the local record is removed.',
-      renameNotBound: "this project has no live group; run lark-connector away on first",
+      renameNotBound: `this project has no live group; run ${CLI} away on first`,
       renameFailed: "renaming the group failed: Feishu error {code} {msg}",
       renameThrew: "renaming the group failed: {error}",
       renamePermissionHint: "The bot may only rename a group it owns, or one whose settings let every member edit group info (232002 / 232016), and must be a member of it (232011).",
@@ -136542,7 +136549,7 @@ Exit codes: 0 ok \xB7 1 bad input \xB7 2 timed out, nobody answered \xB7 3 chann
       on: "on",
       off: "off",
       awayUnbound: "not bound",
-      awayNoCreds: "No Feishu app credentials yet. Run once: lark-connector setup",
+      awayNoCreds: `No Feishu app credentials yet. Run once: ${CLI} setup`,
       awayCreated: 'Created Feishu group "{name}"',
       awayReused: 'Took back Feishu group "{name}"',
       awayKept: 'Connected to Feishu group "{name}"',
@@ -136551,10 +136558,10 @@ Exit codes: 0 ok \xB7 1 bad input \xB7 2 timed out, nobody answered \xB7 3 chann
       awayOn: "Remote mode is on: decisions, and moments when the agent is stuck on a prompt that needs you, are pushed to this project's Feishu group.",
       // status
       statusCredsYes: "credentials: configured, from {origin}",
-      statusCredsNo: "credentials: not configured; run lark-connector setup first",
+      statusCredsNo: `credentials: not configured; run ${CLI} setup first`,
       statusHerdrIn: "herdr: inside herdr, pane {pane}",
       statusHerdrOut: "herdr: not inside herdr",
-      statusDaemonDown: "daemon: not running (lark-connector daemon --detach)",
+      statusDaemonDown: `daemon: not running (${CLI} daemon --detach)`,
       statusDaemonPath: "daemon: cannot run here ({problem})",
       statusDaemonLine: "daemon: pid {pid}, connected {connected}, connection {connection}, pending questions {pending}",
       statusNoBindings: "bindings: none yet",
@@ -136563,7 +136570,7 @@ Exit codes: 0 ok \xB7 1 bad input \xB7 2 timed out, nobody answered \xB7 3 chann
       statusReleased: "released (take one back with away on --reuse <chat_id>; * marks this project):",
       statusReleasedLine: "  {mark} {root}  {name}  {chatId}  released {time}",
       // ipc client / server
-      ipcDaemonDown: "daemon is not running. Start it first: lark-connector daemon --detach",
+      ipcDaemonDown: `daemon is not running. Start it first: ${CLI} daemon --detach`,
       ipcConnect: "cannot connect to the daemon: {message}",
       ipcClosed: "the daemon dropped the connection before answering (it may have crashed or been stopped)",
       ipcTimeout: "the daemon did not respond in time",
@@ -136572,7 +136579,7 @@ Exit codes: 0 ok \xB7 1 bad input \xB7 2 timed out, nobody answered \xB7 3 chann
       // the state directory
       sockPathTooLong: "socket path {path} is {bytes} bytes, over this platform's limit of {limit}; set LARK_CONNECTOR_HOME to a shorter directory",
       // daemon replies
-      notBound: "this project is not bound yet; run lark-connector away on first",
+      notBound: `this project is not bound yet; run ${CLI} away on first`,
       askPending: "this project already has a question pending on the phone; one at a time",
       askNote: "sent to the Feishu group, waiting for the answer (up to {seconds} s)",
       askTimedOut: "no answer after {seconds} s",
@@ -136585,9 +136592,10 @@ Exit codes: 0 ok \xB7 1 bad input \xB7 2 timed out, nobody answered \xB7 3 chann
       dissolveThrew: 'the Feishu group "{name}" was not dissolved: {error}. Dissolve it by hand in Feishu. The local record is removed.',
       dissolveMarkerCleared: "The group's marker was cleared, so it will not be offered back.",
       dissolveMarkerKept: "The group's marker could not be cleared ({error}), so it will be offered back until it is dissolved.",
-      dissolveOldDaemon: "the running daemon predates --dissolve and has only let the group go (it stays in Feishu, on record as released). Restart the daemon (lark-connector daemon --stop, then lark-connector daemon --detach), bind the group back (away on --reuse <chat_id>) and run unbind --dissolve again",
+      dissolveOldDaemon: `the running daemon predates --dissolve and has only let the group go (it stays in Feishu, on record as released). Restart the daemon (${CLI} daemon --stop, then ${CLI} daemon --detach), bind the group back (away on --reuse <chat_id>) and run unbind --dissolve again`,
       bindNoOwner: "nobody to invite into a new group (the app owner is not recorded). Use --chat <chat_id> to bind a group you created yourself.",
-      bindCreateFailed: "creating the group failed: {error}\nIf this is a permission problem the app lacks the im:chat (create group) scope: run lark-connector setup --update, or bind an existing group with --chat <chat_id>.",
+      bindCreateFailed: `creating the group failed: {error}
+If this is a permission problem the app lacks the im:chat (create group) scope: run ${CLI} setup --update, or bind an existing group with --chat <chat_id>.`,
       fileMissing: "file not found: {path}",
       fileRealpath: "cannot resolve path: {error}",
       fileRefused: "refusing to send {real}\nOnly files under these directories can be sent:\n  this project {root}\n  {media}\n  {tmp}\n(this keeps send-file from reading arbitrary files off the machine)",
@@ -136595,7 +136603,7 @@ Exit codes: 0 ok \xB7 1 bad input \xB7 2 timed out, nobody answered \xB7 3 chann
       fileTooBig: "file too large: {size} MB, limit {cap} MB",
       // text synthesized into the pane
       injectVoice: "(voice transcript) {text}",
-      injectUnheard: "({n} voice message(s) received but transcription failed \u2014 Feishu code {code}: {msg}. Either the app lacks the speech_to_text:speech scope (lark-connector setup --update adds it), or the tenant is on the free plan, which cannot call speech recognition at all. Tell the user to type it instead this time.)",
+      injectUnheard: `({n} voice message(s) received but transcription failed \u2014 Feishu code {code}: {msg}. Either the app lacks the speech_to_text:speech scope (${CLI} setup --update adds it), or the tenant is on the free plan, which cannot call speech recognition at all. Tell the user to type it instead this time.)`,
       injectNothingHeard: "({n} voice message(s) received but nothing was recognised in the audio. Tell the user to type it or send it again.)",
       injectSaved: "[saved: {path}]",
       replyTo: '(reply to: "{title}")',
@@ -136604,7 +136612,7 @@ Exit codes: 0 ok \xB7 1 bad input \xB7 2 timed out, nobody answered \xB7 3 chann
       lateTapNoOption: "(follow-up) I tapped the card above again",
       latePick: "(follow-up) I pick {labels}",
       urgentNotSent: "the urgent flag was not delivered ({error}); the question itself was sent and is waiting as usual",
-      urgentNoOwner: "the app owner is not recorded, so there is nobody to flag; rerun lark-connector setup --update to record it",
+      urgentNoOwner: `the app owner is not recorded, so there is nobody to flag; rerun ${CLI} setup --update to record it`,
       urgentRefused: "Feishu error {code} {msg}",
       // validation
       vTitleRequired: "title: required and non-empty",
@@ -136956,10 +136964,10 @@ import { execFileSync as execFileSync3 } from "node:child_process";
 import { createHash as createHash2 } from "node:crypto";
 import { existsSync as existsSync2, mkdirSync as mkdirSync2, readFileSync as readFileSync2, renameSync as renameSync2, writeFileSync as writeFileSync2 } from "node:fs";
 import { homedir as homedir2, platform as platform2 } from "node:os";
-import { basename, join as join2, resolve } from "node:path";
+import { basename, join as join2, resolve as resolve2 } from "node:path";
 function homeDir() {
   const override = process.env.LARK_CONNECTOR_HOME?.trim();
-  return override ? resolve(override) : defaultHomeDir();
+  return override ? resolve2(override) : defaultHomeDir();
 }
 function ensureHomeDir() {
   const dir = homeDir();
@@ -136985,7 +136993,7 @@ function projectRoot(cwd = process.cwd()) {
     if (out) return out;
   } catch {
   }
-  return resolve(cwd);
+  return resolve2(cwd);
 }
 function projectLabel(root) {
   return basename(root) || root;
@@ -137236,7 +137244,7 @@ async function isDaemonListening(timeoutMs = 1e3, opts = {}) {
   return res.ok && res.kind === "pong";
 }
 function request(req, opts = {}) {
-  return new Promise((resolve4) => {
+  return new Promise((resolve5) => {
     let settled = false;
     const done = (r) => {
       if (settled) return;
@@ -137245,7 +137253,7 @@ function request(req, opts = {}) {
         sock.end();
       } catch {
       }
-      resolve4(r);
+      resolve5(r);
     };
     const endpoint = opts.endpoint ?? ipcEndpoint();
     const pathProblem = sockPathProblem(endpoint);
@@ -137306,7 +137314,7 @@ function serve(handlers) {
     } catch {
     }
   }
-  return new Promise((resolve4, reject) => {
+  return new Promise((resolve5, reject) => {
     const server = createServer((sock) => {
       let buf = "";
       const closeFns = [];
@@ -137351,7 +137359,7 @@ function serve(handlers) {
       });
     });
     server.on("error", reject);
-    server.listen(ipcEndpoint(), () => resolve4(server));
+    server.listen(ipcEndpoint(), () => resolve5(server));
   });
 }
 var init_ipc = __esm({
@@ -137365,7 +137373,7 @@ var init_ipc = __esm({
 // src/migrate.ts
 import { existsSync as existsSync3, mkdirSync as mkdirSync3, renameSync as renameSync4 } from "node:fs";
 import { homedir as homedir3, platform as platform4 } from "node:os";
-import { dirname as dirname2, join as join3, resolve as resolve2 } from "node:path";
+import { dirname as dirname2, join as join3, resolve as resolve3 } from "node:path";
 function resolveDeps(partial) {
   const legacyHomeDir = partial.legacyHomeDir ?? (() => join3(homedir3(), LEGACY.homeDirName));
   return {
@@ -137429,7 +137437,7 @@ async function migrateLegacy(deps = {}) {
   const d = resolveDeps(deps);
   const out = { moved: [], warnings: [] };
   const legacyHome = d.legacyHomeDir();
-  const leftover = resolve2(legacyHome) !== resolve2(d.homeDir()) && existsSync3(legacyHome);
+  const leftover = resolve3(legacyHome) !== resolve3(d.homeDir()) && existsSync3(legacyHome);
   if (leftover && await d.isLegacyDaemonListening()) throw new LegacyDaemonRunning(legacyIpcEndpoint(legacyHome));
   if (leftover) moveDir(legacyHome, d.defaultHomeDir(), out, d.stderr);
   moveDir(d.legacyConfigDir(), d.configDir(), out, d.stderr);
@@ -138366,9 +138374,9 @@ ${text}`;
         if (stopping) return;
         lastError = err instanceof Error ? err.message : String(err);
         log("channel.connect-failed", { message: lastError, retryMs: delay });
-        await new Promise((resolve4) => {
-          wakeRetry = resolve4;
-          retryTimer = setTimeout(resolve4, delay);
+        await new Promise((resolve5) => {
+          wakeRetry = resolve5;
+          retryTimer = setTimeout(resolve5, delay);
         });
         delay = Math.min(delay * 2, CONNECT_RETRY_MAX_MS);
       }
@@ -138570,8 +138578,8 @@ ${msg.renamePermissionHint}` : text;
   let server;
   const sockets = /* @__PURE__ */ new Set();
   let resolveDone;
-  const done = new Promise((resolve4) => {
-    resolveDone = resolve4;
+  const done = new Promise((resolve5) => {
+    resolveDone = resolve5;
   });
   const signals = ["SIGINT", "SIGTERM", "SIGHUP"];
   const onSignal = {
@@ -138582,14 +138590,14 @@ ${msg.renamePermissionHint}` : text;
   const closeServer = async () => {
     if (!server) return;
     const srv = server;
-    await new Promise((resolve4) => {
+    await new Promise((resolve5) => {
       const grace = setTimeout(() => {
         for (const s of sockets) s.destroy();
         log("daemon.close-forced", { sockets: sockets.size });
       }, CLOSE_GRACE_MS);
       srv.close(() => {
         clearTimeout(grace);
-        resolve4();
+        resolve5();
       });
     });
   };
@@ -138613,8 +138621,8 @@ ${msg.renamePermissionHint}` : text;
     await Promise.all(
       cancelled.map(async (p) => {
         let bound;
-        const timeout = new Promise((resolve4) => {
-          bound = setTimeout(() => resolve4("timeout"), CANCEL_CARD_MS);
+        const timeout = new Promise((resolve5) => {
+          bound = setTimeout(() => resolve5("timeout"), CANCEL_CARD_MS);
         });
         try {
           const outcome = await Promise.race([
@@ -138941,8 +138949,8 @@ ${msg.renamePermissionHint}` : text;
           rememberCard(messageId, "ask", payload.title);
           log("ask.sent", { reqId, root: b.root, options: payload.options.length, select: payload.select, urgent });
           let settle;
-          const result = new Promise((resolve4) => {
-            settle = resolve4;
+          const result = new Promise((resolve5) => {
+            settle = resolve5;
           });
           const closeLater = (state, res) => {
             void closeWithout(p, state, res).catch((err) => log("close.failed", { reqId, state, err: String(err).slice(0, 200) }));
@@ -139045,7 +139053,7 @@ init_creds();
 init_herdr();
 import { spawn } from "node:child_process";
 import { existsSync as existsSync5, openSync as openSync2, realpathSync as realpathSync2, unlinkSync as unlinkSync4 } from "node:fs";
-import { resolve as resolve3 } from "node:path";
+import { resolve as resolve4 } from "node:path";
 import { fileURLToPath } from "node:url";
 
 // src/tty.ts
@@ -139079,7 +139087,7 @@ function terminalIO(input = process.stdin, output = process.stdout) {
       const wasRaw = raw.isRaw ?? false;
       raw.setRawMode?.(true);
       input.resume();
-      return new Promise((resolve4, reject) => {
+      return new Promise((resolve5, reject) => {
         let typed = "";
         const finish2 = () => {
           input.off("data", onData);
@@ -139096,7 +139104,7 @@ function terminalIO(input = process.stdin, output = process.stdout) {
           for (const ch of chunk.toString()) {
             if (ch === "\r" || ch === "\n") {
               finish2();
-              resolve4(typed);
+              resolve5(typed);
               return;
             }
             if (ch === "" || ch === "") {
@@ -139719,7 +139727,7 @@ async function cmdSendFile(args) {
   const a = argv("send-file", args);
   const given = a.positional();
   if (!given) die(1, msg.sendFileUsage);
-  const path2 = resolve3(given);
+  const path2 = resolve4(given);
   const res = await request({ type: "sendFile", root, label, paneId, path: path2, caption: a.opt("caption") });
   finish(res, () => process.stdout.write(`${msg.fileSent}
 `));
@@ -139857,7 +139865,7 @@ function takeHome(argv2) {
   const joined = argv2[i].startsWith("--home=");
   const dir = joined ? argv2[i].slice("--home=".length) : argv2[i + 1];
   if (!dir || !joined && dir.startsWith("--")) die(1, msg.homeNeedsDir);
-  process.env.LARK_CONNECTOR_HOME = resolve3(dir);
+  process.env.LARK_CONNECTOR_HOME = resolve4(dir);
   return [...argv2.slice(0, i), ...argv2.slice(i + (joined ? 1 : 2))];
 }
 async function main() {

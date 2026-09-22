@@ -56,7 +56,7 @@ npx skills add yezhoujie/lark-connector
 
 `skills.sh` 会自己发现本仓只发布的这一个 skill（`agent-lark`），`--skill agent-lark` 可以省（要显式指定也行）。要给所有项目用，加 `-g`：文件放到 `~/.agents/skills/agent-lark`，`~/.claude/skills/agent-lark` 变成指向它的符号链接。**`-g` 的警告**：`~/.claude/skills/agent-lark` 已经是一个真实目录的话，`skills` CLI 会把它删掉换成符号链接——先备份。任何能把 `skill/agent-lark/` 放到 agent 加载 skill 位置的办法都行（`git clone` 后拷目录也一样）；要钉住某个版本，安装时带 git ref（§9）。
 
-CLI 就是目录里的 `dist/cli.mjs`，它管自己叫 `lark-connector`。你很少需要敲它（§6.2），但配个 alias 方便：`alias lark-connector='node "<agent-lark 的路径>/dist/cli.mjs"'`（文件带可执行位，往 `PATH` 里打符号链接也行）。
+CLI 就是目录里的 `dist/cli.mjs`，它在自己的消息里管自己叫 `lark-connector`。你很少需要自己敲它（§6.2）；要敲时用 `node "<agent-lark 的路径>/dist/cli.mjs" …`，其中 `<agent-lark 的路径>`：`-g` 安装是 `~/.agents/skills/agent-lark`；项目内安装是 `./.agents/skills/agent-lark`；Claude Code plugin 安装用 `ls ~/.claude/plugins/cache/*/agent-lark/*/dist/cli.mjs` 找。文件带可执行位，想省字可以往 `PATH` 里打符号链接——这是可选的补充，不是前置步骤。
 
 Claude Code 也可以把它当 plugin 装：`claude plugin marketplace add yezhoujie/agent-remote-communication-skills`，再 `claude plugin install agent-lark@agent-remote-communication-skills`——marketplace 由那个 index 仓维护，plugin 的内容（这个 skill）来自本仓。
 
@@ -67,7 +67,7 @@ Claude Code 也可以把它当 plugin 装：`claude plugin marketplace add yezho
 ### 4.1 手动
 
 ```bash
-lark-connector setup
+node "<agent-lark 的路径>/dist/cli.mjs" setup
 ```
 
 每一行都中英并排打印（下面只列中文那一半）。在终端里跑，先出菜单：
@@ -86,9 +86,9 @@ lark-connector setup
 下一步：回到 agent 会话，说「开启远程交互模式」或输入 /agent-lark on——daemon 与群绑定由 agent 从它自己的窗格完成，不用你手动跑。
 ```
 
-**2 — 复用已有的应用**（`lark-connector setup --reuse` 直接进这一支）。它问 App ID（`cli_…`，在开发者后台「凭证与基础信息」里看）和 App Secret——盲输、不回显、之后也不出现在任何输出里，连报错信息里都不会——连一次飞书核这对凭据，存起来，再把这种应用要你**手动开通**的权限、事件、回调列出来（§4.3），最后同样一行「下一步」。飞书不认的凭据会再问一次；连续三次不过就停，什么都不存。
+**2 — 复用已有的应用**（`node "<agent-lark 的路径>/dist/cli.mjs" setup --reuse` 直接进这一支）。它问 App ID（`cli_…`，在开发者后台「凭证与基础信息」里看）和 App Secret——盲输、不回显、之后也不出现在任何输出里，连报错信息里都不会——连一次飞书核这对凭据，存起来，再把这种应用要你**手动开通**的权限、事件、回调列出来（§4.3），最后同样一行「下一步」。飞书不认的凭据会再问一次；连续三次不过就停，什么都不存。
 
-**不管哪条路：** 凭据存进系统钥匙串，没有钥匙串的平台存 `0600` 文件（§4.4）。之后再跑 `setup` 只会说「已经有凭据了（来自 …）」。`setup --update` 重新扫码给同一个应用重新授权（扫码建的应用补权限就靠它）；`setup --reset` 先删掉存着的凭据，所以 `lark-connector setup --reset --reuse`（或只 `--reset`，走扫码）就是换一个应用。
+**不管哪条路：** 凭据存进系统钥匙串，没有钥匙串的平台存 `0600` 文件（§4.4）。之后再跑 `setup` 只会说「已经有凭据了（来自 …）」。`setup --update` 重新扫码给同一个应用重新授权（扫码建的应用补权限就靠它）；`setup --reset` 先删掉存着的凭据，所以 `node "<agent-lark 的路径>/dist/cli.mjs" setup --reset --reuse`（或只 `--reset`，走扫码）就是换一个应用。
 
 ### 4.2 让 agent 帮你
 
@@ -107,11 +107,11 @@ lark-connector setup
 im:message   im:message:send_as_bot   im:message.group_msg   im:chat   im:resource   im:message.urgent   speech_to_text:speech   im:message.reactions:read
 ```
 
-`im:message.urgent` 是加急要的；`speech_to_text:speech` 是语音转文字要的（只有付费租户可用，§7）；`im:message.reactions:read`（连同表情事件）让你在排队消息上加的表情能传到 daemon（§5）。扫码建的应用之后缺了哪个？`lark-connector setup --update` 补上。
+`im:message.urgent` 是加急要的；`speech_to_text:speech` 是语音转文字要的（只有付费租户可用，§7）；`im:message.reactions:read`（连同表情事件）让你在排队消息上加的表情能传到 daemon（§5）。扫码建的应用之后缺了哪个？`node "<agent-lark 的路径>/dist/cli.mjs" setup --update` 补上。
 
 ### 4.4 凭据
 
-三个来源，高到低：环境变量 `LARK_CONNECTOR_APP_ID` / `LARK_CONNECTOR_APP_SECRET`（运行时覆盖）、系统钥匙串（`setup` 默认写这里：macOS `security`、Linux `secret-tool`、Windows 上是 DPAPI 加密文件）、`~/.config/lark-connector/credentials.json`（权限 `0600`）。别的一概不读——没有 env 文件。`lark-connector status` 会标出用的是哪一个，**但不打印值**。细节与全部环境变量：[references/daemon.md](skill/agent-lark/references/daemon.md) §7。
+三个来源，高到低：环境变量 `LARK_CONNECTOR_APP_ID` / `LARK_CONNECTOR_APP_SECRET`（运行时覆盖）、系统钥匙串（`setup` 默认写这里：macOS `security`、Linux `secret-tool`、Windows 上是 DPAPI 加密文件）、`~/.config/lark-connector/credentials.json`（权限 `0600`）。别的一概不读——没有 env 文件。`node "<agent-lark 的路径>/dist/cli.mjs" status` 会标出用的是哪一个，**但不打印值**。细节与全部环境变量：[references/daemon.md](skill/agent-lark/references/daemon.md) §7。
 
 ## 5. 怎么用：你说什么，agent 做什么
 
@@ -141,17 +141,17 @@ im:message   im:message:send_as_bot   im:message.group_msg   im:chat   im:resour
 ### 6.2 你自己跑的几条
 
 ```bash
-lark-connector status            # 凭据（哪一层，不打印值）、herdr、daemon、每个项目的群
-lark-connector daemon --status   # daemon: pid …  connected true  connection connected  pending questions 0  bound projects 1  started …
+node "<agent-lark 的路径>/dist/cli.mjs" status            # 凭据（哪一层，不打印值）、herdr、daemon、每个项目的群
+node "<agent-lark 的路径>/dist/cli.mjs" daemon --status   # daemon: pid …  connected true  connection connected  pending questions 0  bound projects 1  started …
                                  # media: ttl 7 days, … MB in … files (as of last sweep …)
-lark-connector daemon --stop     # 升级前（§9）；有提问挂着时拒绝——--stop --force 取消提问并停掉
+node "<agent-lark 的路径>/dist/cli.mjs" daemon --stop     # 升级前（§9）；有提问挂着时拒绝——--stop --force 取消提问并停掉
 ```
 
-`lark-connector --help` 列出其余全部命令；那些是 agent 用的（SKILL.md）。换任务、换群、上下文重置都不用停 daemon；它同时管着所有项目。**删掉飞书应用**：`setup` 建的应用是你租户里真实的自建应用——先在飞书管理后台*停用*它（工作台管理 → 应用管理），再到开发者后台删除，换应用时再 `lark-connector setup --reset`（或 `--reset --reuse`）。
+`node "<agent-lark 的路径>/dist/cli.mjs" --help` 列出其余全部命令；那些是 agent 用的（SKILL.md）。换任务、换群、上下文重置都不用停 daemon；它同时管着所有项目。**删掉飞书应用**：`setup` 建的应用是你租户里真实的自建应用——先在飞书管理后台*停用*它（工作台管理 → 应用管理），再到开发者后台删除，换应用时再 `node "<agent-lark 的路径>/dist/cli.mjs" setup --reset`（或 `--reset --reuse`）。
 
 ## 7. 出问题了怎么办
 
-- **卡片没来，agent 说退出码 3。** daemon 没跑，或连不上飞书：`lark-connector daemon --status` 显示最后一次错误（凭据不对、没网）；daemon 会自己不断重连，排除原因后让 agent 再试。根本没在跑 ⇒ agent 会起它；你也可以：`lark-connector daemon --detach`。
+- **卡片没来，agent 说退出码 3。** daemon 没跑，或连不上飞书：`node "<agent-lark 的路径>/dist/cli.mjs" daemon --status` 显示最后一次错误（凭据不对、没网）；daemon 会自己不断重连，排除原因后让 agent 再试。根本没在跑 ⇒ agent 会起它；你也可以：`node "<agent-lark 的路径>/dist/cli.mjs" daemon --detach`。
 - **卡片上显示「已读 0/0」。** 那是飞书对机器人消息的已读计数，不是送达状态。真正算数的标记：提问被回答会变绿；你主动发的消息送到 agent 后会被贴上 `Get` 表情。
 - **你发的消息收到一张「没能送达」回执卡。** 原因写在卡上：那台机器没有 herdr、agent 的窗格没了、或 agent 正卡在只有你能回答的提示上。让 agent 重新开一次远程模式会重新记录它的窗格；最后一种情况回到电脑前处理那个提示。
 - **语音存下来了但没转成文字。** 转写需要 `speech_to_text:speech` 权限**且飞书付费租户**；免费 / 个人版租户即使已开通权限，飞书也会拒绝（HTTP 400，code 99991400）。改打字。语音控制在一分钟内。
@@ -176,7 +176,7 @@ lark-connector daemon --stop     # 升级前（§9）；有提问挂着时拒绝
 
 版本就是 git tag `vX.Y.Z`；改了什么见 [CHANGELOG.md](CHANGELOG.md)。装到本机的是仓库内容的一份快照，`npx skills update` 刷新它（全局安装加 `-g`，当前项目加 `-p`）。想停在某个版本，安装时把 tag 当 git ref 带上：`npx skills add 'yezhoujie/lark-connector#v0.2.0'`。
 
-跑着 daemon 的机器：1. 用手上的 CLI `lark-connector daemon --stop`（有提问挂着时会拒绝——等一等，或 `--stop --force`；文件已经换成新版、旧 daemon 又不应答的话，`kill -TERM <pid>`，pid 在 `~/.lark-connector/daemon.pid` 里）。2. 换文件。3. `lark-connector daemon --detach`。凭据、群绑定、项目级开关都会保留；然后说一声「开启远程交互模式」，让 agent 重新记下它的窗格。
+跑着 daemon 的机器：1. 用手上的 CLI `node "<agent-lark 的路径>/dist/cli.mjs" daemon --stop`（有提问挂着时会拒绝——等一等，或 `--stop --force`；文件已经换成新版、旧 daemon 又不应答的话，`kill -TERM <pid>`，pid 在 `~/.lark-connector/daemon.pid` 里）。2. 换文件。3. `node "<agent-lark 的路径>/dist/cli.mjs" daemon --detach`。凭据、群绑定、项目级开关都会保留；然后说一声「开启远程交互模式」，让 agent 重新记下它的窗格。
 
 ### 9.1 从 agent-lark 0.1.x 升级
 
