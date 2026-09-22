@@ -138087,7 +138087,10 @@ async function runDaemon(deps = {}) {
     log("queued.read", { root: q.b.root, paneId: q.paneId, msgKey, why });
     await swapForGet(msgKey, q);
   };
+  const PASTED_CONTENT_RE = /^<pasted_content id="[^"]*">\n([\s\S]*)\n<\/pasted_content id="[^"]*">$/;
+  const unwrapPastedContent = (content) => PASTED_CONTENT_RE.exec(content)?.[1] ?? content;
   const settleQueued = async (live) => {
+    const pendingTexts = new Set([...queued.values()].map((p) => p.text));
     for (const [msgKey, q] of [...queued]) {
       if (Date.now() - q.since >= queuedMaxAgeMs) {
         await closeQueued(msgKey, q, "expired");
@@ -138119,9 +138122,16 @@ async function runDaemon(deps = {}) {
           await closeQueued(msgKey, q, "dequeued");
           break;
         }
-        if (rec.operation === "remove" && rec.reason === "absorbed_mid_turn" && rec.content === q.text) {
-          await closeQueued(msgKey, q, "absorbed");
-          break;
+        if (rec.operation === "remove" && rec.reason === "absorbed_mid_turn") {
+          const content = unwrapPastedContent(rec.content ?? "");
+          if (content === q.text) {
+            await closeQueued(msgKey, q, "absorbed");
+            break;
+          }
+          if (!q.unmatchedLogged && !pendingTexts.has(content)) {
+            q.unmatchedLogged = true;
+            log("queued.unmatched", { root: q.b.root, msgKey, len: content.length, prefixed: content.startsWith(INJECT_PREFIX) });
+          }
         }
       }
     }

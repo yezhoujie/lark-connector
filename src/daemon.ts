@@ -438,6 +438,8 @@ export async function runDaemon(deps: DaemonDeps = {}): Promise<DaemonHandle> {
     reactionId: string;
     /** The session's transcript and how far it had been written before the prompt; absent when there is none to watch. */
     transcript?: { path: string; offset: number };
+    /** Whether an absorbed_mid_turn record naming no pending entry has already been logged for this one, so a run of them logs once rather than every poll. */
+    unmatchedLogged?: boolean;
   }
   const queued = new Map<string, Queued>();
   const claudeDir = deps.claudeConfigDir ?? process.env.CLAUDE_CONFIG_DIR ?? join(homedir(), '.claude');
@@ -551,12 +553,27 @@ export async function runDaemon(deps: DaemonDeps = {}): Promise<DaemonHandle> {
   };
 
   /**
+   * Claude Code 2.1.278 started wrapping pasted terminal text in
+   * `<pasted_content id="…">…</pasted_content id="…">` before it reaches the transcript
+   * (a fresh id each time). Peeled off before the `absorbed_mid_turn` comparison below,
+   * in the same spirit as `transcriptFor`'s comment above: an internal format, not a
+   * contract. Only the wrapper's own leading and trailing newline are stripped, the
+   * inner text compared as written; content with no wrapper (≤ 2.1.276) passes through.
+   */
+  const PASTED_CONTENT_RE = /^<pasted_content id="[^"]*">\n([\s\S]*)\n<\/pasted_content id="[^"]*">$/;
+  const unwrapPastedContent = (content: string): string => PASTED_CONTENT_RE.exec(content)?.[1] ?? content;
+
+  /**
    * Settle the queue entries claude has read: by the transcript's
    * records (`remove` with reason `absorbed_mid_turn` quoting the line, or
    * `dequeue`, which empties the whole queue as a turn), else by herdr
    * reporting the pane no longer working, when the queue is necessarily empty.
    */
   const settleQueued = async (live: AgentInfo[]): Promise<void> => {
+    // Frozen before any entry in this poll can close another: an entry closed
+    // earlier in the same pass would otherwise vanish from `queued` and make a
+    // record that was actually absorbed by it look unmatched to the next one.
+    const pendingTexts = new Set([...queued.values()].map((p) => p.text));
     for (const [msgKey, q] of [...queued]) {
       if (Date.now() - q.since >= queuedMaxAgeMs) {
         await closeQueued(msgKey, q, 'expired');
@@ -588,9 +605,18 @@ export async function runDaemon(deps: DaemonDeps = {}): Promise<DaemonHandle> {
           await closeQueued(msgKey, q, 'dequeued');
           break;
         }
-        if (rec.operation === 'remove' && rec.reason === 'absorbed_mid_turn' && rec.content === q.text) {
-          await closeQueued(msgKey, q, 'absorbed');
-          break;
+        if (rec.operation === 'remove' && rec.reason === 'absorbed_mid_turn') {
+          const content = unwrapPastedContent(rec.content ?? '');
+          if (content === q.text) {
+            await closeQueued(msgKey, q, 'absorbed');
+            break;
+          }
+          // Quoting no pending entry at all is the interesting case — quoting a
+          // sibling's line is normal and says nothing about this one.
+          if (!q.unmatchedLogged && !pendingTexts.has(content)) {
+            q.unmatchedLogged = true;
+            log('queued.unmatched', { root: q.b.root, msgKey, len: content.length, prefixed: content.startsWith(INJECT_PREFIX) });
+          }
         }
       }
     }

@@ -2055,6 +2055,114 @@ test('transcript: a "remove … absorbed_mid_turn" record quoting the injected l
   await daemon.stop();
 });
 
+test('transcript: a "pasted_content"-wrapped line (Claude Code ≥ 2.1.278) still swaps the queued reaction for Get', PER_TEST, async () => {
+  const { daemon, fake, herdr, transcript } = await startWithTranscript();
+  await connected();
+  await request({ type: 'bind', root: '/p', label: 'p', paneId: 'w1:p1', chatId: 'oc_x' });
+  herdr.agents = [claudeWorking()];
+  await fake.message({ chatId: 'oc_x', content: 'hello there', messageId: 'om_human_1' });
+  await waitFor(() => emojisOn(fake, 'om_human_1').length === 1, 'the queued reaction');
+  appendFileSync(
+    transcript,
+    queueOp({
+      operation: 'remove',
+      reason: 'absorbed_mid_turn',
+      content: '<pasted_content id="40f8">\n[lark-connector remote] hello there\n</pasted_content id="40f8">',
+    }),
+  );
+  await waitFor(() => swapped(fake, 'om_human_1'), 'the swap');
+  await daemon.stop();
+});
+
+test('transcript: a multi-line "pasted_content" wrapper (attachments included) also swaps the queued reaction for Get', PER_TEST, async () => {
+  const { daemon, fake, herdr, transcript } = await startWithTranscript();
+  await connected();
+  await request({ type: 'bind', root: '/p', label: 'p', paneId: 'w1:p1', chatId: 'oc_x' });
+  herdr.agents = [claudeWorking()];
+  const text =
+    '![image](img_v3_0215p_79f2021e-ea96-497f-80bf-400b3876303g)\nweb 端删除的会话，desktop 上消失了\n[saved: /Users/yzj/.lark-connector/media/57c4cc880e4c/1790047599469-image-1790047599469.png]\n(attachments saved locally)';
+  await fake.message({ chatId: 'oc_x', content: text, messageId: 'om_human_1' });
+  await waitFor(() => emojisOn(fake, 'om_human_1').length === 1, 'the queued reaction');
+  appendFileSync(
+    transcript,
+    queueOp({
+      operation: 'remove',
+      reason: 'absorbed_mid_turn',
+      content: `<pasted_content id="095b">\n[lark-connector remote] ${text}\n</pasted_content id="095b">`,
+    }),
+  );
+  await waitFor(() => swapped(fake, 'om_human_1'), 'the swap');
+  await daemon.stop();
+});
+
+test('transcript: a "pasted_content" wrapper around unrelated text does not swap, and is logged once as queued.unmatched, never the text itself', PER_TEST, async () => {
+  const { daemon, fake, herdr, home, transcript } = await startWithTranscript();
+  await connected();
+  await request({ type: 'bind', root: '/p', label: 'p', paneId: 'w1:p1', chatId: 'oc_x' });
+  herdr.agents = [claudeWorking()];
+  await fake.message({ chatId: 'oc_x', content: 'hello there', messageId: 'om_human_1' });
+  await waitFor(() => emojisOn(fake, 'om_human_1').length === 1, 'the queued reaction');
+  appendFileSync(
+    transcript,
+    queueOp({
+      operation: 'remove',
+      reason: 'absorbed_mid_turn',
+      content: '<pasted_content id="ae0b">\n[lark-connector remote] a completely unrelated line\n</pasted_content id="ae0b">',
+    }),
+  );
+  await waitFor(() => /queued\.unmatched/.test(readFileSync(join(home, 'daemon.log'), 'utf8')), 'the unmatched log line');
+  assert.equal(swapped(fake, 'om_human_1'), false, 'no matching pending entry: nothing swaps');
+  // A second, differently unmatched record while the same entry is still pending must not add a second line.
+  appendFileSync(
+    transcript,
+    queueOp({
+      operation: 'remove',
+      reason: 'absorbed_mid_turn',
+      content: '<pasted_content id="5799">\n[lark-connector remote] yet another unrelated line\n</pasted_content id="5799">',
+    }),
+  );
+  await sleep(120);
+  const logText = readFileSync(join(home, 'daemon.log'), 'utf8');
+  assert.equal((logText.match(/queued\.unmatched/g) ?? []).length, 1, 'logged once, not every poll');
+  assert.doesNotMatch(logText, /unrelated line/, 'the message text itself must never be logged');
+  assert.equal(swapped(fake, 'om_human_1'), false);
+  await daemon.stop();
+});
+
+test('transcript: a record absorbed by one pending entry earlier in the same poll is not logged as unmatched for a sibling still waiting', PER_TEST, async () => {
+  const { daemon, fake, herdr, home, transcript } = await startWithTranscript();
+  await connected();
+  await request({ type: 'bind', root: '/p', label: 'p', paneId: 'w1:p1', chatId: 'oc_x' });
+  herdr.agents = [claudeWorking()];
+  await fake.message({ chatId: 'oc_x', content: 'one', messageId: 'om_human_1' });
+  await fake.message({ chatId: 'oc_x', content: 'two', messageId: 'om_human_2' });
+  await waitFor(() => fake.reactions.length === 2, 'two queued reactions');
+  appendFileSync(
+    transcript,
+    queueOp({
+      operation: 'remove',
+      reason: 'absorbed_mid_turn',
+      content: '<pasted_content id="095b">\n[lark-connector remote] one\n</pasted_content id="095b">',
+    }),
+  );
+  await waitFor(() => swapped(fake, 'om_human_1'), 'the first entry swaps');
+  assert.deepEqual(emojisOn(fake, 'om_human_2'), [QUEUE], 'the second entry is untouched by the first one\'s record');
+  assert.doesNotMatch(readFileSync(join(home, 'daemon.log'), 'utf8'), /queued\.unmatched/, 'closing a sibling in the same poll must not read as "matches nobody"');
+  await sleep(120);
+  assert.doesNotMatch(readFileSync(join(home, 'daemon.log'), 'utf8'), /queued\.unmatched/, 'still nothing after another poll');
+  appendFileSync(
+    transcript,
+    queueOp({
+      operation: 'remove',
+      reason: 'absorbed_mid_turn',
+      content: '<pasted_content id="ae0b">\n[lark-connector remote] two\n</pasted_content id="ae0b">',
+    }),
+  );
+  await waitFor(() => swapped(fake, 'om_human_2'), 'the second entry swaps too');
+  assert.doesNotMatch(readFileSync(join(home, 'daemon.log'), 'utf8'), /queued\.unmatched/, 'neither record was ever unmatched');
+  await daemon.stop();
+});
+
 test('transcript: a "dequeue" record (the whole queue sent as a turn) swaps every queued message of that session; other removes and other texts do not', PER_TEST, async () => {
   const { daemon, fake, herdr, transcript } = await startWithTranscript();
   await connected();
