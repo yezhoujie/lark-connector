@@ -72,6 +72,8 @@ export interface AskCardContext {
   urgent?: boolean;
   /** How many times the pending card has been re-rendered after a refused submit; part of the submit action's value. */
   attempt?: number;
+  /** The wrapper's language (section labels, hints, button texts, the status word); the caller's own, never read off the payload. */
+  lang?: Lang;
 }
 
 const HEADER: Record<AskState, { template: string; icon: string }> = {
@@ -148,7 +150,7 @@ function optionForm(p: AskPayload, reqId: string, attempt: number, recommended: 
 
 export function askCard(ctx: AskCardContext): object {
   const { payload: p, state } = ctx;
-  const lang = p.lang ?? 'en';
+  const lang = ctx.lang ?? 'en';
   const T = t(lang);
   const head = HEADER[state];
   const template = state === 'pending' && ctx.urgent ? 'red' : head.template;
@@ -207,4 +209,13 @@ export function receiptCard(projectLabel: string, why: string, lang: Lang = 'en'
 export function statusCard(projectLabel: string, detail: string, lang: Lang = 'en'): object {
   const T = t(lang);
   return card({ icon: '🔔', title: `[${projectLabel}] ${T.statusBlocked}`, template: 'orange' }, [md(detail)]);
+}
+
+/** Pushed on each remote-mode transition, so the human on the phone learns the channel just opened or is about to close. */
+export function awayCard(projectLabel: string, on: boolean, detail: string, lang: Lang): object {
+  const T = t(lang);
+  return card(
+    { icon: on ? '📱' : '🌙', title: `[${projectLabel}] ${on ? T.awayOnTitle : T.awayOffTitle}`, template: on ? 'green' : 'grey' },
+    [md(detail)],
+  );
 }

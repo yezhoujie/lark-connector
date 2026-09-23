@@ -6,6 +6,8 @@
 // first n (the retry interval is 50 ms). Unset, the first attempt succeeds.
 // LARK_CONNECTOR_FAKE_CHAT_DELETE=ok makes `im.v1.chat.delete` succeed; unset,
 // the raw client has no such call and `unbind --dissolve` takes the failure path.
+// LARK_CONNECTOR_FAKE_HERDR=missing makes the fake herdr view report no
+// binary on this daemon's PATH; unset, it reports one found and reachable.
 import { runDaemon } from '../../src/daemon.js';
 import { createFakeChannel, type FakeChannelOptions } from './fake-channel.js';
 import { createFakeHerdr } from './fake-herdr.js';
@@ -26,9 +28,13 @@ if (shape) {
 
 if (process.env.LARK_CONNECTOR_FAKE_CHAT_DELETE === 'ok') channelOpts.chatDelete = async () => ({ code: 0 });
 
+const fakeHerdr = createFakeHerdr({
+  view: process.env.LARK_CONNECTOR_FAKE_HERDR === 'missing' ? { bin: null, reachable: false } : undefined,
+});
+
 const daemon = await runDaemon({
   createChannel: () => createFakeChannel(channelOpts).channel,
-  herdr: createFakeHerdr().deps,
+  herdr: fakeHerdr.deps,
   connectRetryMs: 50,
 });
 await daemon.done;

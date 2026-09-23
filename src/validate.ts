@@ -26,7 +26,6 @@ export interface AskPayload {
   recommend: string | string[];
   reasoning: string;
   question: string;
-  lang?: Lang;
   /** Whether the human picks one option (buttons) or any number (a form of checkers). */
   select: Select;
 }
@@ -34,7 +33,6 @@ export interface AskPayload {
 export interface NotifyPayload {
   title: string;
   body: string;
-  lang?: Lang;
 }
 
 /** Feishu accepts a far larger card than ntfy did; these are sanity caps. */
@@ -57,13 +55,6 @@ export class ValidationError extends Error {
 
 function str(v: unknown): string | null {
   return typeof v === 'string' && v.trim() ? v.trim() : null;
-}
-
-function checkLang(v: unknown, problems: string[]): Lang | undefined {
-  if (v === undefined || v === null) return undefined;
-  if (v === 'zh' || v === 'en') return v;
-  problems.push(fill(msg.vLang, { value: JSON.stringify(v) }));
-  return undefined;
 }
 
 /** Reports every problem at once — a round trip per field is intolerable. */
@@ -158,7 +149,6 @@ export function validateAsk(raw: unknown): AskPayload {
     }
   }
 
-  const lang = checkLang(o.lang, problems);
   if (problems.length) throw new ValidationError(problems);
 
   return {
@@ -170,7 +160,6 @@ export function validateAsk(raw: unknown): AskPayload {
     recommend,
     reasoning: values.reasoning!,
     question: values.question!,
-    lang,
     select,
   };
 }
@@ -185,7 +174,6 @@ export function validateNotify(raw: unknown): NotifyPayload {
   else if (title.includes('\n')) problems.push(msg.vTitleNewline);
   if (!body) problems.push(msg.vBodyRequired);
   else if (body.length > LIMITS.body) problems.push(fill(msg.vBodyTooLong, { max: LIMITS.body }));
-  const lang = checkLang(o.lang, problems);
   if (problems.length) throw new ValidationError(problems);
-  return { title: title!, body: body!, lang };
+  return { title: title!, body: body! };
 }

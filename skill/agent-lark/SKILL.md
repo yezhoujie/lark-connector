@@ -13,11 +13,12 @@ the Feishu group bound to this project, and returns whatever the human replies, 
 interprets content. `notify` pushes a one-way card and returns at once; `send-file` sends an image or a
 file into the same group.
 
-Every command below is `dist/cli.mjs` in this skill's directory (`node <skill dir>/dist/cli.mjs …`);
-the CLI calls itself `lark-connector` in its own messages, and that always means this file. Node 22 or
-newer; one self-contained file, no `npm install`, no build step. A symlink saves typing, if the human
-wants one: `ln -sf "<skill dir>/dist/cli.mjs" ~/.local/bin/lark-connector`. The shell forms in this file
-are POSIX (`$(…)`, quoted heredocs).
+Every command below is `dist/cli.mjs` in this skill's directory, written as `node <skill dir>/dist/cli.mjs …`;
+the CLI calls itself `lark-connector` in its own messages, and that always means this file. When you hand a
+command to the human, pass on the full `node "<path>/dist/cli.mjs" …` form that the CLI's own output gives
+you. Node 22 or newer; one self-contained file, no `npm install`, no build step. A symlink saves typing, if
+the human wants one: `ln -sf "<skill dir>/dist/cli.mjs" ~/.local/bin/lark-connector`. The shell forms in this
+file are POSIX (`$(…)`, quoted heredocs).
 
 ## When to use
 
@@ -37,13 +38,13 @@ same words in a sentence). Each maps to one flow:
 - **`setup`** — guided setup, the human at the keyboard. First ask which way: **create a new app by QR
   code**, or **reuse an app they already have** (they know its App ID and App Secret). Never pick for
   them, never run `setup` unasked: it creates or binds a Feishu app under their account.
-  - QR code ⇒ run `lark-connector setup </dev/null` yourself (stdin closed explicitly: the menu only appears
+  - QR code ⇒ run `node <skill dir>/dist/cli.mjs setup </dev/null` yourself (stdin closed explicitly: the menu only appears
     on a terminal, so this goes straight to the QR code whatever your harness gives a child process). It draws the code as ANSI art and prints the URL as a plain line right under it;
     hand over that line, or render it into a PNG yourself and open it. Run it in the background: it waits
     for the scan (the code expires after 60 minutes; rc 4 then, rerun). An expired or refused link ⇒ kill
     the waiting setup, rerun, hand the new line over at once (`references/failures.md` §8 for the phone
     hand-over and `setup --update`).
-  - Reuse ⇒ run `lark-connector setup --reuse`. **The secret never passes through you.** Inside herdr the
+  - Reuse ⇒ run `node <skill dir>/dist/cli.mjs setup --reuse`. **The secret never passes through you.** Inside herdr the
     command opens a pane below yours, runs the interactive setup there (App ID typed, App Secret typed
     with echo off) and exits 0 at once with `The interactive setup is running in herdr pane <id>: …`;
     when the human is done, one line prefixed `[lark-connector] setup:` arrives in your session (the four
@@ -61,7 +62,17 @@ same words in a sentence). Each maps to one flow:
   --name "<task>"` from your own pane, relay stdout). No credentials yet ⇒ the `setup` flow above first
   (outside herdr that means handing the user the `setup --reuse` command for a terminal window of their
   own, never for this session), then `away on` again.
-- **`off`** — `away off` (the switch only; the group and the daemon stay).
+  `away on`'s stderr carrying `warning: the daemon cannot find herdr on its PATH` means the daemon was
+  started before herdr was installed and cannot inject anything: run `node <skill dir>/dist/cli.mjs
+  daemon --stop` yourself. Exit 4 (a question is pending on another project) ⇒ relay the stderr to the
+  user and wait for their call (wait for the answer, or `--stop --force`). Stopped cleanly ⇒ `away on`
+  once more, then tell the user "the daemon was restarted; phone messages can be delivered now."
+  The group is told automatically — a card lands there the moment remote mode turns on, spelling out
+  what it can and cannot do (full delivery, or the herdr/daemon limitations above) — so there is no
+  need to `notify` the human separately that the channel just opened.
+- **`off`** — `away off` (the switch only; the group and the daemon stay). The group is told
+  automatically too, before the switch actually flips, so nobody keeps typing into a channel that
+  stopped listening; again, no separate `notify` needed for this.
 
 ## Ask a question
 
@@ -69,7 +80,7 @@ Feed one JSON object on stdin through a quoted heredoc (the fields contain quote
 argv would mangle them). The call blocks until the human answers, the wait times out, or the channel fails.
 
 ```bash
-ANSWER=$(lark-connector ask <<'JSON'
+ANSWER=$(node <skill dir>/dist/cli.mjs ask <<'JSON'
 {
   "title":       "Keep or delete the scratch directory when no checkout exists",
   "doing":       "Letting the requirements assistant run before the project code is checked out",
@@ -81,15 +92,14 @@ ANSWER=$(lark-connector ask <<'JSON'
   ],
   "recommend": "keep",
   "reasoning": "Keep a fixed directory: users on this path are the ones most likely to have a broken setup, so a scene is worth having. Strongest objection: disk clutter accumulates.",
-  "question":  "Keep a fixed directory, or delete after use?",
-  "lang":      "en"
+  "question":  "Keep a fixed directory, or delete after use?"
 }
 JSON
 )
 rc=$?
 ```
 
-### The field contract: eight required fields, three optional
+### The field contract: eight required fields, two optional
 
 | field | what to write |
 |---|---|
@@ -103,9 +113,10 @@ rc=$?
 | `reasoning` | Why you lean that way **plus the strongest objection** |
 | `question` | One question answerable in one sentence |
 | `select` | Optional, `"single"` (default) or `"multi"`. Multi renders one tick box per option and a submit button, for "which of these" questions where several may apply. Single choice is the default for a reason: a button is one tap, a form is several |
-| `lang` | Optional, `zh` or `en`: the language of the fixed wording (section labels, hints, button texts, "Answered"). **Pass the language you are configured to reply to the user in: `zh` if you reply in Chinese, otherwise `en`.** Omitted means `en`; any other value is rejected |
 
-The content fields are written in whatever language you work in; only `lang` controls the wrapper.
+The content fields are written in whatever language you work in; the fixed wrapper (section labels,
+hints, button texts, "Answered") follows the project's language, set once when remote mode turns on —
+see "Remote mode and the per-project state file" below. There is no `lang` field here any more.
 Missing or empty fields, a wrong option count, a `recommend` that matches no id or names a danger
 option, or a field over its size cap all fail validation at once, before anything is sent (exit 1).
 The caps are generous (Feishu cards take far more text than a push notification), but the reader is on a
@@ -156,19 +167,18 @@ Field-by-field guidance, the caps, what the card looks like on the phone, and a 
 accepted it. `send-file` sends one image or file into the group, with an optional caption.
 
 ```bash
-lark-connector notify <<'JSON'
+node <skill dir>/dist/cli.mjs notify <<'JSON'
 {
   "title": "Tests green, starting the migration",
-  "body":  "All tests pass on the three CI runners.\n\nNext: **schema migration** on the staging database (about 10 minutes). I will notify again when it is done.",
-  "lang":  "en"
+  "body":  "All tests pass on the three CI runners.\n\nNext: **schema migration** on the staging database (about 10 minutes). I will notify again when it is done."
 }
 JSON
 
-lark-connector send-file ./shot.png --caption "Current layout"
+node <skill dir>/dist/cli.mjs send-file ./shot.png --caption "Current layout"
 ```
 
-- `title` and `body` are required and non-empty; `lang` is optional (it sets the language of later
-  receipt and alert cards for this project; the notification card itself has no fixed wording). The
+- `title` and `body` are required and non-empty; there is no `lang` field. The notification card has no
+  fixed wording of its own (title and body only), so there is nothing for a language to control. The
   body is Feishu Markdown: bold, lists, tables and fenced code blocks all render.
 - `notify` exit codes: **0** sent (stdout: `Notification sent (a reply from the phone is injected into
   this pane as an instruction)`) · **1** input rejected, nothing sent · **3** channel failure (daemon not
@@ -223,12 +233,12 @@ nothing is pending arrives with `(reply to: "<that card's title>")` on its first
 One resident process holds the Feishu connection (a WebSocket the SDK keeps open; no public URL, no
 webhook) for every bound project; `ask`, `notify`, `send-file` and the rest only talk to it over a local
 IPC endpoint (a Unix socket, `~/.lark-connector/daemon.sock`, or a named pipe on Windows). If it is not
-running they exit 3 without sending: `lark-connector: daemon is not running. Start it first: lark-connector daemon --detach`.
+running they exit 3 without sending: `lark-connector: daemon is not running. Start it first: node "<path>/dist/cli.mjs" daemon --detach`.
 
 You may start it yourself, but **never from your own shell as a background job, a Monitor, or a
 subagent**: it dies with you, and every message the human sends afterwards is lost silently.
 
-- `lark-connector daemon --detach` starts it in its own session (inside herdr as well: there is no pane to
+- `node <skill dir>/dist/cli.mjs daemon --detach` starts it in its own session (inside herdr as well: there is no pane to
   open) and prints `daemon: started in the background, pid N (log ~/.lark-connector/daemon.log)`. `away on`
   does this for you.
 - The daemon comes up **before** it reaches Feishu: IPC first, the handshake in the background with
@@ -290,11 +300,11 @@ Whether to route decisions to the phone is the caller's policy (a rule in the us
 this skill). The human sets the channel up once per machine and once per project:
 
 ```bash
-lark-connector setup                               # once per machine, on a terminal: menu — 1) new app by QR code  2) reuse an app (App ID + Secret typed there)
+node <skill dir>/dist/cli.mjs setup   # once per machine, on a terminal: menu — 1) new app by QR code  2) reuse an app (App ID + Secret typed there)
 # once per project: tell the agent to turn remote mode on (or type /agent-lark on); it runs away on from its own pane so that pane is recorded
 ```
 
-- **No credentials yet** (`away on` exits 4 with `No Feishu app credentials yet. Run once: lark-connector setup`):
+- **No credentials yet** (`away on` exits 4 with `No Feishu app credentials yet. Run once: node "<path>/dist/cli.mjs" setup`):
   do not just tell the user to run `setup` — ask them first whether to **scan a QR code for a new app**
   or **reuse an app they already have**, then follow the `setup` flow in "Invoked with an argument": QR
   code ⇒ you run `setup` and hand over the URL line (or a PNG of it); reuse ⇒ you run `setup --reuse`,
@@ -305,7 +315,7 @@ lark-connector setup                               # once per machine, on a term
   - `[lark-connector] setup: credentials stored for cli_xxxxxxxx (<app name>); the scopes must be enabled in the developer console before use` — done; remind the user of the console work if they have not done it, then `away on` again.
   - `[lark-connector] setup: failed: <why>` — every end that is not success or Ctrl-C: three failed probes — refused or thrown — (`3 probes refused (<error>)`), the `LARK_CONNECTOR_OFFLINE` guard, any other failure; relay `<why>` (the secret is masked as `***` wherever it could appear).
   - `[lark-connector] setup: interrupted before any credentials were stored` — the human pressed Ctrl-C; ask whether to try again.
-  - `[lark-connector] setup: credentials already stored (<origin>); nothing changed. To switch apps run lark-connector setup --reset --reuse` — there was nothing to do.
+  - `[lark-connector] setup: credentials already stored (<origin>); nothing changed. To switch apps run node "<path>/dist/cli.mjs" setup --reset --reuse` — there was nothing to do.
   `setup` in any form with credentials already stored only reports them — `Credentials already exist
   (from <origin>). …`, rc 0, no pane opened; `setup --update` rescans the QR code for the same app (adds
   scopes; on a terminal the menu comes first); `setup --reset` forgets the stored credentials first, so `setup --reset --reuse` switches to
@@ -322,6 +332,12 @@ lark-connector setup                               # once per machine, on a term
   app owner is invited; the group description carries `lark-connector · <project root>` so it can be found
   again), `Took back Feishu group "…"` (a group this project used before, renamed to the new task),
   `Connected to Feishu group "…"` (already bound; `--name` renames it).
+- **Language**: a global `--lang zh|en` (put it before the subcommand: `node <skill dir>/dist/cli.mjs
+  --lang zh away on`) sets the project's language once, when remote mode turns on — every card this
+  project's daemon renders from then on (the on/off cards above, `ask`, `notify`, the stuck-on-a-prompt
+  alert) follows it. This is the only place the language is set; neither `ask` nor `notify` takes a
+  `lang` of its own any more. It falls back through `LARK_CONNECTOR_LANG` (an environment variable), then
+  the system locale, then `en`. **Pass the language you are configured to reply to the user in.**
 - **Exit 4 with earlier groups on offer**: when the project has no live group but groups it let go of
   earlier exist (on record, or found in Feishu by their description), `away on` refuses to pick for you:
   ```
@@ -375,7 +391,9 @@ daemon keeps that on the binding.
   happens for a human-made group adopted with `bind --chat` — so the record is gone but the human has
   to dissolve the group by hand; the daemon
   clears the group's marker so it is not offered back meanwhile, and says so if that failed too). `away off` is
-  the human's call, not yours. `status` shows credentials, herdr, the daemon and every binding, live and
+  the human's call, not yours. `status` shows credentials, whether you are inside herdr, the daemon's own
+  view of herdr on its PATH (`herdr (daemon's view): …` — a snapshot from when the daemon started, so it
+  can say "not found" even while you are inside herdr right now), the daemon and every binding, live and
   released.
 - Records of groups that no longer exist in Feishu (dissolved, or the bot removed from them) are
   forgotten by the daemon once a day, right after its first handshake with Feishu, and whenever `away on` /

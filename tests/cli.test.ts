@@ -6,10 +6,10 @@ import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
 import { createServer, type Server } from 'node:net';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { platform, tmpdir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
+import { delimiter, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { argv, isTransientNetworkError, waitConnected } from '../src/cli.js';
+import { argv, daemonEnv, isTransientNetworkError, waitConnected } from '../src/cli.js';
 import { serve, type Response } from '../src/ipc.js';
 import { legacyIpcEndpoint } from '../src/migrate.js';
 import { SOCK_PATH_LIMIT } from '../src/paths.js';
@@ -90,6 +90,52 @@ test('the test suite runs offline: `setup` on the shipped bundle exits 3 without
   assert.match(r.stderr, /^lark-connector: offline: refusing to contact Feishu/m);
 });
 
+// ---- daemonEnv: the PATH prepended when spawning the daemon, computed against process.env ----
+
+describe('daemonEnv', () => {
+  const saved: NodeJS.ProcessEnv = {};
+  before(() => {
+    for (const k of ['HERDR_ENV', 'HERDR_BIN_PATH', 'PATH']) saved[k] = process.env[k];
+  });
+  after(() => {
+    for (const k of ['HERDR_ENV', 'HERDR_BIN_PATH', 'PATH']) {
+      if (saved[k] === undefined) delete process.env[k];
+      else process.env[k] = saved[k];
+    }
+  });
+
+  test('inside herdr, HERDR_BIN_PATH set and its directory not on PATH: PATH gets that directory prepended', () => {
+    process.env.HERDR_ENV = '1';
+    process.env.HERDR_BIN_PATH = '/opt/herdr/bin/herdr';
+    process.env.PATH = ['/usr/bin', '/bin'].join(delimiter);
+    const env = daemonEnv();
+    assert.ok(env);
+    assert.deepEqual(env!.PATH?.split(delimiter).slice(0, 1), ['/opt/herdr/bin']);
+    assert.match(env!.PATH ?? '', /\/usr\/bin/);
+  });
+
+  test('the bin directory is already on PATH: nothing to prepend, undefined (spawn keeps its default env)', () => {
+    process.env.HERDR_ENV = '1';
+    process.env.HERDR_BIN_PATH = '/opt/herdr/bin/herdr';
+    process.env.PATH = ['/opt/herdr/bin', '/usr/bin'].join(delimiter);
+    assert.equal(daemonEnv(), undefined);
+  });
+
+  test('outside herdr: undefined regardless of HERDR_BIN_PATH', () => {
+    delete process.env.HERDR_ENV;
+    process.env.HERDR_BIN_PATH = '/opt/herdr/bin/herdr';
+    process.env.PATH = '/usr/bin';
+    assert.equal(daemonEnv(), undefined);
+  });
+
+  test('inside herdr but HERDR_BIN_PATH is unset: undefined', () => {
+    process.env.HERDR_ENV = '1';
+    delete process.env.HERDR_BIN_PATH;
+    process.env.PATH = '/usr/bin';
+    assert.equal(daemonEnv(), undefined);
+  });
+});
+
 // ---- unknown options: every subcommand refuses them before doing anything ----
 
 const UNKNOWN: Array<[string, string[], string]> = [
@@ -151,6 +197,19 @@ test('say is gone: exit 1 as an unknown command', () => {
   const r = run(['say']);
   assert.equal(r.status, 1);
   assert.match(r.stderr, /say/);
+});
+
+test('--lang xx: exit 1, English hint on stderr, nothing else attempted', () => {
+  const r = run(['--lang', 'xx', 'status']);
+  assert.equal(r.status, 1, r.stdout + r.stderr);
+  assert.match(r.stderr, /^lark-connector: --lang must be zh or en$/m);
+  assert.equal(r.stdout, '');
+});
+
+test('--lang=xx (joined form) is refused the same way', () => {
+  const r = run(['--lang=xx', 'status']);
+  assert.equal(r.status, 1, r.stdout + r.stderr);
+  assert.match(r.stderr, /^lark-connector: --lang must be zh or en$/m);
 });
 
 test('ask with malformed JSON on stdin: exit 1, English, nothing sent', () => {
@@ -407,6 +466,18 @@ describe('with a fake daemon', () => {
     assert.doesNotMatch(text.stdout, /pane/);
   });
 
+  // How the CLI test observes `--lang` reaching the daemon: setAway persists
+  // it on the binding the same way ask / notify already do (`bindings.touch`),
+  // and the daemon writes that binding straight to disk — no new plumbing
+  // needed to see it land, unlike IPC internals a spawned CLI cannot inspect.
+  test('global --lang reaches the daemon: away on --lang zh persists it on the binding', () => {
+    const r = cmd(['away', 'on', '--lang', 'zh']);
+    assert.equal(r.status, 0, r.stdout + r.stderr);
+    const saved = JSON.parse(readFileSync(join(home, 'bindings.json'), 'utf8')) as { bindings: Array<{ root: string; lang: string | null }> };
+    const mine = saved.bindings.find((b) => b.root === project);
+    assert.equal(mine?.lang, 'zh');
+  });
+
   // The daemon runs in its own directory; a relative path only means anything
   // where the CLI was invoked, so the CLI must resolve it before asking.
   test('send-file with a relative path: resolved against the caller\'s directory, not the daemon\'s, and sent', () => {
@@ -488,6 +559,80 @@ describe('with a fake daemon', () => {
     const next = cmd(['away', 'on', '--name', 'next task']);
     assert.equal(next.status, 4, next.stdout + next.stderr);
     assert.doesNotMatch(next.stderr, /oc_old/);
+  });
+});
+
+// The fake daemon's herdr view reports nothing on its PATH throughout this
+// block (LARK_CONNECTOR_FAKE_HERDR=missing): `status` must show it, and
+// `away on` run as if from inside herdr must warn on stderr.
+describe('with a fake daemon whose herdr is missing from its PATH', () => {
+  const home = mkdtempSync(join(tmpdir(), 'al-cli-noherdr-home-'));
+  const env: NodeJS.ProcessEnv = {
+    ...isolatedEnv(),
+    LARK_CONNECTOR_HOME: home,
+    LARK_CONNECTOR_APP_ID: 'cli_fake',
+    LARK_CONNECTOR_APP_SECRET: 'fake-secret',
+    LARK_CONNECTOR_FAKE_HERDR: 'missing',
+  };
+  delete env.HERDR_ENV;
+  delete env.HERDR_PANE_ID;
+  const entry = join(here, 'fixtures', 'daemon-entry.js');
+  const project = realpathSync(mkdtempSync(join(tmpdir(), 'al-cli-noherdr-proj-')));
+  let child: ChildProcess | undefined;
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+  function cmd(args: string[], extraEnv: NodeJS.ProcessEnv = {}) {
+    const r = spawnSync(process.execPath, [cli, ...args], { encoding: 'utf8', env: { ...env, ...extraEnv }, input: '', cwd: project });
+    return { status: r.status, stdout: r.stdout, stderr: r.stderr };
+  }
+
+  before(async () => {
+    assert.ok(existsSync(cli), `dist/cli.mjs not found at ${cli} — run \`npm run build\` first`);
+    assert.ok(existsSync(entry), `fixture not compiled: ${entry}`);
+    // A released group this project can take right back, so `away on` needs
+    // no owner lookup (there is none in the fake credentials).
+    writeFileSync(
+      join(home, 'bindings.json'),
+      JSON.stringify({
+        bindings: [
+          { root: project, label: 'proj', chatId: 'oc_old', name: 'old task [proj]', paneId: null, away: false, lang: null, boundAt: '2026-01-01T00:00:00.000Z', releasedAt: '2026-01-02T00:00:00.000Z' },
+        ],
+      }),
+    );
+    child = spawn(process.execPath, [entry], { env, stdio: 'ignore', detached: true, windowsHide: true });
+    child.unref();
+    let status = cmd(['daemon', '--status']);
+    for (let i = 0; i < 40 && status.status !== 0; i++) {
+      await sleep(250);
+      status = cmd(['daemon', '--status']);
+    }
+    assert.equal(status.status, 0, `daemon never answered: ${status.stderr}`);
+  });
+  after(() => {
+    cmd(['daemon', '--stop', '--force']);
+    if (child && child.exitCode === null && !child.killed) child.kill();
+    for (const dir of [home, project]) rmSync(dir, { recursive: true, force: true });
+  });
+
+  test('status: the daemon\'s own herdr view says it is not on its PATH, with the restart command', () => {
+    const r = cmd(['status']);
+    assert.equal(r.status, 0, r.stderr);
+    assert.match(r.stdout, /^herdr \(daemon's view\): not found on the daemon's PATH — restart it from a herdr pane: node "/m);
+  });
+
+  test('away on run as if from inside herdr: stderr warns the daemon cannot find herdr and how to restart it; exit 0', () => {
+    const r = cmd(['away', 'on', '--reuse', 'oc_old', '--name', 'noherdr'], { HERDR_ENV: '1', HERDR_PANE_ID: 'w1:p1' });
+    assert.equal(r.status, 0, r.stdout + r.stderr);
+    assert.match(r.stderr, /^warning: the daemon cannot find herdr on its PATH/m);
+    assert.match(r.stdout, /Remote mode is on/);
+    const s = JSON.parse(readFileSync(join(project, '.lark-connector', 'state.json'), 'utf8')) as { away: boolean };
+    assert.equal(s.away, true);
+  });
+
+  test('away on outside herdr: no warning (nothing to restart from, and the outside-herdr note already explains it)', () => {
+    const r = cmd(['away', 'on', '--name', 'noherdr']);
+    assert.equal(r.status, 0, r.stdout + r.stderr);
+    assert.doesNotMatch(r.stderr, /warning: the daemon cannot find herdr/);
+    assert.match(r.stdout, /not inside herdr/i);
   });
 });
 
@@ -672,6 +817,34 @@ test('unbind --dissolve against a daemon that does not know the flag: exit 3 say
   }
 });
 
+test('away off: an ack with announced: false adds a note on stdout, the exit code unchanged', async () => {
+  const home = tmp('lark-connector-noannounce-');
+  const project = realpathSync(tmp('lark-connector-noannounce-proj-'));
+  mkdirSync(join(project, '.lark-connector'));
+  writeFileSync(join(project, '.lark-connector', 'state.json'), JSON.stringify({ away: true, chatId: 'oc_x', target: project, updated: '' }));
+  const prev = process.env.LARK_CONNECTOR_HOME;
+  process.env.LARK_CONNECTOR_HOME = home;
+  const server = await serve({ handle: async () => ({ ok: true, kind: 'ack', announced: false }) });
+  try {
+    const r = await new Promise<{ status: number | null; stdout: string; stderr: string }>((resolve, reject) => {
+      const child = spawn(process.execPath, [cli, 'away', 'off'], { env: { ...isolatedEnv(), LARK_CONNECTOR_HOME: home }, cwd: project, stdio: ['ignore', 'pipe', 'pipe'] });
+      let stdout = '';
+      let stderr = '';
+      child.stdout.on('data', (d: Buffer) => (stdout += d.toString()));
+      child.stderr.on('data', (d: Buffer) => (stderr += d.toString()));
+      child.on('error', reject);
+      child.on('close', (status) => resolve({ status, stdout, stderr }));
+    });
+    assert.equal(r.status, 0, r.stdout + r.stderr);
+    assert.match(r.stdout, /^Remote mode is off\.$/m);
+    assert.match(r.stdout, /the group was not notified: the daemon could not send the card/);
+  } finally {
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+    if (prev === undefined) delete process.env.LARK_CONNECTOR_HOME;
+    else process.env.LARK_CONNECTOR_HOME = prev;
+  }
+});
+
 // ---- reading a command line, in-process --------------------------------------
 // One rule for flags, option values and the positional: an option the command
 // takes a value for owns the next token, whatever it looks like.
@@ -704,7 +877,17 @@ test('argv: a value that looks like a flag is not one, and a flag is not a value
 const pong = (connected: boolean, lastError: string | null): Response => ({
   ok: true,
   kind: 'pong',
-  status: { pid: 1, connection: connected ? 'connected' : 'connecting', connected, lastError, pendingAsks: 0, bindings: 0, startedAt: '', media: { ttlDays: 7, files: 0, bytes: 0, at: '' } },
+  status: {
+    pid: 1,
+    connection: connected ? 'connected' : 'connecting',
+    connected,
+    lastError,
+    pendingAsks: 0,
+    bindings: 0,
+    startedAt: '',
+    media: { ttlDays: 7, files: 0, bytes: 0, at: '' },
+    herdr: { bin: '/usr/local/bin/herdr', reachable: true },
+  },
 });
 
 test('waitConnected gives up at the deadline with the daemon\'s last connect error', async () => {

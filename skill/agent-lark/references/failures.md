@@ -37,14 +37,13 @@ Codes 2, 3, 4 and 130 are distinct on purpose: the right next step differs for e
 All problems of a question are reported in one run; fix them all before calling again. Nothing was sent.
 
 ```
-lark-connector: This question card has 7 problem(s); nothing was sent:
+lark-connector: This question card has 6 problem(s); nothing was sent:
   description: required (background for someone who has seen none of the work)
   blocker: required (exactly what is blocked)
   reasoning: required (your leaning plus the strongest objection)
   question: required (a question answerable in one sentence)
   options: at least 2 items (one option is not a choice)
   recommend: "temp" is not the id of any option
-  lang: must be "zh" or "en", got "fr"
 ```
 
 Other lines you may see, and the fix:
@@ -64,7 +63,7 @@ Other lines you may see, and the fix:
 | `lark-connector: --timeout must be a positive integer (seconds)` | a number of seconds greater than 0 |
 
 The same report for `notify` starts `lark-connector: This notification has N problem(s); nothing was sent:`
-and knows `title` (as above), `body: required and non-empty`, `body: over 8000 characters` and `lang`.
+and knows `title` (as above), `body: required and non-empty` and `body: over 8000 characters`.
 
 Other rc 1 cases, one line each: `Unknown command "x". See lark-connector --help.` · `--home needs a directory`
 · `Usage: lark-connector send-file <path> [--caption <text>]` · `Usage: lark-connector rename "<task name>"` ·

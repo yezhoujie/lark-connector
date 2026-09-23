@@ -28,13 +28,13 @@ The test for every field: **could someone who never saw the work decide from thi
 | `reasoning` | Your lean, then the strongest argument against it. This is what stops the message from being a bare list of choices | "Either works" |
 | `question` | The thing the human should answer, in one sentence | Several questions at once |
 | `select` | `"multi"` when the honest answer may be several of the options at once ("which of these checks do you want"); omit otherwise | Multi for a yes/no; single with options that are not mutually exclusive |
-| `lang` | `zh` or `en`, matching the language you reply to the user in: `zh` if you reply in Chinese, otherwise `en`. Omitted is `en` | Any other value: rejected with the rest of the validation report |
 
 Options: at least 2 (one option is not a choice), at most 5 (more means the question has not
 converged; think first). Ids must be unique; `recommend` must name existing, non-danger ids.
 
-Your own fields are in your working language. Only the fixed wrapper (section labels, hints, button
-texts, the status word in the header, confirm dialogs) follows `lang`.
+Your own fields are in your working language. There is no `lang` field here: the fixed wrapper (section
+labels, hints, button texts, the status word in the header, confirm dialogs) follows the project's
+language instead, set once by `away on` (see the skill's "Remote mode and the per-project state file").
 
 Your text is rendered by Feishu's Markdown card element: bold, lists, tables and fenced code blocks all
 render, on the phone as on the desktop. Keep it short anyway — the phone shows a card, not a page.
@@ -86,9 +86,9 @@ over-length input is rejected, never truncated.
 
 ## 4. What the phone shows (single choice)
 
-The example from SKILL.md, sent from a project directory named `my-project` with `"lang": "en"`, is one
-card with a **blue** header (🤔; red when `--urgent`) and these elements, top to bottom. The `[my-project]`
-tag is the project directory's name.
+The example from SKILL.md, sent from a project directory named `my-project` whose language is `en`, is
+one card with a **blue** header (🤔; red when `--urgent`) and these elements, top to bottom. The
+`[my-project]` tag is the project directory's name.
 
 ```
 🤔 [my-project] Keep or delete the scratch directory when no checkout exists
@@ -135,8 +135,7 @@ words 已回答 / 已超时 / 已取消, and `← 我推荐` marks the recommend
   "select": "multi",
   "recommend": ["migr", "sec"],
   "reasoning": "The migration dry run and the audit are cheap and catch the two failure classes we have actually had. Strongest objection: skipping the load test means the first real load is production traffic.",
-  "question": "Which of the four checks should run before I tag the release?",
-  "lang": "en"
+  "question": "Which of the four checks should run before I tag the release?"
 }
 ```
 
@@ -149,7 +148,7 @@ your stdout; typing `all four` puts `all four` there.
 
 ## 6. The notification card (`notify`)
 
-`{"title": "Tests green, starting the migration", "body": "All tests pass on the three CI runners.\n\nNext: **schema migration** on the staging database (about 10 minutes). I will notify again when it is done.", "lang": "en"}`
+`{"title": "Tests green, starting the migration", "body": "All tests pass on the three CI runners.\n\nNext: **schema migration** on the staging database (about 10 minutes). I will notify again when it is done."}`
 sent from the same project is one card with a **light blue** header and your body as its only element:
 
 ```
@@ -161,9 +160,10 @@ Next: **schema migration** on the staging database (about 10 minutes). I will no
 ```
 
 No button, no hint, no status word, and the card is never rewritten: replying to it changes nothing on
-it (the reply reaches you as an instruction, or as the answer to a pending question). `lang` has no
-visible effect on this card; it records the project's language for the cards the daemon sends on its
-own (the "not delivered" receipt and the "waiting for you" alert).
+it (the reply reaches you as an instruction, or as the answer to a pending question). There is no `lang`
+field here either; `notify` has no fixed wording for a language to control, and the project's language
+(used by the cards the daemon sends on its own, like the "not delivered" receipt and the "waiting for
+you" alert) is set once by `away on`, not by this call.
 
 `send-file` sends a plain message: with `--caption` a Markdown line `**[my-project]** <caption>` first,
 then the image (as an image message) or the file (as a file message named after the file).

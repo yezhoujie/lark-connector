@@ -17,7 +17,21 @@ const { msg } = await import('../src/texts.js');
 const { homeOfSockBytes, withHome } = await import('./fixtures/long-home.js');
 
 type Handle = Parameters<typeof serve>[0]['handle'];
-const pong = { ok: true, kind: 'pong', status: { pid: 1, connection: 'fake', connected: true, lastError: null, pendingAsks: 0, bindings: 0, startedAt: '', media: { ttlDays: 7, files: 0, bytes: 0, at: '' } } } as const;
+const pong = {
+  ok: true,
+  kind: 'pong',
+  status: {
+    pid: 1,
+    connection: 'fake',
+    connected: true,
+    lastError: null,
+    pendingAsks: 0,
+    bindings: 0,
+    startedAt: '',
+    media: { ttlDays: 7, files: 0, bytes: 0, at: '' },
+    herdr: { bin: '/usr/local/bin/herdr', reachable: true },
+  },
+} as const;
 
 async function withServer<T>(handle: Handle, body: () => Promise<T>): Promise<T> {
   const server = await serve({ handle });

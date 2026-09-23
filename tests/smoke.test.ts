@@ -18,5 +18,4 @@ test('validateAsk accepts a minimal valid payload', () => {
   });
   assert.equal(payload.recommend, 'keep');
   assert.equal(payload.options.length, 2);
-  assert.equal(payload.lang, undefined);
 });

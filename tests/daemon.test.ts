@@ -113,6 +113,15 @@ test('starts, answers ping as connected, stop() makes ping fail and leaves the p
   if (!after.ok) assert.equal(after.code, 3);
 });
 
+test('ping reports the daemon\'s own herdr view, exactly as herdr.view answers it', PER_TEST, async () => {
+  const { daemon, herdr } = await start();
+  herdr.view = { bin: '/opt/herdr/bin/herdr', reachable: true };
+  assert.deepEqual((await ping())?.herdr, { bin: '/opt/herdr/bin/herdr', reachable: true });
+  herdr.view = { bin: null, reachable: false, error: 'not found on PATH' };
+  assert.deepEqual((await ping())?.herdr, { bin: null, reachable: false, error: 'not found on PATH' });
+  await daemon.stop();
+});
+
 test('IPC is up before Feishu is: two failed connects, ask is refused with the last error, then it recovers', PER_TEST, async () => {
   let attempt = 0;
   const { daemon } = await start({
@@ -451,9 +460,10 @@ test('unbind: code 4 while a question is pending; then the group leaves the allo
   const { daemon, fake, home } = await start();
   await connected();
   await bindChat('/p', 'oc_x');
+  // setAway(true) itself sends the away-on card, so the question card is the second one.
   await request({ type: 'setAway', root: '/p', away: true, paneId: 'w1:p1' });
   const asking = request({ type: 'ask', root: '/p', label: 'p', paneId: null, payload: askPayload, timeoutMs: 5000 });
-  await waitFor(() => fake.sent.length === 1, 'the question card to be sent');
+  await waitFor(() => fake.sent.length === 2, 'the question card to be sent');
   const refused = await request({ type: 'unbind', root: '/p' });
   assert.equal(refused.ok, false);
   if (!refused.ok) assert.equal(refused.code, 4);
@@ -712,20 +722,6 @@ test('a failed group scan is a note, not a refusal: local candidates still count
   await daemon.stop();
 });
 
-test('ask and notify remember the payload language on the live binding', PER_TEST, async () => {
-  const { daemon, fake, home } = await start();
-  await connected();
-  await bindChat('/p', 'oc_x');
-  await request({ type: 'notify', root: '/p', label: 'p', paneId: null, payload: { title: 't', body: 'b', lang: 'en' } });
-  assert.equal((await bindings(home))[0]?.lang, 'en');
-  const asking = request({ type: 'ask', root: '/p', label: 'p', paneId: null, payload: { ...askPayload, lang: 'zh' }, timeoutMs: 5000 });
-  await waitFor(() => fake.sent.length === 2, 'the question card');
-  await fake.message({ chatId: 'oc_x', content: 'Keep' });
-  await asking;
-  assert.equal((await bindings(home))[0]?.lang, 'zh');
-  await daemon.stop();
-});
-
 // ---- send-file: the daemon's own gate ---------------------------------------
 // The CLI resolves the path before asking (see the cli tests); what is
 // checked here is what the daemon lets through for whatever path a request
@@ -834,7 +830,8 @@ test('a message in a released group is ignored; the stuck-alert poll only watche
   herdr.agents = [{ agent: 'claude', agent_status: 'blocked', cwd: '/p', pane_id: 'w1:p1', focused: true }];
   await fake.message({ chatId: 'oc_old', content: 'hello?' });
   assert.equal(herdr.prompts.length, 0);
-  assert.equal(fake.sent.length, 0);
+  // The only card sent in this test is the away-on one from setAway(true) above.
+  assert.equal(fake.sent.length, 1);
   await daemon.stop();
 });
 
@@ -922,6 +919,173 @@ test('setAway false with no live group is a no-op ack; setAway true still needs 
   const on = await request({ type: 'setAway', root: '/p', away: true, paneId: null });
   assert.equal(on.ok, false);
   if (!on.ok) assert.equal(on.code, 4);
+  await daemon.stop();
+});
+
+test('setAway true acks with the herdr view; setAway false does not query it', PER_TEST, async () => {
+  const { daemon, herdr } = await start();
+  await connected();
+  await bindChat('/p', 'oc_x');
+  herdr.view = { bin: null, reachable: false, error: 'not found on PATH' };
+  const on = await request({ type: 'setAway', root: '/p', away: true, paneId: 'w1:p1' });
+  assert.deepEqual(on, { ok: true, kind: 'ack', herdr: { bin: null, reachable: false, error: 'not found on PATH' }, announced: true });
+  const off = await request({ type: 'setAway', root: '/p', away: false, paneId: 'w1:p1' });
+  assert.deepEqual(off, { ok: true, kind: 'ack', announced: true });
+  await daemon.stop();
+});
+
+// ---- setAway: the on / off announcement card ---------------------------------
+
+const awayOnCases: Array<{ name: string; paneId: string | null; view: { bin: string | null; reachable: boolean }; body: RegExp }> = [
+  { name: 'a recorded pane and a reachable herdr: the full-capability card', paneId: 'w1:p1', view: { bin: '/fake/herdr', reachable: true }, body: /delivered into the terminal/ },
+  { name: 'no recorded pane (outside herdr): the no-herdr card', paneId: null, view: { bin: '/fake/herdr', reachable: true }, body: /only button taps and replies to a question make it back to the agent/ },
+  { name: "a recorded pane but the daemon's own herdr missing: the restart card", paneId: 'w1:p1', view: { bin: null, reachable: false }, body: /ask the agent to restart the daemon for full functionality/ },
+];
+for (const { name, paneId, view, body } of awayOnCases) {
+  test(`setAway true sends the on card, ${name}`, PER_TEST, async () => {
+    const { daemon, fake, herdr } = await start();
+    await connected();
+    await bindChat('/p', 'oc_x');
+    herdr.view = view;
+    const res = await request({ type: 'setAway', root: '/p', away: true, paneId, lang: 'en' });
+    assert.equal(res.ok, true, JSON.stringify(res));
+    await waitFor(() => fake.sent.length === 1, 'the on card');
+    const card = sentCard(fake, 0);
+    assert.equal(card.header.template, 'green');
+    assert.equal(card.header.title.content, '📱 [p] Remote mode is on');
+    assert.match(String(card.body.elements[0]!.content), body);
+    await daemon.stop();
+  });
+}
+
+test('setAway false sends the off card, whose body says the group will stop receiving messages', PER_TEST, async () => {
+  const { daemon, fake } = await start();
+  await connected();
+  await bindChat('/p', 'oc_x');
+  await request({ type: 'setAway', root: '/p', away: true, paneId: 'w1:p1', lang: 'en' });
+  const res = await request({ type: 'setAway', root: '/p', away: false, paneId: 'w1:p1' });
+  assert.equal(res.ok, true, JSON.stringify(res));
+  await waitFor(() => fake.sent.length === 2, 'the off card');
+  const card = sentCard(fake, 1);
+  assert.equal(card.header.template, 'grey');
+  assert.equal(card.header.title.content, '🌙 [p] Remote mode is about to turn off');
+  assert.match(String(card.body.elements[0]!.content), /messages in this group will no longer be delivered/);
+  await daemon.stop();
+});
+
+test('setAway true: the on card is sent after bindings.touch has already recorded the language', PER_TEST, async () => {
+  const seenAtSend: Array<{ away: unknown; lang: unknown }> = [];
+  const { daemon, home } = await start({
+    send: async () => {
+      const b = (await bindings(home)).find((x) => x.chatId === 'oc_x');
+      seenAtSend.push({ away: b?.away, lang: b?.lang });
+    },
+  });
+  await connected();
+  await bindChat('/p', 'oc_x');
+  const res = await request({ type: 'setAway', root: '/p', away: true, paneId: 'w1:p1', lang: 'zh' });
+  assert.equal(res.ok, true, JSON.stringify(res));
+  assert.deepEqual(seenAtSend, [{ away: true, lang: 'zh' }]);
+  await daemon.stop();
+});
+
+test('setAway false: the off card is sent while the binding is still away=true, and the switch only flips after', PER_TEST, async () => {
+  const seenAtOffSend: unknown[] = [];
+  const { daemon, fake, home } = await start({
+    send: async () => {
+      seenAtOffSend.push((await bindings(home)).find((b) => b.chatId === 'oc_x')?.away);
+    },
+  });
+  await connected();
+  await bindChat('/p', 'oc_x');
+  await request({ type: 'setAway', root: '/p', away: true, paneId: 'w1:p1' });
+  const before = fake.sent.length;
+  const res = await request({ type: 'setAway', root: '/p', away: false, paneId: 'w1:p1' });
+  assert.equal(res.ok, true, JSON.stringify(res));
+  assert.equal(fake.sent.length, before + 1, 'the off card was sent');
+  assert.deepEqual(seenAtOffSend.slice(-1), [true], 'away was still true on disk at the moment the off card was sent');
+  const entry = (await bindings(home)).find((b) => b.chatId === 'oc_x');
+  assert.equal(entry?.away, false, 'the switch is off once the request has settled');
+  await daemon.stop();
+});
+
+test('setAway: not connected — no card either way, away.announce-failed is logged, and the ack says announced: false', PER_TEST, async () => {
+  const { daemon, fake, home } = await start({
+    connect: async () => {
+      throw new Error('offline');
+    },
+  });
+  await waitFor(async () => (await ping())?.lastError, 'the failed handshake');
+  await bindChat('/p', 'oc_x');
+  const on = await request({ type: 'setAway', root: '/p', away: true, paneId: 'w1:p1' });
+  assert.ok(on.ok && on.kind === 'ack' && on.announced === false, JSON.stringify(on));
+  const off = await request({ type: 'setAway', root: '/p', away: false, paneId: 'w1:p1' });
+  assert.ok(off.ok && off.kind === 'ack' && off.announced === false, JSON.stringify(off));
+  assert.equal(fake.sent.length, 0, 'no card is sent while not connected');
+  const log = readFileSync(join(home, 'daemon.log'), 'utf8');
+  assert.match(log, /away\.announce-failed.*"on":true/);
+  assert.match(log, /away\.announce-failed.*"on":false/);
+  await daemon.stop();
+});
+
+// ---- ask / notify: the project's language comes from `away on` alone — the
+// JSON payload carries no `lang` of its own any more, and an unknown `lang`
+// key in it is silently ignored: it neither renders nor persists. ----------
+
+test('notify: a zh-bound project stays zh and the card still sends when the call carries no lang', PER_TEST, async () => {
+  const { daemon, fake, home } = await start();
+  await connected();
+  await bindChat('/p', 'oc_x');
+  await request({ type: 'setAway', root: '/p', away: true, paneId: 'w1:p1', lang: 'zh' });
+  const before = fake.sent.length; // the away-on card
+  const res = await request({ type: 'notify', root: '/p', label: 'p', paneId: null, payload: { title: 't', body: 'b' } });
+  assert.equal(res.ok, true, JSON.stringify(res));
+  const card = sentCard(fake, before);
+  assert.equal(card.header.title.content, '📣 [p] t');
+  assert.deepEqual(card.body.elements, [{ tag: 'markdown', content: 'b' }]);
+  assert.equal((await bindings(home)).find((b) => b.chatId === 'oc_x')?.lang, 'zh', 'notify must not touch the recorded language');
+  await daemon.stop();
+});
+
+test('notify: an en-bound project stays en and the card still sends when the call carries no lang', PER_TEST, async () => {
+  const { daemon, fake, home } = await start();
+  await connected();
+  await bindChat('/p', 'oc_x');
+  await request({ type: 'setAway', root: '/p', away: true, paneId: 'w1:p1', lang: 'en' });
+  const before = fake.sent.length; // the away-on card
+  const res = await request({ type: 'notify', root: '/p', label: 'p', paneId: null, payload: { title: 't', body: 'b' } });
+  assert.equal(res.ok, true, JSON.stringify(res));
+  const card = sentCard(fake, before);
+  assert.equal(card.header.title.content, '📣 [p] t');
+  assert.deepEqual(card.body.elements, [{ tag: 'markdown', content: 'b' }]);
+  assert.equal((await bindings(home)).find((b) => b.chatId === 'oc_x')?.lang, 'en', 'notify must not touch the recorded language');
+  await daemon.stop();
+});
+
+test('notify: a lang in the JSON is ignored — the zh-bound project stays zh and the card still sends', PER_TEST, async () => {
+  const { daemon, fake, home } = await start();
+  await connected();
+  await bindChat('/p', 'oc_x');
+  await request({ type: 'setAway', root: '/p', away: true, paneId: 'w1:p1', lang: 'zh' });
+  const before = fake.sent.length; // the away-on card
+  const res = await request({ type: 'notify', root: '/p', label: 'p', paneId: null, payload: { title: 't', body: 'b', lang: 'en' } });
+  assert.equal(res.ok, true, JSON.stringify(res));
+  assert.equal(fake.sent.length, before + 1, 'the notify card was sent despite the unknown field');
+  assert.equal((await bindings(home)).find((b) => b.chatId === 'oc_x')?.lang, 'zh', "the payload's lang must not overwrite the recorded language");
+  await daemon.stop();
+});
+
+test('ask: a lang in the JSON is ignored — the zh-bound project\'s card renders in Chinese and stays zh', PER_TEST, async () => {
+  const { daemon, fake, home } = await start();
+  await connected();
+  await bindChat('/p', 'oc_x');
+  await request({ type: 'setAway', root: '/p', away: true, paneId: 'w1:p1', lang: 'zh' });
+  const before = fake.sent.length; // the away-on card
+  void request({ type: 'ask', root: '/p', label: 'p', paneId: null, payload: { ...askPayload, lang: 'en' }, timeoutMs: 5000 });
+  await waitFor(() => fake.sent.length === before + 1, 'the ask card');
+  const card = sentCard(fake, before);
+  assert.match(String(card.body.elements[0]!.content), /^\*\*在做\*\*/, "the card renders in Chinese, not the JSON's lang");
+  assert.equal((await bindings(home)).find((b) => b.chatId === 'oc_x')?.lang, 'zh', "the payload's lang must not overwrite the recorded language");
   await daemon.stop();
 });
 
@@ -1028,7 +1192,7 @@ test('multi-choice: an empty submit is an error toast and the question stays ope
     card?: { type: string; data: Card };
   };
   assert.equal(empty.toast.type, 'error');
-  // multiPayload carries no lang: the toast, like the card, falls back to English.
+  // the project's language is never set in this test: the toast, like the card, falls back to English.
   assert.equal(empty.toast.content, t('en').pickAtLeastOne);
   assert.equal(empty.card?.type, 'raw');
   assert.equal(empty.card?.data.header.template, 'blue');
@@ -1159,11 +1323,11 @@ test('a message injected into the pane gets a Get reaction; a reply to a questio
   await daemon.stop();
 });
 
-test('injection refused by herdr: no reaction, and the receipt card speaks the language the project last used', PER_TEST, async () => {
+test("injection refused by herdr: no reaction, and the receipt card speaks the project's recorded language", PER_TEST, async () => {
   const { daemon, fake, herdr } = await start();
   await connected();
   await request({ type: 'bind', root: '/p', label: 'p', paneId: 'w1:p1', chatId: 'oc_x' });
-  await request({ type: 'notify', root: '/p', label: 'p', paneId: 'w1:p1', payload: { title: 't', body: 'b', lang: 'en' } });
+  await request({ type: 'setAway', root: '/p', away: true, paneId: 'w1:p1', lang: 'en' });
   herdr.outcome = { ok: false, code: 'agent_blocked', message: 'busy' };
   await fake.message({ chatId: 'oc_x', content: 'hello there', messageId: 'om_human_1' });
   const receipt = await waitFor(() => {
@@ -1175,6 +1339,24 @@ test('injection refused by herdr: no reaction, and the receipt card speaks the l
   assert.equal(card.header.title.content, '⚠️ [p] Not delivered');
   assert.match(String(card.body.elements[0]!.content), /stuck on a prompt only you can answer/);
   assert.equal(fake.reactions.length, 0);
+  await daemon.stop();
+});
+
+test('promptPane refused as herdr_missing: the receipt card explains the daemon cannot find herdr and how to restart it', PER_TEST, async () => {
+  const { daemon, fake, herdr } = await start();
+  await connected();
+  await request({ type: 'bind', root: '/p', label: 'p', paneId: 'w1:p1', chatId: 'oc_x' });
+  await request({ type: 'setAway', root: '/p', away: true, paneId: 'w1:p1', lang: 'en' });
+  herdr.outcome = { ok: false, code: 'herdr_missing', message: 'not found on PATH' };
+  await fake.message({ chatId: 'oc_x', content: 'hello there', messageId: 'om_human_1' });
+  const receipt = await waitFor(() => {
+    const l = fake.sent.at(-1);
+    return l && 'input' in l && fake.sent.length === 2 ? l : null;
+  }, 'the receipt card');
+  const card = (receipt.input as { card: Card }).card;
+  const body = String(card.body.elements[0]!.content);
+  assert.match(body, /cannot find the herdr executable/);
+  assert.match(body, /node "/);
   await daemon.stop();
 });
 
@@ -1208,16 +1390,17 @@ test('with no language on record the receipt card is English (the status card ta
   await daemon.stop();
 });
 
-test('the stuck-on-a-prompt alert takes the language the project last used, English when it never said', PER_TEST, async () => {
+test("the stuck-on-a-prompt alert follows the project's recorded language, English when none is set", PER_TEST, async () => {
   const { daemon, fake, herdr } = await start({}, 50, { pollMs: 20 });
   await connected();
   await request({ type: 'bind', root: '/p', label: 'p', paneId: 'w1:p1', chatId: 'oc_x' });
+  // setAway(true) itself sends the away-on card first (index 0); the status card follows it.
   await request({ type: 'setAway', root: '/p', away: true, paneId: 'w1:p1' });
   // the alert fires on a transition into blocked, so the pane is seen working first
   herdr.agents = [{ agent: 'claude', agent_status: 'working', cwd: '/p', pane_id: 'w1:p1', focused: true, terminal_title_stripped: 'deploy' }];
   await sleep(80);
   herdr.agents = [{ ...herdr.agents[0]!, agent_status: 'blocked' }];
-  const alert = await waitFor(() => (fake.sent.length === 1 ? fake.sent[0] : null), 'the status card');
+  const alert = await waitFor(() => (fake.sent.length === 2 ? fake.sent[1] : null), 'the status card');
   const card = (alert as { input: { card: Card } }).input.card;
   assert.equal(card.header.template, 'orange');
   assert.equal(card.header.title.content, '🔔 [p] waiting for you');
@@ -1225,12 +1408,12 @@ test('the stuck-on-a-prompt alert takes the language the project last used, Engl
   await daemon.stop();
 });
 
-test('the stuck-on-a-prompt alert in Chinese once the project asked in Chinese', PER_TEST, async () => {
+test("the stuck-on-a-prompt alert in Chinese once the project's language is set to Chinese", PER_TEST, async () => {
   const { daemon, fake, herdr } = await start({}, 50, { pollMs: 20 });
   await connected();
   await request({ type: 'bind', root: '/p', label: 'p', paneId: 'w1:p1', chatId: 'oc_x' });
-  await request({ type: 'notify', root: '/p', label: 'p', paneId: 'w1:p1', payload: { title: 't', body: 'b', lang: 'zh' } });
-  await request({ type: 'setAway', root: '/p', away: true, paneId: 'w1:p1' });
+  // setAway(true) itself sends the away-on card first (index 0); the status card follows it.
+  await request({ type: 'setAway', root: '/p', away: true, paneId: 'w1:p1', lang: 'zh' });
   herdr.agents = [{ agent: 'claude', agent_status: 'working', cwd: '/p', pane_id: 'w1:p1', focused: true }];
   await sleep(80);
   herdr.agents = [{ ...herdr.agents[0]!, agent_status: 'blocked' }];
@@ -2052,6 +2235,114 @@ test('transcript: a "remove … absorbed_mid_turn" record quoting the injected l
   await fake.react({ messageId: 'om_human_1', emojiType: 'THUMBSUP' });
   await sleep(50);
   assert.equal(herdr.keys.length, 0);
+  await daemon.stop();
+});
+
+test('transcript: a "pasted_content"-wrapped line (Claude Code ≥ 2.1.278) still swaps the queued reaction for Get', PER_TEST, async () => {
+  const { daemon, fake, herdr, transcript } = await startWithTranscript();
+  await connected();
+  await request({ type: 'bind', root: '/p', label: 'p', paneId: 'w1:p1', chatId: 'oc_x' });
+  herdr.agents = [claudeWorking()];
+  await fake.message({ chatId: 'oc_x', content: 'hello there', messageId: 'om_human_1' });
+  await waitFor(() => emojisOn(fake, 'om_human_1').length === 1, 'the queued reaction');
+  appendFileSync(
+    transcript,
+    queueOp({
+      operation: 'remove',
+      reason: 'absorbed_mid_turn',
+      content: '<pasted_content id="40f8">\n[lark-connector remote] hello there\n</pasted_content id="40f8">',
+    }),
+  );
+  await waitFor(() => swapped(fake, 'om_human_1'), 'the swap');
+  await daemon.stop();
+});
+
+test('transcript: a multi-line "pasted_content" wrapper (attachments included) also swaps the queued reaction for Get', PER_TEST, async () => {
+  const { daemon, fake, herdr, transcript } = await startWithTranscript();
+  await connected();
+  await request({ type: 'bind', root: '/p', label: 'p', paneId: 'w1:p1', chatId: 'oc_x' });
+  herdr.agents = [claudeWorking()];
+  const text =
+    '![image](img_v3_0215p_79f2021e-ea96-497f-80bf-400b3876303g)\nweb 端删除的会话，desktop 上消失了\n[saved: /Users/yzj/.lark-connector/media/57c4cc880e4c/1790047599469-image-1790047599469.png]\n(attachments saved locally)';
+  await fake.message({ chatId: 'oc_x', content: text, messageId: 'om_human_1' });
+  await waitFor(() => emojisOn(fake, 'om_human_1').length === 1, 'the queued reaction');
+  appendFileSync(
+    transcript,
+    queueOp({
+      operation: 'remove',
+      reason: 'absorbed_mid_turn',
+      content: `<pasted_content id="095b">\n[lark-connector remote] ${text}\n</pasted_content id="095b">`,
+    }),
+  );
+  await waitFor(() => swapped(fake, 'om_human_1'), 'the swap');
+  await daemon.stop();
+});
+
+test('transcript: a "pasted_content" wrapper around unrelated text does not swap, and is logged once as queued.unmatched, never the text itself', PER_TEST, async () => {
+  const { daemon, fake, herdr, home, transcript } = await startWithTranscript();
+  await connected();
+  await request({ type: 'bind', root: '/p', label: 'p', paneId: 'w1:p1', chatId: 'oc_x' });
+  herdr.agents = [claudeWorking()];
+  await fake.message({ chatId: 'oc_x', content: 'hello there', messageId: 'om_human_1' });
+  await waitFor(() => emojisOn(fake, 'om_human_1').length === 1, 'the queued reaction');
+  appendFileSync(
+    transcript,
+    queueOp({
+      operation: 'remove',
+      reason: 'absorbed_mid_turn',
+      content: '<pasted_content id="ae0b">\n[lark-connector remote] a completely unrelated line\n</pasted_content id="ae0b">',
+    }),
+  );
+  await waitFor(() => /queued\.unmatched/.test(readFileSync(join(home, 'daemon.log'), 'utf8')), 'the unmatched log line');
+  assert.equal(swapped(fake, 'om_human_1'), false, 'no matching pending entry: nothing swaps');
+  // A second, differently unmatched record while the same entry is still pending must not add a second line.
+  appendFileSync(
+    transcript,
+    queueOp({
+      operation: 'remove',
+      reason: 'absorbed_mid_turn',
+      content: '<pasted_content id="5799">\n[lark-connector remote] yet another unrelated line\n</pasted_content id="5799">',
+    }),
+  );
+  await sleep(120);
+  const logText = readFileSync(join(home, 'daemon.log'), 'utf8');
+  assert.equal((logText.match(/queued\.unmatched/g) ?? []).length, 1, 'logged once, not every poll');
+  assert.doesNotMatch(logText, /unrelated line/, 'the message text itself must never be logged');
+  assert.equal(swapped(fake, 'om_human_1'), false);
+  await daemon.stop();
+});
+
+test('transcript: a record absorbed by one pending entry earlier in the same poll is not logged as unmatched for a sibling still waiting', PER_TEST, async () => {
+  const { daemon, fake, herdr, home, transcript } = await startWithTranscript();
+  await connected();
+  await request({ type: 'bind', root: '/p', label: 'p', paneId: 'w1:p1', chatId: 'oc_x' });
+  herdr.agents = [claudeWorking()];
+  await fake.message({ chatId: 'oc_x', content: 'one', messageId: 'om_human_1' });
+  await fake.message({ chatId: 'oc_x', content: 'two', messageId: 'om_human_2' });
+  await waitFor(() => fake.reactions.length === 2, 'two queued reactions');
+  appendFileSync(
+    transcript,
+    queueOp({
+      operation: 'remove',
+      reason: 'absorbed_mid_turn',
+      content: '<pasted_content id="095b">\n[lark-connector remote] one\n</pasted_content id="095b">',
+    }),
+  );
+  await waitFor(() => swapped(fake, 'om_human_1'), 'the first entry swaps');
+  assert.deepEqual(emojisOn(fake, 'om_human_2'), [QUEUE], 'the second entry is untouched by the first one\'s record');
+  assert.doesNotMatch(readFileSync(join(home, 'daemon.log'), 'utf8'), /queued\.unmatched/, 'closing a sibling in the same poll must not read as "matches nobody"');
+  await sleep(120);
+  assert.doesNotMatch(readFileSync(join(home, 'daemon.log'), 'utf8'), /queued\.unmatched/, 'still nothing after another poll');
+  appendFileSync(
+    transcript,
+    queueOp({
+      operation: 'remove',
+      reason: 'absorbed_mid_turn',
+      content: '<pasted_content id="ae0b">\n[lark-connector remote] two\n</pasted_content id="ae0b">',
+    }),
+  );
+  await waitFor(() => swapped(fake, 'om_human_2'), 'the second entry swaps too');
+  assert.doesNotMatch(readFileSync(join(home, 'daemon.log'), 'utf8'), /queued\.unmatched/, 'neither record was ever unmatched');
   await daemon.stop();
 });
 

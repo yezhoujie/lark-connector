@@ -1,19 +1,19 @@
 #!/usr/bin/env node
 import { spawn } from 'node:child_process';
 import { existsSync, openSync, realpathSync, unlinkSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { delimiter, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createLarkChannel, registerApp } from '@larksuite/channel';
 import QRCode from 'qrcode';
 import { clearCreds, credsReport, defaultStore, resolveCreds, writeCreds, type StoreKind } from './creds.js';
-import { closePane, currentPaneId, insideHerdr, promptPane, quoteForPaneShell, runInPane, splitPane, type HerdrRun } from './herdr.js';
+import { closePane, currentPaneId, insideHerdr, promptPane, quoteForPaneShell, runInPane, splitPane, type HerdrRun, type HerdrView } from './herdr.js';
 import { InputInterrupted, terminalIO, type SetupIO } from './tty.js';
 import { taskNameProblem } from './bindings.js';
 import { isDaemonListening, request, type Request, type Response } from './ipc.js';
 import { LegacyDaemonRunning, migrateLegacy, migrateProjectState } from './migrate.js';
 import { ensureHomeDir, homeDir, ipcEndpoint, logPath, pidPath, projectLabel, projectRoot, readProjectState, sockPathProblem, writeProjectState } from './paths.js';
-import { both, en, fill, msg, zh } from './texts.js';
-import { validateAsk, validateNotify, ValidationError } from './validate.js';
+import { both, en, fill, msg, resolveLang, zh } from './texts.js';
+import { validateAsk, validateNotify, ValidationError, type Lang } from './validate.js';
 
 // Piping into `head` / `less` closes our stdout early; an unhandled EPIPE
 // would crash with a stack trace instead of just ending quietly.
@@ -25,6 +25,13 @@ for (const stream of [process.stdout, process.stderr]) {
 }
 
 const HELP = msg.help;
+
+/**
+ * The language this run of the CLI speaks to a human: set once by `takeLang`
+ * before any command runs, and read only by `away` — carried to the daemon
+ * and recorded on the binding, the one place a project's language is set.
+ */
+let cliLang: Lang = 'en';
 
 /** Scopes the scan-code confirm page asks for. Override with --scopes. */
 const DEFAULT_SCOPES = [
@@ -554,6 +561,25 @@ async function cmdSetup(args: string[]): Promise<void> {
 const daemonAlive = (): Promise<boolean> => isDaemonListening(2000);
 
 /**
+ * Extra PATH for spawning the daemon: when this pane's herdr set
+ * HERDR_BIN_PATH and that directory is not already on PATH, prepend it, so a
+ * daemon started before herdr was installed can find it once it is
+ * restarted from a pane that has it (the daemon's own PATH is a snapshot
+ * taken right here, at spawn time — see `findHerdrOnPath` in herdr.ts).
+ * `undefined` means nothing to add; passed as `env: undefined` to `spawn()`
+ * it keeps that call's current behavior (inherit `process.env` untouched).
+ */
+export function daemonEnv(): NodeJS.ProcessEnv | undefined {
+  if (!insideHerdr()) return undefined;
+  const bin = process.env.HERDR_BIN_PATH;
+  if (!bin) return undefined;
+  const dir = dirname(bin);
+  const path = process.env.PATH ?? '';
+  if (path.split(delimiter).includes(dir)) return undefined;
+  return { ...process.env, PATH: `${dir}${delimiter}${path}` };
+}
+
+/**
  * Start the daemon in its own session. It must outlive the caller: started as
  * a child of a shell command it would die with it, and every message the human
  * sends afterwards would be lost with no error on their side.
@@ -567,7 +593,7 @@ async function startDaemonDetached(): Promise<{ ok: true; message: string } | { 
   ensureHomeDir();
   const out = openSync(logPath(), 'a');
   const self = fileURLToPath(import.meta.url);
-  const child = spawn(process.execPath, [self, 'daemon'], { detached: true, stdio: ['ignore', out, out] });
+  const child = spawn(process.execPath, [self, 'daemon'], { detached: true, stdio: ['ignore', out, out], env: daemonEnv() });
   child.unref();
   const deadline = Date.now() + 10_000;
   while (Date.now() < deadline) {
@@ -577,6 +603,13 @@ async function startDaemonDetached(): Promise<{ ok: true; message: string } | { 
   return { ok: false, code: 3, message: fill(msg.daemonNoReply, { log: logPath() }) };
 }
 
+
+/** One line summarizing the daemon's own view of herdr, shared by `status` and `daemon --status`. */
+function herdrDaemonViewLine(view: HerdrView): string {
+  if (view.bin === null) return msg.statusHerdrDaemonMissing;
+  if (view.reachable) return fill(msg.statusHerdrDaemonOk, { bin: view.bin });
+  return fill(msg.statusHerdrDaemonUnreachable, { bin: view.bin, error: view.error ?? '?' });
+}
 
 async function cmdDaemon(args: string[]): Promise<void> {
   const a = argv('daemon', args);
@@ -588,6 +621,7 @@ async function cmdDaemon(args: string[]): Promise<void> {
     process.stdout.write(
       `${fill(msg.daemonStatusLine, { pid: s.pid, connected: String(s.connected), connection: s.connection, pending: s.pendingAsks, bindings: s.bindings, startedAt: s.startedAt })}\n`,
     );
+    process.stdout.write(`${herdrDaemonViewLine(s.herdr)}\n`);
     if (s.lastError) process.stdout.write(`${fill(msg.daemonLastError, { error: s.lastError })}\n`);
     const mb = (s.media.bytes / 1024 / 1024).toFixed(1);
     process.stdout.write(
@@ -870,7 +904,7 @@ async function cmdAway(args: string[]): Promise<void> {
       process.stdout.write(`${line}\n`);
     }
   }
-  const res = await request({ type: 'setAway', root, away, paneId });
+  const res = await request({ type: 'setAway', root, away, paneId, lang: cliLang });
   if (!away && !res.ok && (res.reason === 'down' || res.reason === 'path')) {
     // Switching off must not need the daemon: the file is what the agent's
     // rule reads, and the daemon's own copy is realigned by the next away on / off.
@@ -884,6 +918,14 @@ async function cmdAway(args: string[]): Promise<void> {
     writeProjectState(root, chatId ? { away, chatId } : { away }, { create: away });
     process.stdout.write(`${away ? msg.awayOn : msg.awayOff}\n`);
     if (away && !insideHerdr()) process.stdout.write(`${msg.awayOutsideHerdr}\n`);
+    // Only worth a warning inside herdr: outside it, awayOutsideHerdr above
+    // already says why nothing can be delivered, whatever the daemon's PATH holds.
+    if (away && res.ok && res.kind === 'ack' && res.herdr && insideHerdr() && res.herdr.bin === null) {
+      process.stderr.write(`${msg.awayDaemonNoHerdr}\n`);
+    }
+    if (res.ok && res.kind === 'ack' && res.announced === false) {
+      process.stdout.write(`${msg.awayNotAnnounced}\n`);
+    }
   });
 }
 
@@ -901,6 +943,7 @@ async function cmdStatus(): Promise<void> {
     process.stdout.write(
       `${fill(msg.statusDaemonLine, { pid: ping.status.pid, connected: String(ping.status.connected), connection: ping.status.connection, pending: ping.status.pendingAsks })}\n`,
     );
+    process.stdout.write(`${herdrDaemonViewLine(ping.status.herdr)}\n`);
     if (ping.status.lastError) process.stdout.write(`${fill(msg.daemonLastError, { error: ping.status.lastError })}\n`);
   }
   const list = await request({ type: 'list' }, { timeoutMs: 5000 });
@@ -945,8 +988,39 @@ function takeHome(argv: string[]): string[] {
   return [...argv.slice(0, i), ...argv.slice(i + (joined ? 1 : 2))];
 }
 
+/**
+ * Global `--lang <zh|en>`: taken out of argv once, here, like `--home`.
+ * Whether or not it is given, `cliLang` ends up resolved (explicit >
+ * LARK_CONNECTOR_LANG > system locale > 'en') before any command runs.
+ */
+function takeLang(argv: string[]): string[] {
+  const i = argv.findIndex((a) => a === '--lang' || a.startsWith('--lang='));
+  if (i < 0) {
+    try {
+      cliLang = resolveLang();
+    } catch {
+      die(1, msg.badLang);
+    }
+    return argv;
+  }
+  const joined = argv[i]!.startsWith('--lang=');
+  const value = joined ? argv[i]!.slice('--lang='.length) : argv[i + 1];
+  // A missing value, or the next token looking like another option, is an
+  // argv-shape problem `resolveLang` cannot see (it would read `undefined`
+  // as "no --lang given" and move on to the environment); everything about
+  // whether the value itself is `zh` or `en` is `resolveLang`'s call, made
+  // the same way an invalid LARK_CONNECTOR_LANG is.
+  if (!joined && (value === undefined || value.startsWith('--'))) die(1, msg.badLang);
+  try {
+    cliLang = resolveLang(value, process.env);
+  } catch {
+    die(1, msg.badLang);
+  }
+  return [...argv.slice(0, i), ...argv.slice(i + (joined ? 1 : 2))];
+}
+
 async function main(): Promise<void> {
-  const [cmd, ...args] = takeHome(process.argv.slice(2));
+  const [cmd, ...args] = takeLang(takeHome(process.argv.slice(2)));
   const isHelp = cmd === undefined || cmd === '--help' || cmd === '-h' || cmd === 'help';
   if (cmd === 'away') {
     const sub = argv('away', args).positional() ?? 'status';

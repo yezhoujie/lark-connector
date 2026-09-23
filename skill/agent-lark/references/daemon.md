@@ -141,7 +141,7 @@ when the local records are gone. Task names are at most 60 characters (code poin
 | `name` | the group name as last set here; `null` when never set by us |
 | `paneId` | the herdr pane phone messages are injected into; refreshed by every command run with `HERDR_PANE_ID` set (`ask`, `notify`, `send-file`, `bind`, `rename`, `away on|off`) |
 | `away` | remote mode switch as the daemon knows it (the stuck alert only polls `away` bindings) |
-| `lang` | `lang` of the project's last `ask` / `notify`; the receipt and alert cards follow it (§9) |
+| `lang` | the project's language, set by `away on --lang` (or its fallback chain); every card the daemon renders for this project follows it (§9) |
 | `boundAt` / `releasedAt` | ISO times; `releasedAt: null` marks the live group, a time means `unbind` let it go (kept so it can be offered back, until the group is gone from Feishu — §6) |
 
 **How `bind` (and `away on`, which is `bind` + switch) picks the group** (the stdout lines quoted below
@@ -256,11 +256,16 @@ the daemon looks for the moment claude read the entry:
   `projects/`, notes its size just before the prompt and reads only what is appended after it; a matching
   `remove` settles that message, a `dequeue` settles every watched message of that session. Other records
   change nothing — a `remove` without a reason or a `popAll` (the human took the queue back into the input
-  box), a `remove` quoting another line. **This is Claude Code's internal format, not a contract**: when
+  box), a `remove` quoting another line. Since Claude Code 2.1.278, a pasted line's `content` arrives
+  wrapped in `<pasted_content id="…">…</pasted_content id="…">` (a fresh id each time); the daemon strips
+  that wrapper before comparing. **This is Claude Code's internal format, not a contract**: when
   the file is missing (`transcript.missing` in the log, once per session) or its records change shape,
-  ✈️ simply stays until the fallback below — injection and the send-now reaction are not affected. To
-  check it still holds on a machine: `grep -h '"queue-operation"' ~/.claude/projects/*/*.jsonl | tail -3`
-  should show `enqueue` / `remove` / `dequeue` records like the above.
+  ✈️ simply stays until the fallback below — injection and the send-now reaction are not affected. An
+  `absorbed_mid_turn` record that, once unwrapped, quotes no pending message at all (not just a sibling's
+  line) is logged once per message as `queued.unmatched` — never the text itself — the signal that the
+  format has drifted again. To check it still holds on a machine:
+  `grep -h '"queue-operation"' ~/.claude/projects/*/*.jsonl | tail -3` should show `enqueue` / `remove` /
+  `dequeue` records like the above.
 - *Fallback.* herdr reporting the pane as no longer `working` (`idle`, `done`): the queue is empty by
   then, so every watched message of that pane is settled.
 - *Expiry.* A message with neither signal for 30 minutes (the pane is gone, or the transcript no longer
@@ -367,11 +372,14 @@ written here.
 
 ## 9. Language of the fixed wording
 
-- **Cards**: the `lang` field of the `ask` JSON selects the wording of that card and of all its later
-  states (section labels, `← recommended`, hints, `Submit`, confirm dialogs, `Answered` / `Timed out` /
-  `Cancelled`); **omitted means `en`**. A `notify` card has no fixed wording at all (title and body only).
-  The cards the daemon sends on its own — the receipt (§5) and the stuck alert (§5) — follow the `lang`
-  of the project's most recent `ask` or `notify`; before any, `en`.
+- **Cards**: the project's language is set once, by `away on` — a global `--lang zh|en` on that call, else
+  `LARK_CONNECTOR_LANG`, else the system locale, else `en` — and recorded on the binding (`lang` above).
+  Every card the daemon renders for this project follows it from then on: the on/off cards, an `ask`
+  card's wording (section labels, `← recommended`, hints, `Submit`, confirm dialogs, `Answered` /
+  `Timed out` / `Cancelled`), the receipt (§5) and the stuck alert (§5). **Before any `away on`, `en`.**
+  Neither `ask` nor `notify` takes a `lang` of its own any more: an unknown `lang` key in either JSON is
+  ignored, the same as any other field validation does not know about. A `notify` card has no fixed
+  wording at all either way (title and body only).
 - **Everything the agent reads** — CLI stdout and stderr, validation reports, `note:` lines, the injected
   text, `help` — is English only, and nothing in the environment changes that.
 - **`setup`** prints every line in Chinese and English side by side, since a human is at the terminal for it.

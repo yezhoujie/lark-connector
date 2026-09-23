@@ -10531,8 +10531,8 @@ var require_common = __commonJS({
         }
         return debug3;
       }
-      function extend(namespace, delimiter) {
-        const newDebug = createDebug3(this.namespace + (typeof delimiter === "undefined" ? ":" : delimiter) + namespace);
+      function extend(namespace, delimiter2) {
+        const newDebug = createDebug3(this.namespace + (typeof delimiter2 === "undefined" ? ":" : delimiter2) + namespace);
         newDebug.log = this.log;
         return newDebug;
       }
@@ -12389,14 +12389,14 @@ var require_axios = __commonJS({
         }
       });
     };
-    var toObjectSet = (arrayOrString, delimiter) => {
+    var toObjectSet = (arrayOrString, delimiter2) => {
       const obj = {};
       const define2 = (arr) => {
         arr.forEach((value) => {
           obj[value] = true;
         });
       };
-      isArray(arrayOrString) ? define2(arrayOrString) : define2(String(arrayOrString).split(delimiter));
+      isArray(arrayOrString) ? define2(arrayOrString) : define2(String(arrayOrString).split(delimiter2));
       return obj;
     };
     var noop2 = () => {
@@ -136263,6 +136263,27 @@ var require_lib3 = __commonJS({
 });
 
 // src/texts.ts
+import { posix, win32 } from "node:path";
+function selfCommand(entry = process.argv[1] ?? "", platform6 = process.platform) {
+  if (!entry) return 'node "<path to agent-lark>/dist/cli.mjs"';
+  const path2 = platform6 === "win32" ? win32 : posix;
+  const resolved = path2.resolve(entry);
+  const escaped = platform6 === "win32" ? resolved.replace(/"/g, '\\"') : resolved.replace(/[\\"]/g, "\\$&");
+  return `node "${escaped}"`;
+}
+function resolveLang(explicit, env = process.env) {
+  if (explicit !== void 0) {
+    if (explicit === "zh" || explicit === "en") return explicit;
+    throw new Error(`--lang must be zh or en, got "${explicit}"`);
+  }
+  const fromEnv = env.LARK_CONNECTOR_LANG;
+  if (fromEnv) {
+    if (fromEnv === "zh" || fromEnv === "en") return fromEnv;
+    throw new Error(`LARK_CONNECTOR_LANG must be zh or en, got "${fromEnv}"`);
+  }
+  const locale = env.LC_ALL || env.LC_MESSAGES || env.LANG;
+  return locale?.startsWith("zh") ? "zh" : "en";
+}
 function fill(template, vars = {}) {
   return template.replace(/\{([a-zA-Z_]+)\}/g, (whole, name) => name in vars ? String(vars[name]) : whole);
 }
@@ -136272,10 +136293,11 @@ function both(key, vars = {}, varsEn = vars) {
   return z.includes("\n") || e.includes("\n") ? `${z}
 ${e}` : `${z}\u3000/\u3000${e}`;
 }
-var zh, en, msg, t;
+var CLI, zh, en, msg, t;
 var init_texts = __esm({
   "src/texts.ts"() {
     "use strict";
+    CLI = selfCommand();
     zh = {
       // ask card
       doing: "\u5728\u505A",
@@ -136307,18 +136329,26 @@ var init_texts = __esm({
       interruptFailed: "\u6253\u65AD\u6CA1\u53D1\u51FA\u53BB\uFF08{why}\uFF09\u3002\u6D88\u606F\u8FD8\u5728 agent \u7684\u961F\u5217\u91CC\uFF0C\u5B83\u8DD1\u5B8C\u624B\u5934\u7684\u547D\u4EE4\u5C31\u4F1A\u8BFB\u5230\u3002",
       receiptNoPane: "\u8FD9\u4E2A\u9879\u76EE\u8FD8\u6CA1\u6709\u8BB0\u5F55\u5230 herdr \u7A97\u683C\uFF0C\u6D88\u606F\u6CA1\u5904\u53EF\u9001\u3002",
       promptAgentBlocked: "\u7EC8\u7AEF\u91CC\u7684 agent \u6B63\u5361\u5728\u4E00\u4E2A\u9700\u8981\u4F60\u672C\u4EBA\u786E\u8BA4\u7684\u63D0\u793A\u4E0A\uFF0C\u6536\u4E0D\u4E86\u65B0\u8F93\u5165\u3002\u56DE\u7535\u8111\u524D\u5904\u7406\u4E00\u4E0B\u3002",
-      promptPaneGone: "\u8BB0\u5F55\u7684 herdr \u7A97\u683C\u5DF2\u7ECF\u4E0D\u5728\u4E86\u3002\u5230\u9879\u76EE\u91CC\u8DD1\u4E00\u6B21 lark-connector away on \u6216\u4EFB\u610F lark-connector \u547D\u4EE4\uFF0C\u91CD\u65B0\u8BB0\u5F55\u7A97\u683C\u3002",
+      promptPaneGone: `\u8BB0\u5F55\u7684 herdr \u7A97\u683C\u5DF2\u7ECF\u4E0D\u5728\u4E86\u3002\u5230\u9879\u76EE\u91CC\u8DD1\u4E00\u6B21 ${CLI} away on \u6216\u4EFB\u610F ${CLI} \u547D\u4EE4\uFF0C\u91CD\u65B0\u8BB0\u5F55\u7A97\u683C\u3002`,
       promptNoHerdr: "\u8FD9\u53F0\u673A\u5668\u6CA1\u6709 herdr\uFF0C\u6216 herdr \u6CA1\u5728\u8DD1\uFF0C\u624B\u673A\u4E0A\u53D1\u7684\u6D88\u606F\u6CA1\u5904\u6CE8\u5165\u3002",
       promptRefused: "herdr \u62D2\u7EDD\u4E86\u8FD9\u6B21\u6CE8\u5165\uFF1A{code} {message}",
+      promptHerdrMissing: `daemon \u627E\u4E0D\u5230 herdr \u53EF\u6267\u884C\u6587\u4EF6\uFF08\u591A\u534A\u5B83\u6BD4 herdr \u5148\u542F\u52A8\uFF09\u3002\u4ECE herdr \u7A97\u683C\u91CC\u91CD\u542F\u5B83\uFF1A${CLI} daemon --stop\uFF0C\u518D ${CLI} away on`,
       // "stuck" status card
       statusBlocked: "\u7B49\u4F60\u8F93\u5165",
       statusPane: "\u7A97\u683C {pane}",
+      // remote mode on/off card
+      awayOnTitle: "\u8FDC\u7A0B\u6A21\u5F0F\u5DF2\u5F00\u542F",
+      awayOffTitle: "\u8FDC\u7A0B\u6A21\u5F0F\u5373\u5C06\u5173\u95ED",
+      awayOnFull: "\u4F60\u5728\u7FA4\u91CC\u53D1\u7684\u6D88\u606F\u4F1A\u9001\u8FDB\u7EC8\u7AEF\uFF1B\u8981\u62CD\u677F\u7684\u4E8B\u4F1A\u4EE5\u5361\u7247\u53D1\u5230\u8FD9\u91CC\u3002",
+      awayOnNoHerdr: "\u8FD9\u53F0\u673A\u5668\u6CA1\u6709 herdr\uFF1A\u4F60\u4E3B\u52A8\u53D1\u7684\u6D88\u606F**\u4E0D\u4F1A**\u9001\u5230\u7EC8\u7AEF\uFF0C\u53EA\u6709\u5361\u7247\u6309\u94AE\u548C\u5BF9\u63D0\u95EE\u7684\u56DE\u590D\u80FD\u56DE\u5230 agent\u3002",
+      awayOnDaemonNoHerdr: "daemon \u627E\u4E0D\u5230 herdr\uFF0C\u91CD\u542F\u524D\u4F60\u4E3B\u52A8\u53D1\u7684\u6D88\u606F\u9001\u4E0D\u5230\uFF0C\u63A8\u8350\u8BA9 agent \u5E2E\u4F60\u91CD\u542F daemon \u6765\u4F7F\u7528\u5B8C\u6574\u529F\u80FD\u3002",
+      awayOffBody: "\u8FDC\u7A0B\u6A21\u5F0F\u5373\u5C06\u5173\u95ED\uFF0C\u4E4B\u540E\u8BF7\u56DE\u7EC8\u7AEF\u7EE7\u7EED\uFF1B\u7FA4\u91CC\u7684\u6D88\u606F\u4E0D\u518D\u9001\u8FBE\u3002",
       // button / form toasts
       toastAnswered: "\u5DF2\u56DE\u590D",
       toastClosed: "\u8FD9\u4E2A\u95EE\u9898\u5DF2\u7ECF\u7ED3\u675F\u4E86\uFF0C\u521A\u624D\u90A3\u4E0B\u5F53\u6210\u65B0\u6307\u4EE4\u53D1\u8FC7\u53BB\u4E86",
       toastBadOption: "\u8FD9\u4E2A\u9009\u9879\u5BF9\u4E0D\u4E0A\uFF0C\u518D\u8BD5\u4E00\u6B21",
       // setup walkthrough (each line is printed as "zh　/　en")
-      setupHaveCreds: "\u5DF2\u7ECF\u6709\u51ED\u636E\u4E86\uFF08\u6765\u81EA {origin}\uFF09\u3002\u60F3\u91CD\u65B0\u6388\u6743\u6216\u8865\u6743\u9650\uFF0C\u52A0 --update\uFF1B\u60F3\u6362\u4E00\u4E2A\u5E94\u7528\uFF0C\u5148 lark-connector setup --reset\u3002",
+      setupHaveCreds: `\u5DF2\u7ECF\u6709\u51ED\u636E\u4E86\uFF08\u6765\u81EA {origin}\uFF09\u3002\u60F3\u91CD\u65B0\u6388\u6743\u6216\u8865\u6743\u9650\uFF0C\u52A0 --update\uFF1B\u60F3\u6362\u4E00\u4E2A\u5E94\u7528\uFF0C\u5148 ${CLI} setup --reset\u3002`,
       setupMenu: "\u600E\u4E48\u63A5\u5165\u98DE\u4E66\uFF1F\n  1) \u626B\u7801\u65B0\u5EFA\u4E00\u4E2A\u5E94\u7528\uFF08\u7528\u98DE\u4E66\u626B\u7EC8\u7AEF\u91CC\u7684\u4E8C\u7EF4\u7801\uFF09\n  2) \u590D\u7528\u4E00\u4E2A\u5DF2\u6709\u7684\u5E94\u7528\uFF08\u8F93\u5165 App ID \u4E0E App Secret\uFF09",
       setupMenuPrompt: "\u9009 [1/2]\uFF1A",
       setupMenuBad: "\u53EA\u80FD\u8F93 1 \u6216 2\u3002",
@@ -136332,7 +136362,7 @@ var init_texts = __esm({
       setupSaved: "\u51ED\u636E\u5DF2\u4FDD\u5B58\u5230\uFF1A{where}",
       setupSavedQr: "\u2705 \u5E94\u7528\u5DF2\u7ED1\u5B9A\uFF0C\u51ED\u636E\u4FDD\u5B58\u5230\uFF1A{where}\uFF08\u660E\u6587\u4E0D\u4F1A\u51FA\u73B0\u5728\u4EFB\u4F55\u8F93\u51FA\u91CC\uFF09\u3002",
       setupNext: "\u4E0B\u4E00\u6B65\uFF1A\u56DE\u5230 agent \u4F1A\u8BDD\uFF0C\u8BF4\u300C\u5F00\u542F\u8FDC\u7A0B\u4EA4\u4E92\u6A21\u5F0F\u300D\u6216\u8F93\u5165 /agent-lark on\u2014\u2014daemon \u4E0E\u7FA4\u7ED1\u5B9A\u7531 agent \u4ECE\u5B83\u81EA\u5DF1\u7684\u7A97\u683C\u5B8C\u6210\uFF0C\u4E0D\u7528\u4F60\u624B\u52A8\u8DD1\u3002",
-      setupReuseGaveUp: "\u8FDE\u7EED {n} \u6B21\u6CA1\u901A\u8FC7\uFF0C\u5148\u5230\u5F00\u53D1\u8005\u540E\u53F0\u6838\u5BF9 App ID / App Secret\uFF0C\u518D\u8DD1\u4E00\u6B21 lark-connector setup --reuse\u3002",
+      setupReuseGaveUp: `\u8FDE\u7EED {n} \u6B21\u6CA1\u901A\u8FC7\uFF0C\u5148\u5230\u5F00\u53D1\u8005\u540E\u53F0\u6838\u5BF9 App ID / App Secret\uFF0C\u518D\u8DD1\u4E00\u6B21 ${CLI} setup --reuse\u3002`,
       setupManualScopes: "\u8FD9\u4E2A\u5E94\u7528\u8981\u5728\u5F00\u53D1\u8005\u540E\u53F0\u624B\u52A8\u5F00\u901A\uFF08\u5E94\u7528 \u2192 \u6743\u9650\u7BA1\u7406 \u2192 \u5F00\u901A\u6743\u9650\uFF09\uFF1A",
       setupManualEvents: "\u4E8B\u4EF6\u8BA2\u9605\uFF1Aim.message.receive_v1\u3001im.message.reaction.created_v1\uFF08\u8BA2\u9605\u65B9\u5F0F\u9009\u300C\u4F7F\u7528\u957F\u8FDE\u63A5\u63A5\u6536\u4E8B\u4EF6\u300D\uFF09\xB7 \u56DE\u8C03\uFF1Acard.action.trigger\uFF08\u540C\u6837\u9009\u957F\u8FDE\u63A5\uFF09",
       setupManualPublish: "\u5F00\u901A\u540E\u53D1\u5E03\u4E00\u4E2A\u7248\u672C\uFF0C\u6743\u9650\u624D\u751F\u6548\u3002",
@@ -136346,7 +136376,7 @@ var init_texts = __esm({
       setupExpiry: "\u23F3 \u4E8C\u7EF4\u7801 {minutes} \u5206\u949F\u5185\u6709\u6548\uFF08{time} \u8FC7\u671F\uFF09\uFF0C\u8FC7\u671F\u5C31\u91CD\u8DD1 setup\u3002",
       setupWaiting: "  \u8FD8\u5728\u7B49\u4F60\u626B\u2026\u2026\u5269 {seconds} \u79D2",
       setupStatus: "  \u72B6\u6001\uFF1A{status}",
-      setupExpired: "\u4E8C\u7EF4\u7801\u8FC7\u671F\u4E86\uFF0C\u6CA1\u7B49\u5230\u626B\u7801\u3002\u91CD\u8DD1\u4E00\u6B21\uFF1Alark-connector setup\uFF08\u539F\u59CB\u9519\u8BEF\uFF1A{error}\uFF09",
+      setupExpired: `\u4E8C\u7EF4\u7801\u8FC7\u671F\u4E86\uFF0C\u6CA1\u7B49\u5230\u626B\u7801\u3002\u91CD\u8DD1\u4E00\u6B21\uFF1A${CLI} setup\uFF08\u539F\u59CB\u9519\u8BEF\uFF1A{error}\uFF09`,
       setupRegisterFailed: "\u626B\u7801\u6CE8\u518C\u5931\u8D25\uFF1A{error}",
       setupRetry: "\u7F51\u7EDC\u6296\u52A8\uFF08{error}\uFF09\uFF0C\u91CD\u65B0\u7533\u8BF7\u4E00\u5F20\u4E8C\u7EF4\u7801\uFF08\u7B2C {n}/{max} \u6B21\uFF09\u2026\u2026",
       appDesc: "\u628A\u7EC8\u7AEF\u91CC agent \u7684\u63D0\u95EE\u63A8\u5230\u624B\u673A\uFF0C\u7B54\u590D\u6CE8\u5165\u56DE\u7EC8\u7AEF"
@@ -136380,15 +136410,22 @@ var init_texts = __esm({
       interruptFailed: "The interrupt could not be sent ({why}). The message is still in the agent's queue; it will be read once the current command finishes.",
       receiptNoPane: "No herdr pane is recorded for this project, so there is nowhere to deliver the message.",
       promptAgentBlocked: "The agent in the terminal is stuck on a prompt only you can answer and cannot take new input. Deal with it when you are back at the computer.",
-      promptPaneGone: "The recorded herdr pane is gone. Run lark-connector away on (or any lark-connector command) inside the project to record the pane again.",
+      promptPaneGone: `The recorded herdr pane is gone. Run ${CLI} away on (or any ${CLI} command) inside the project to record the pane again.`,
       promptNoHerdr: "This machine has no herdr, or herdr is not running; messages from the phone have nowhere to go.",
       promptRefused: "herdr refused the injection: {code} {message}",
+      promptHerdrMissing: `The daemon cannot find the herdr executable (it was probably started before herdr was installed). Restart it from a herdr pane: ${CLI} daemon --stop, then ${CLI} away on`,
       statusBlocked: "waiting for you",
       statusPane: "pane {pane}",
+      awayOnTitle: "Remote mode is on",
+      awayOffTitle: "Remote mode is about to turn off",
+      awayOnFull: "Messages you send in this group are delivered into the terminal; decisions that need you arrive here as cards.",
+      awayOnNoHerdr: "This machine has no herdr: messages you send on your own **will not** reach the terminal \u2014 only button taps and replies to a question make it back to the agent.",
+      awayOnDaemonNoHerdr: "The daemon cannot find herdr; messages you send on your own will not get through until it is restarted \u2014 ask the agent to restart the daemon for full functionality.",
+      awayOffBody: "Remote mode is about to turn off; continue from the terminal from here on \u2014 messages in this group will no longer be delivered.",
       toastAnswered: "Replied",
       toastClosed: "This question is already closed; that tap was forwarded as a new instruction",
       toastBadOption: "That option does not match, try again",
-      setupHaveCreds: "Credentials already exist (from {origin}). Add --update to re-authorize or add scopes; run lark-connector setup --reset first to switch apps.",
+      setupHaveCreds: `Credentials already exist (from {origin}). Add --update to re-authorize or add scopes; run ${CLI} setup --reset first to switch apps.`,
       setupMenu: "How do you want to connect to Feishu?\n  1) Create a new app by QR code (scan it with Feishu)\n  2) Reuse an app you already have (enter its App ID and App Secret)",
       setupMenuPrompt: "Choose [1/2]: ",
       setupMenuBad: "Type 1 or 2.",
@@ -136402,7 +136439,7 @@ var init_texts = __esm({
       setupSaved: "Credentials saved to: {where}",
       setupSavedQr: "\u2705 App linked; credentials saved to {where} (the secret never appears in any output).",
       setupNext: 'Next: back in your agent session, say "turn remote mode on" or type /agent-lark on \u2014 the agent starts the daemon and binds the group from its own pane; nothing to run by hand.',
-      setupReuseGaveUp: "{n} attempts failed; check the App ID / App Secret in the developer console, then run lark-connector setup --reuse again.",
+      setupReuseGaveUp: `{n} attempts failed; check the App ID / App Secret in the developer console, then run ${CLI} setup --reuse again.`,
       setupManualScopes: "Enable these scopes for the app by hand in the developer console (app \u2192 Permissions & Scopes):",
       setupManualEvents: "Event subscription: im.message.receive_v1, im.message.reaction.created_v1 (delivery: long connection) \xB7 callback: card.action.trigger (long connection as well)",
       setupManualPublish: "Publish a version afterwards; scopes take effect only then.",
@@ -136416,7 +136453,7 @@ var init_texts = __esm({
       setupExpiry: "\u23F3 The QR code is valid for {minutes} minutes (expires {time}); rerun setup if it expires.",
       setupWaiting: "  still waiting for the scan\u2026 {seconds} s left",
       setupStatus: "  status: {status}",
-      setupExpired: "The QR code expired before it was scanned. Run again: lark-connector setup (original error: {error})",
+      setupExpired: `The QR code expired before it was scanned. Run again: ${CLI} setup (original error: {error})`,
       setupRegisterFailed: "QR-code registration failed: {error}",
       setupRetry: "Network hiccup ({error}); asking for a fresh QR code (attempt {n}/{max})\u2026",
       appDesc: "Agent questions pushed to your phone, answers back to the terminal"
@@ -136452,9 +136489,10 @@ Exit codes: 0 ok \xB7 1 bad input \xB7 2 timed out, nobody answered \xB7 3 chann
 `,
       prefix: "lark-connector: ",
       homeNeedsDir: "--home needs a directory",
-      unknownOption: "unknown option {option}. See lark-connector --help.",
+      badLang: "--lang must be zh or en",
+      unknownOption: `unknown option {option}. See ${CLI} --help.`,
       offline: "offline: refusing to contact Feishu (LARK_CONNECTOR_OFFLINE=1 is set)",
-      unknownCommand: 'Unknown command "{cmd}". See lark-connector --help.',
+      unknownCommand: `Unknown command "{cmd}". See ${CLI} --help.`,
       // carry-over from the earlier name, agent-lark: printed on stderr by the
       // first run after the upgrade, after the `lark-connector: ` prefix — a
       // `note:` reports a move, a `warning:` something left for the user to do.
@@ -136462,7 +136500,7 @@ Exit codes: 0 ok \xB7 1 bad input \xB7 2 timed out, nobody answered \xB7 3 chann
       migrateMoveFailed: "warning: could not move the old directory {from} to {to} ({error}); move it by hand",
       migrateBothExist: "warning: both the old directory {old} and {current} exist; the old one is left as it is, delete it yourself once it is not needed",
       migrateKeychain: "note: credentials in the keychain copied from service {from} to service {to}; the old entry was removed",
-      migrateKeychainCopyFailed: "warning: could not copy the keychain entry from service {from} to service {to} ({error}); the old entry (service {from}, account {account}) is left as it is and is not looked at again: run lark-connector setup --reuse with the same App ID and App Secret, or copy the entry by hand",
+      migrateKeychainCopyFailed: `warning: could not copy the keychain entry from service {from} to service {to} ({error}); the old entry (service {from}, account {account}) is left as it is and is not looked at again: run ${CLI} setup --reuse with the same App ID and App Secret, or copy the entry by hand`,
       migrateKeychainClearFailed: "warning: the old keychain entry (service {service}, account {account}) is still there, it could not be removed; the new entry is in place, remove the old one by hand",
       migrateEnvVars: "warning: environment variables were renamed: {pairs}; the old names are not read any more, rename them",
       migrateOldDaemonRunning: "the daemon of the old agent-lark is still running at {endpoint}; stop it first with the old CLI (daemon --stop), then try again",
@@ -136471,9 +136509,9 @@ Exit codes: 0 ok \xB7 1 bad input \xB7 2 timed out, nobody answered \xB7 3 chann
       askProblems: "This question card has {n} problem(s); nothing was sent:",
       notifyProblems: "This notification has {n} problem(s); nothing was sent:",
       timeoutArg: "--timeout must be a positive integer (seconds)",
-      sendFileUsage: "Usage: lark-connector send-file <path> [--caption <text>]",
-      awayUsage: "Usage: lark-connector away on [--name <task>] [--reuse <chat_id> | --new] | off | status [--json]",
-      renameUsage: 'Usage: lark-connector rename "<task name>"',
+      sendFileUsage: `Usage: ${CLI} send-file <path> [--caption <text>]`,
+      awayUsage: `Usage: ${CLI} away on [--name <task>] [--reuse <chat_id> | --new] | off | status [--json]`,
+      renameUsage: `Usage: ${CLI} rename "<task name>"`,
       taskNameTooLong: "task name: over {max} characters (code points), got {n}",
       setupHandoffStarted: 'The interactive setup is running in herdr pane {pane}: the user enters the App ID and App Secret there (they never pass through this session). When it ends, one line prefixed "[lark-connector] setup:" arrives here (that pane has focus now).',
       setupHandoffFailed: "could not open a herdr pane for the interactive setup ({why}). Ask the user to run it in their own terminal:\n  {command}",
@@ -136481,7 +136519,7 @@ Exit codes: 0 ok \xB7 1 bad input \xB7 2 timed out, nobody answered \xB7 3 chann
       setupReportOk: "[lark-connector] setup: credentials stored for {appId} ({app}); the scopes must be enabled in the developer console before use",
       setupReportFailed: "[lark-connector] setup: failed: {why}",
       setupReportInterrupted: "[lark-connector] setup: interrupted before any credentials were stored",
-      setupReportExists: "[lark-connector] setup: credentials already stored ({origin}); nothing changed. To switch apps run lark-connector setup --reset --reuse",
+      setupReportExists: `[lark-connector] setup: credentials already stored ({origin}); nothing changed. To switch apps run ${CLI} setup --reset --reuse`,
       setupReportNotDelivered: "lark-connector: the result could not be reported to pane {pane} ({why})",
       awayOffLocal: "daemon is not running; local state cleared",
       // daemon command
@@ -136495,12 +136533,13 @@ Exit codes: 0 ok \xB7 1 bad input \xB7 2 timed out, nobody answered \xB7 3 chann
       mediaTtlInvalid: "lark-connector: warning: LARK_CONNECTOR_MEDIA_TTL_DAYS={value} is not a whole number of days; using {fallback}",
       daemonStopStuck: "daemon: still answering 10 s after the stop request; see the log: {log}",
       daemonWasNotRunning: "daemon: was not running",
-      daemonStopRefused: '{n} question(s) still pending on the phone. Stopping the daemon now turns those cards into "\u26A0\uFE0F Cancelled" \u2014 a dead card for the human.\nWait for the answer, or do it anyway: lark-connector daemon --stop --force',
+      daemonStopRefused: `{n} question(s) still pending on the phone. Stopping the daemon now turns those cards into "\u26A0\uFE0F Cancelled" \u2014 a dead card for the human.
+Wait for the answer, or do it anyway: ${CLI} daemon --stop --force`,
       daemonStopped: "daemon: stopped",
       daemonAlready: "daemon is already running",
       daemonStarted: "daemon: started in the background, pid {pid} (log {log})",
       daemonNoReply: "daemon started but did not answer within 10 s; see the log: {log}",
-      daemonNoCreds: "no Feishu app credentials found. Run lark-connector setup first (or set LARK_CONNECTOR_APP_ID / LARK_CONNECTOR_APP_SECRET)",
+      daemonNoCreds: `no Feishu app credentials found. Run ${CLI} setup first (or set LARK_CONNECTOR_APP_ID / LARK_CONNECTOR_APP_SECRET)`,
       daemonReady: "lark-connector daemon: pid {pid}, listening at {sock}, connecting to Feishu in the background",
       notConnected: "not connected to Feishu ({error}); the daemon keeps retrying, try again shortly",
       reconnecting: "the connection to Feishu dropped, reconnecting",
@@ -136526,7 +136565,7 @@ Exit codes: 0 ok \xB7 1 bad input \xB7 2 timed out, nobody answered \xB7 3 chann
       bindUpdateSkipped: "not connected to Feishu; the group's name and description were left as they are",
       unbound: 'Unbound. The Feishu group "{name}" stays in Feishu; the next away on in this directory offers to rename and reuse it.',
       dissolved: 'Dissolved Feishu group "{name}"; the local record is removed.',
-      renameNotBound: "this project has no live group; run lark-connector away on first",
+      renameNotBound: `this project has no live group; run ${CLI} away on first`,
       renameFailed: "renaming the group failed: Feishu error {code} {msg}",
       renameThrew: "renaming the group failed: {error}",
       renamePermissionHint: "The bot may only rename a group it owns, or one whose settings let every member edit group info (232002 / 232016), and must be a member of it (232011).",
@@ -136542,19 +136581,25 @@ Exit codes: 0 ok \xB7 1 bad input \xB7 2 timed out, nobody answered \xB7 3 chann
       on: "on",
       off: "off",
       awayUnbound: "not bound",
-      awayNoCreds: "No Feishu app credentials yet. Run once: lark-connector setup",
+      awayNoCreds: `No Feishu app credentials yet. Run once: ${CLI} setup`,
       awayCreated: 'Created Feishu group "{name}"',
       awayReused: 'Took back Feishu group "{name}"',
       awayKept: 'Connected to Feishu group "{name}"',
       awayBoundChat: "Bound to Feishu group {chatId}",
       awayOff: "Remote mode is off.",
       awayOn: "Remote mode is on: decisions, and moments when the agent is stuck on a prompt that needs you, are pushed to this project's Feishu group.",
+      awayDaemonNoHerdr: `warning: the daemon cannot find herdr on its PATH (was it started before herdr was installed?). Phone messages cannot be delivered until it is restarted from a herdr pane: ${CLI} daemon --stop, then ${CLI} away on`,
+      awayNotAnnounced: "(the group was not notified: the daemon could not send the card)",
       // status
       statusCredsYes: "credentials: configured, from {origin}",
-      statusCredsNo: "credentials: not configured; run lark-connector setup first",
+      statusCredsNo: `credentials: not configured; run ${CLI} setup first`,
       statusHerdrIn: "herdr: inside herdr, pane {pane}",
       statusHerdrOut: "herdr: not inside herdr",
-      statusDaemonDown: "daemon: not running (lark-connector daemon --detach)",
+      // the daemon's own view of herdr, on its own PATH (a startup snapshot) — shown by `status` and `daemon --status`
+      statusHerdrDaemonOk: "herdr (daemon's view): reachable via {bin}",
+      statusHerdrDaemonUnreachable: "herdr (daemon's view): {bin} found but not answering ({error})",
+      statusHerdrDaemonMissing: `herdr (daemon's view): not found on the daemon's PATH \u2014 restart it from a herdr pane: ${CLI} daemon --stop, then ${CLI} away on`,
+      statusDaemonDown: `daemon: not running (${CLI} daemon --detach)`,
       statusDaemonPath: "daemon: cannot run here ({problem})",
       statusDaemonLine: "daemon: pid {pid}, connected {connected}, connection {connection}, pending questions {pending}",
       statusNoBindings: "bindings: none yet",
@@ -136563,7 +136608,7 @@ Exit codes: 0 ok \xB7 1 bad input \xB7 2 timed out, nobody answered \xB7 3 chann
       statusReleased: "released (take one back with away on --reuse <chat_id>; * marks this project):",
       statusReleasedLine: "  {mark} {root}  {name}  {chatId}  released {time}",
       // ipc client / server
-      ipcDaemonDown: "daemon is not running. Start it first: lark-connector daemon --detach",
+      ipcDaemonDown: `daemon is not running. Start it first: ${CLI} daemon --detach`,
       ipcConnect: "cannot connect to the daemon: {message}",
       ipcClosed: "the daemon dropped the connection before answering (it may have crashed or been stopped)",
       ipcTimeout: "the daemon did not respond in time",
@@ -136572,7 +136617,7 @@ Exit codes: 0 ok \xB7 1 bad input \xB7 2 timed out, nobody answered \xB7 3 chann
       // the state directory
       sockPathTooLong: "socket path {path} is {bytes} bytes, over this platform's limit of {limit}; set LARK_CONNECTOR_HOME to a shorter directory",
       // daemon replies
-      notBound: "this project is not bound yet; run lark-connector away on first",
+      notBound: `this project is not bound yet; run ${CLI} away on first`,
       askPending: "this project already has a question pending on the phone; one at a time",
       askNote: "sent to the Feishu group, waiting for the answer (up to {seconds} s)",
       askTimedOut: "no answer after {seconds} s",
@@ -136585,9 +136630,10 @@ Exit codes: 0 ok \xB7 1 bad input \xB7 2 timed out, nobody answered \xB7 3 chann
       dissolveThrew: 'the Feishu group "{name}" was not dissolved: {error}. Dissolve it by hand in Feishu. The local record is removed.',
       dissolveMarkerCleared: "The group's marker was cleared, so it will not be offered back.",
       dissolveMarkerKept: "The group's marker could not be cleared ({error}), so it will be offered back until it is dissolved.",
-      dissolveOldDaemon: "the running daemon predates --dissolve and has only let the group go (it stays in Feishu, on record as released). Restart the daemon (lark-connector daemon --stop, then lark-connector daemon --detach), bind the group back (away on --reuse <chat_id>) and run unbind --dissolve again",
+      dissolveOldDaemon: `the running daemon predates --dissolve and has only let the group go (it stays in Feishu, on record as released). Restart the daemon (${CLI} daemon --stop, then ${CLI} daemon --detach), bind the group back (away on --reuse <chat_id>) and run unbind --dissolve again`,
       bindNoOwner: "nobody to invite into a new group (the app owner is not recorded). Use --chat <chat_id> to bind a group you created yourself.",
-      bindCreateFailed: "creating the group failed: {error}\nIf this is a permission problem the app lacks the im:chat (create group) scope: run lark-connector setup --update, or bind an existing group with --chat <chat_id>.",
+      bindCreateFailed: `creating the group failed: {error}
+If this is a permission problem the app lacks the im:chat (create group) scope: run ${CLI} setup --update, or bind an existing group with --chat <chat_id>.`,
       fileMissing: "file not found: {path}",
       fileRealpath: "cannot resolve path: {error}",
       fileRefused: "refusing to send {real}\nOnly files under these directories can be sent:\n  this project {root}\n  {media}\n  {tmp}\n(this keeps send-file from reading arbitrary files off the machine)",
@@ -136595,7 +136641,7 @@ Exit codes: 0 ok \xB7 1 bad input \xB7 2 timed out, nobody answered \xB7 3 chann
       fileTooBig: "file too large: {size} MB, limit {cap} MB",
       // text synthesized into the pane
       injectVoice: "(voice transcript) {text}",
-      injectUnheard: "({n} voice message(s) received but transcription failed \u2014 Feishu code {code}: {msg}. Either the app lacks the speech_to_text:speech scope (lark-connector setup --update adds it), or the tenant is on the free plan, which cannot call speech recognition at all. Tell the user to type it instead this time.)",
+      injectUnheard: `({n} voice message(s) received but transcription failed \u2014 Feishu code {code}: {msg}. Either the app lacks the speech_to_text:speech scope (${CLI} setup --update adds it), or the tenant is on the free plan, which cannot call speech recognition at all. Tell the user to type it instead this time.)`,
       injectNothingHeard: "({n} voice message(s) received but nothing was recognised in the audio. Tell the user to type it or send it again.)",
       injectSaved: "[saved: {path}]",
       replyTo: '(reply to: "{title}")',
@@ -136604,7 +136650,7 @@ Exit codes: 0 ok \xB7 1 bad input \xB7 2 timed out, nobody answered \xB7 3 chann
       lateTapNoOption: "(follow-up) I tapped the card above again",
       latePick: "(follow-up) I pick {labels}",
       urgentNotSent: "the urgent flag was not delivered ({error}); the question itself was sent and is waiting as usual",
-      urgentNoOwner: "the app owner is not recorded, so there is nobody to flag; rerun lark-connector setup --update to record it",
+      urgentNoOwner: `the app owner is not recorded, so there is nobody to flag; rerun ${CLI} setup --update to record it`,
       urgentRefused: "Feishu error {code} {msg}",
       // validation
       vTitleRequired: "title: required and non-empty",
@@ -136634,7 +136680,6 @@ Exit codes: 0 ok \xB7 1 bad input \xB7 2 timed out, nobody answered \xB7 3 chann
       vRecommendEmpty: 'recommend: with select "multi" the array must be non-empty \u2014 at least one option to tick by default',
       vRecommendDupItem: 'recommend: "{id}" is listed twice',
       vSelect: 'select: must be "single" or "multi", got {value}',
-      vLang: 'lang: must be "zh" or "en", got {value}',
       vBodyRequired: "body: required and non-empty",
       vBodyTooLong: "body: over {max} characters",
       // credentials
@@ -136847,6 +136892,8 @@ var init_creds = __esm({
 
 // src/herdr.ts
 import { execFile, execFileSync as execFileSync2 } from "node:child_process";
+import { accessSync, constants as fsConstants, statSync as statSync2 } from "node:fs";
+import { join as join2, posix as posix2, win32 as win322 } from "node:path";
 import { promisify } from "node:util";
 function insideHerdr() {
   return process.env.HERDR_ENV === "1";
@@ -136854,6 +136901,32 @@ function insideHerdr() {
 function currentPaneId() {
   const id = process.env.HERDR_PANE_ID?.trim();
   return id || null;
+}
+function findHerdrOnPath(env = process.env, platform6 = process.platform) {
+  const delim = platform6 === "win32" ? win322.delimiter : posix2.delimiter;
+  const dirs = (env.PATH ?? "").split(delim).filter(Boolean);
+  const names = platform6 === "win32" ? (env.PATHEXT || DEFAULT_PATHEXT).split(";").filter(Boolean).map((ext) => `herdr${ext}`) : ["herdr"];
+  for (const dir of dirs) {
+    for (const name of names) {
+      const candidate = join2(dir, name);
+      let st;
+      try {
+        st = statSync2(candidate);
+      } catch {
+        continue;
+      }
+      if (!st.isFile()) continue;
+      if (platform6 !== "win32") {
+        try {
+          accessSync(candidate, fsConstants.X_OK);
+        } catch {
+          continue;
+        }
+      }
+      return candidate;
+    }
+  }
+  return null;
 }
 function parse(stdout) {
   try {
@@ -136880,6 +136953,7 @@ function outcomeOf(r) {
     return { ok: true };
   }
   if (r.ok) return { ok: false, code: "bad_output", message: (r.stdout.trim() || r.stderr || "").slice(0, 200) };
+  if (r.code === "ENOENT") return { ok: false, code: "herdr_missing", message: r.error ?? "herdr not found" };
   return { ok: false, code: "spawn_failed", message: r.error ?? "herdr failed" };
 }
 async function promptPane(paneId, text, run = (args) => runHerdr(args, 2e4)) {
@@ -136893,6 +136967,15 @@ function findPaneForProject(agents, root) {
   if (inProject.length === 0) return null;
   const focused = inProject.find((a) => a.focused);
   return (focused ?? inProject[0]).pane_id;
+}
+async function herdrView(run = runHerdr) {
+  const bin = findHerdrOnPath();
+  if (bin === null) return { bin: null, reachable: false, error: "not found on PATH" };
+  const outcome = outcomeOf(await run(["agent", "list"]));
+  if (outcome.ok) return { bin, reachable: true };
+  const internal = outcome.code === "bad_output" || outcome.code === "spawn_failed";
+  const detail = (internal ? outcome.message || outcome.code : outcome.code || outcome.message) || "unreachable";
+  return { bin, reachable: false, error: detail.slice(0, 100) };
 }
 async function splitPane(cwd, pane, run = runHerdr) {
   const r = await run(["pane", "split", "--pane", pane, "--direction", "down", "--cwd", cwd]);
@@ -136934,18 +137017,25 @@ async function runInPane(pane, argv2, run = runHerdr) {
 async function closePane(pane, run = runHerdr) {
   return run(["pane", "close", pane]);
 }
-var execFileAsync, runHerdr;
+var execFileAsync, DEFAULT_PATHEXT, runHerdr;
 var init_herdr = __esm({
   "src/herdr.ts"() {
     "use strict";
     execFileAsync = promisify(execFile);
+    DEFAULT_PATHEXT = ".EXE;.CMD;.BAT;.COM";
     runHerdr = async (args, timeoutMs = 1e4) => {
       try {
         const { stdout, stderr } = await execFileAsync("herdr", args, { timeout: timeoutMs, maxBuffer: 1024 * 1024 });
         return { ok: true, stdout, stderr };
       } catch (err) {
         const e = err;
-        return { ok: false, stdout: e.stdout ?? "", stderr: e.stderr ?? "", error: e.message ?? String(err) };
+        return {
+          ok: false,
+          stdout: e.stdout ?? "",
+          stderr: e.stderr ?? "",
+          error: e.message ?? String(err),
+          code: typeof e.code === "string" ? e.code : void 0
+        };
       }
     };
   }
@@ -136956,7 +137046,7 @@ import { execFileSync as execFileSync3 } from "node:child_process";
 import { createHash as createHash2 } from "node:crypto";
 import { existsSync as existsSync2, mkdirSync as mkdirSync2, readFileSync as readFileSync2, renameSync as renameSync2, writeFileSync as writeFileSync2 } from "node:fs";
 import { homedir as homedir2, platform as platform2 } from "node:os";
-import { basename, join as join2, resolve } from "node:path";
+import { basename, join as join3, resolve } from "node:path";
 function homeDir() {
   const override = process.env.LARK_CONNECTOR_HOME?.trim();
   return override ? resolve(override) : defaultHomeDir();
@@ -136973,7 +137063,7 @@ function sockPathProblem(path2 = sockPath()) {
 }
 function ipcEndpointFor(home, pipePrefix = "lark-connector-") {
   if (platform2() === "win32") return `\\\\.\\pipe\\${pipePrefix}${createHash2("sha1").update(home).digest("hex").slice(0, 12)}`;
-  return join2(home, "daemon.sock");
+  return join3(home, "daemon.sock");
 }
 function projectRoot(cwd = process.cwd()) {
   try {
@@ -137010,7 +137100,7 @@ function writeProjectState(root, patch, opts = {}) {
   if (!exists && !opts.create) return null;
   if (!exists) {
     mkdirSync2(dir, { recursive: true, mode: 448 });
-    writeFileSync2(join2(dir, ".gitignore"), "*\n", { mode: 384 });
+    writeFileSync2(join3(dir, ".gitignore"), "*\n", { mode: 384 });
   }
   const current = readProjectState(root) ?? {
     away: false,
@@ -137035,16 +137125,16 @@ var init_paths = __esm({
   "src/paths.ts"() {
     "use strict";
     init_texts();
-    defaultHomeDir = () => join2(homedir2(), ".lark-connector");
-    sockPath = () => join2(homeDir(), "daemon.sock");
+    defaultHomeDir = () => join3(homedir2(), ".lark-connector");
+    sockPath = () => join3(homeDir(), "daemon.sock");
     SOCK_PATH_LIMIT = ["darwin", "freebsd", "openbsd", "netbsd"].includes(platform2()) ? 104 : 108;
     ipcEndpoint = () => ipcEndpointFor(homeDir());
-    pidPath = () => join2(homeDir(), "daemon.pid");
-    logPath = () => join2(homeDir(), "daemon.log");
-    bindingsPath = () => join2(homeDir(), "bindings.json");
-    mediaDir = () => join2(homeDir(), "media");
-    projectStateDir = (root) => join2(root, ".lark-connector");
-    projectStatePath = (root) => join2(projectStateDir(root), "state.json");
+    pidPath = () => join3(homeDir(), "daemon.pid");
+    logPath = () => join3(homeDir(), "daemon.log");
+    bindingsPath = () => join3(homeDir(), "bindings.json");
+    mediaDir = () => join3(homeDir(), "media");
+    projectStateDir = (root) => join3(root, ".lark-connector");
+    projectStatePath = (root) => join3(projectStateDir(root), "state.json");
   }
 });
 
@@ -137365,9 +137455,9 @@ var init_ipc = __esm({
 // src/migrate.ts
 import { existsSync as existsSync3, mkdirSync as mkdirSync3, renameSync as renameSync4 } from "node:fs";
 import { homedir as homedir3, platform as platform4 } from "node:os";
-import { dirname as dirname2, join as join3, resolve as resolve2 } from "node:path";
+import { dirname as dirname2, join as join4, resolve as resolve2 } from "node:path";
 function resolveDeps(partial) {
-  const legacyHomeDir = partial.legacyHomeDir ?? (() => join3(homedir3(), LEGACY.homeDirName));
+  const legacyHomeDir = partial.legacyHomeDir ?? (() => join4(homedir3(), LEGACY.homeDirName));
   return {
     homeDir: partial.homeDir ?? homeDir,
     defaultHomeDir: partial.defaultHomeDir ?? defaultHomeDir,
@@ -137443,7 +137533,7 @@ async function migrateLegacy(deps = {}) {
 }
 function migrateProjectState(root, deps = {}) {
   const out = { moved: [], warnings: [] };
-  return moveDir(join3(root, LEGACY.projectDirName), projectStateDir(root), out, deps.stderr ?? defaultStderr);
+  return moveDir(join4(root, LEGACY.projectDirName), projectStateDir(root), out, deps.stderr ?? defaultStderr);
 }
 var LEGACY, ENV_PREFIX, legacyGroupMarker, legacyIpcEndpoint, LegacyDaemonRunning, defaultStderr, errorText;
 var init_migrate = __esm({
@@ -137484,12 +137574,6 @@ var init_migrate = __esm({
 // src/validate.ts
 function str2(v) {
   return typeof v === "string" && v.trim() ? v.trim() : null;
-}
-function checkLang(v, problems) {
-  if (v === void 0 || v === null) return void 0;
-  if (v === "zh" || v === "en") return v;
-  problems.push(fill(msg.vLang, { value: JSON.stringify(v) }));
-  return void 0;
 }
 function validateAsk(raw) {
   const problems = [];
@@ -137574,7 +137658,6 @@ function validateAsk(raw) {
       recommend = one;
     }
   }
-  const lang = checkLang(o.lang, problems);
   if (problems.length) throw new ValidationError(problems);
   return {
     title,
@@ -137585,7 +137668,6 @@ function validateAsk(raw) {
     recommend,
     reasoning: values.reasoning,
     question: values.question,
-    lang,
     select
   };
 }
@@ -137599,9 +137681,8 @@ function validateNotify(raw) {
   else if (title.includes("\n")) problems.push(msg.vTitleNewline);
   if (!body) problems.push(msg.vBodyRequired);
   else if (body.length > LIMITS.body) problems.push(fill(msg.vBodyTooLong, { max: LIMITS.body }));
-  const lang = checkLang(o.lang, problems);
   if (problems.length) throw new ValidationError(problems);
-  return { title, body, lang };
+  return { title, body };
 }
 var LIMITS, ValidationError;
 var init_validate = __esm({
@@ -137697,7 +137778,7 @@ function optionForm(p, reqId, attempt, recommended, T) {
 }
 function askCard(ctx2) {
   const { payload: p, state } = ctx2;
-  const lang = p.lang ?? "en";
+  const lang = ctx2.lang ?? "en";
   const T = t(lang);
   const head = HEADER[state];
   const template = state === "pending" && ctx2.urgent ? "red" : head.template;
@@ -137745,6 +137826,13 @@ function statusCard(projectLabel2, detail, lang = "en") {
   const T = t(lang);
   return card({ icon: "\u{1F514}", title: `[${projectLabel2}] ${T.statusBlocked}`, template: "orange" }, [md(detail)]);
 }
+function awayCard(projectLabel2, on, detail, lang) {
+  const T = t(lang);
+  return card(
+    { icon: on ? "\u{1F4F1}" : "\u{1F319}", title: `[${projectLabel2}] ${on ? T.awayOnTitle : T.awayOffTitle}`, template: on ? "green" : "grey" },
+    [md(detail)]
+  );
+}
 var md, hr, note, HEADER, checkerName, optionIdOf;
 var init_cards = __esm({
   "src/cards.ts"() {
@@ -137774,9 +137862,9 @@ __export(daemon_exports, {
   DaemonStartError: () => DaemonStartError,
   runDaemon: () => runDaemon
 });
-import { appendFileSync, closeSync, lstatSync, mkdirSync as mkdirSync4, openSync, readdirSync, readFileSync as readFileSync4, readSync, realpathSync, rmdirSync, statSync as statSync2, writeFileSync as writeFileSync4, unlinkSync as unlinkSync3, existsSync as existsSync4 } from "node:fs";
+import { appendFileSync, closeSync, lstatSync, mkdirSync as mkdirSync4, openSync, readdirSync, readFileSync as readFileSync4, readSync, realpathSync, rmdirSync, statSync as statSync3, writeFileSync as writeFileSync4, unlinkSync as unlinkSync3, existsSync as existsSync4 } from "node:fs";
 import { createHash as createHash3, randomUUID as randomUUID2 } from "node:crypto";
-import { basename as basename2, join as join4, sep } from "node:path";
+import { basename as basename2, join as join5, sep } from "node:path";
 import { homedir as homedir4, platform as platform5, tmpdir } from "node:os";
 function mediaTtlDays() {
   const raw = process.env.LARK_CONNECTOR_MEDIA_TTL_DAYS?.trim();
@@ -137794,7 +137882,7 @@ function measureDir(dir) {
       return;
     }
     for (const e of entries) {
-      const p = join4(d, e.name);
+      const p = join5(d, e.name);
       if (e.isSymbolicLink()) continue;
       if (e.isDirectory()) walk(p);
       else if (e.isFile()) {
@@ -137819,7 +137907,7 @@ function sweepDir(root, cutoffMs) {
       return;
     }
     for (const e of entries) {
-      const p = join4(d, e.name);
+      const p = join5(d, e.name);
       const link = e.isSymbolicLink();
       if (!link && e.isDirectory()) {
         walk(p, false);
@@ -137878,7 +137966,7 @@ function resolveSendable(path2, root) {
   });
   if (!allowed.some((d) => within(real, d)))
     return { error: fill(msg.fileRefused, { real, root, media: mediaDir(), tmp: tmpdir() }) };
-  const st = statSync2(real);
+  const st = statSync3(real);
   if (!st.isFile()) return { error: fill(msg.fileNotRegular, { real }) };
   const isImage = /\.(png|jpe?g|gif|webp|bmp)$/i.test(real);
   const cap = isImage ? MAX_IMAGE_BYTES : MAX_FILE_BYTES;
@@ -137898,7 +137986,7 @@ async function runDaemon(deps = {}) {
   if (!creds) throw new DaemonStartError(4, msg.daemonNoCreds);
   ensureHomeDir();
   if (await isDaemonListening(2e3)) throw new DaemonStartError(3, msg.daemonAlready);
-  const herdr = deps.herdr ?? { agentList, promptPane, sendKeys, findPaneForProject };
+  const herdr = deps.herdr ?? { agentList, promptPane, sendKeys, findPaneForProject, view: herdrView };
   const retryMs = deps.connectRetryMs ?? CONNECT_RETRY_MS;
   const ttl = mediaTtlDays();
   if (ttl.invalid !== void 0) {
@@ -137960,7 +138048,7 @@ async function runDaemon(deps = {}) {
     try {
       await channel.updateCard(
         p.messageId,
-        askCard({ payload: p.payload, projectLabel: p.label, reqId: p.reqId, state: "answered", reply })
+        askCard({ payload: p.payload, projectLabel: p.label, reqId: p.reqId, state: "answered", reply, lang: langOf(bindings.active(p.root)) })
       );
     } catch (err) {
       log("ask.update-failed", { reqId: p.reqId, err: String(err) });
@@ -137977,7 +138065,7 @@ async function runDaemon(deps = {}) {
     try {
       await channel.updateCard(
         p.messageId,
-        askCard({ payload: p.payload, projectLabel: p.label, reqId: p.reqId, state })
+        askCard({ payload: p.payload, projectLabel: p.label, reqId: p.reqId, state, lang: langOf(bindings.active(p.root)) })
       );
     } catch (err) {
       log("ask.update-failed", { reqId: p.reqId, err: String(err) });
@@ -138002,12 +138090,14 @@ async function runDaemon(deps = {}) {
         return T.promptPaneGone;
       case "spawn_failed":
         return T.promptNoHerdr;
+      case "herdr_missing":
+        return T.promptHerdrMissing;
       default:
         return fill(T.promptRefused, { code: code ?? "?", message: message ?? "" }).trim();
     }
   };
   const queued = /* @__PURE__ */ new Map();
-  const claudeDir = deps.claudeConfigDir ?? process.env.CLAUDE_CONFIG_DIR ?? join4(homedir4(), ".claude");
+  const claudeDir = deps.claudeConfigDir ?? process.env.CLAUDE_CONFIG_DIR ?? join5(homedir4(), ".claude");
   const queuedMaxAgeMs = deps.queuedMaxAgeMs ?? QUEUED_MAX_AGE_MS;
   const transcriptMissingLogged = /* @__PURE__ */ new Set();
   const transcriptFor = (sessionId) => {
@@ -138019,8 +138109,8 @@ async function runDaemon(deps = {}) {
       return null;
     }
     try {
-      for (const dir of readdirSync(join4(claudeDir, "projects"))) {
-        const path2 = join4(claudeDir, "projects", dir, `${sessionId}.jsonl`);
+      for (const dir of readdirSync(join5(claudeDir, "projects"))) {
+        const path2 = join5(claudeDir, "projects", dir, `${sessionId}.jsonl`);
         if (existsSync4(path2)) return path2;
       }
     } catch {
@@ -138037,13 +138127,13 @@ async function runDaemon(deps = {}) {
     const path2 = transcriptFor(sessionId);
     if (!path2) return void 0;
     try {
-      return { path: path2, offset: statSync2(path2).size };
+      return { path: path2, offset: statSync3(path2).size };
     } catch {
       return void 0;
     }
   };
   const readAppended = (path2, offset) => {
-    const size = statSync2(path2).size;
+    const size = statSync3(path2).size;
     if (size <= offset) return { lines: [], end: offset };
     const fd = openSync(path2, "r");
     try {
@@ -138079,7 +138169,10 @@ async function runDaemon(deps = {}) {
     log("queued.read", { root: q.b.root, paneId: q.paneId, msgKey, why });
     await swapForGet(msgKey, q);
   };
+  const PASTED_CONTENT_RE = /^<pasted_content id="[^"]*">\n([\s\S]*)\n<\/pasted_content id="[^"]*">$/;
+  const unwrapPastedContent = (content) => PASTED_CONTENT_RE.exec(content)?.[1] ?? content;
   const settleQueued = async (live) => {
+    const pendingTexts = new Set([...queued.values()].map((p) => p.text));
     for (const [msgKey, q] of [...queued]) {
       if (Date.now() - q.since >= queuedMaxAgeMs) {
         await closeQueued(msgKey, q, "expired");
@@ -138111,9 +138204,16 @@ async function runDaemon(deps = {}) {
           await closeQueued(msgKey, q, "dequeued");
           break;
         }
-        if (rec.operation === "remove" && rec.reason === "absorbed_mid_turn" && rec.content === q.text) {
-          await closeQueued(msgKey, q, "absorbed");
-          break;
+        if (rec.operation === "remove" && rec.reason === "absorbed_mid_turn") {
+          const content = unwrapPastedContent(rec.content ?? "");
+          if (content === q.text) {
+            await closeQueued(msgKey, q, "absorbed");
+            break;
+          }
+          if (!q.unmatchedLogged && !pendingTexts.has(content)) {
+            q.unmatchedLogged = true;
+            log("queued.unmatched", { root: q.b.root, msgKey, len: content.length, prefixed: content.startsWith(INJECT_PREFIX) });
+          }
         }
       }
     }
@@ -138201,13 +138301,13 @@ async function runDaemon(deps = {}) {
   const saveResources = async (incoming) => {
     const out = { saved: [], spoken: [], unheard: [], silent: 0 };
     if (!incoming.resources.length) return out;
-    const dir = join4(mediaDir(), createHash3("sha1").update(incoming.chatId).digest("hex").slice(0, 12));
+    const dir = join5(mediaDir(), createHash3("sha1").update(incoming.chatId).digest("hex").slice(0, 12));
     mkdirSync4(dir, { recursive: true, mode: 448 });
     for (const res of incoming.resources) {
       const kind = res.type === "image" ? "image" : "file";
       const ext = res.type === "image" ? "png" : res.type === "audio" ? "opus" : "bin";
       const name = res.fileName ?? `${res.type}-${Date.now()}.${ext}`;
-      const dest = join4(dir, `${Date.now()}-${name}`);
+      const dest = join5(dir, `${Date.now()}-${name}`);
       try {
         await channel.downloadResourceToFile(incoming.messageId, res.fileKey, kind, dest);
       } catch (err) {
@@ -138301,16 +138401,18 @@ ${text}`;
         }
         void inject(b, text).catch((err) => log("inject.failed", { err: String(err).slice(0, 200) }));
       }
-      return { toast: { type: "info", content: t(closed.get(value.reqId)?.lang ?? langOf(b)).toastClosed } };
+      return { toast: { type: "info", content: t(langOf(b)).toastClosed } };
     }
-    const T = t(p.payload.lang ?? "en");
+    const askBinding = bindings.active(p.root);
+    const askLang = langOf(askBinding);
+    const T = t(askLang);
     let reply;
     let via;
     if (form) {
       const picked = p.payload.options.filter((o) => isTicked(form[checkerName(o.id)]));
       if (!picked.length) {
         p.attempt += 1;
-        const retry2 = askCard({ payload: p.payload, projectLabel: p.label, reqId: p.reqId, state: "pending", urgent: p.urgent, attempt: p.attempt });
+        const retry2 = askCard({ payload: p.payload, projectLabel: p.label, reqId: p.reqId, state: "pending", urgent: p.urgent, attempt: p.attempt, lang: askLang });
         void channel.updateCard(p.messageId, retry2).catch((err) => log("ask.update-failed", { reqId: p.reqId, err: String(err).slice(0, 200) }));
         return { toast: { type: "error", content: T.pickAtLeastOne }, card: { type: "raw", data: retry2 } };
       }
@@ -138327,7 +138429,8 @@ ${text}`;
       projectLabel: p.label,
       reqId: p.reqId,
       state: "answered",
-      reply
+      reply,
+      lang: askLang
     });
     void answer(p, reply, via).catch((err) => log("answer.failed", { reqId: p.reqId, err: String(err).slice(0, 200) }));
     return {
@@ -138618,7 +138721,7 @@ ${msg.renamePermissionHint}` : text;
         });
         try {
           const outcome = await Promise.race([
-            channel.updateCard(p.messageId, askCard({ payload: p.payload, projectLabel: p.label, reqId: p.reqId, state: "cancelled" })),
+            channel.updateCard(p.messageId, askCard({ payload: p.payload, projectLabel: p.label, reqId: p.reqId, state: "cancelled", lang: langOf(bindings.active(p.root)) })),
             timeout
           ]);
           if (outcome === "timeout") log("ask.update-timeout", { reqId: p.reqId });
@@ -138660,7 +138763,8 @@ ${msg.renamePermissionHint}` : text;
               pendingAsks: pendings.size,
               bindings: bindings.activeAll().length,
               startedAt,
-              media: { ttlDays: ttl.days, ...mediaSeen }
+              media: { ttlDays: ttl.days, ...mediaSeen },
+              herdr: await herdr.view()
             }
           };
         case "stop":
@@ -138865,12 +138969,50 @@ ${msg.renamePermissionHint}` : text;
           return { ok: true, kind: "rename", name: wanted };
         }
         case "setAway": {
-          const b = bindings.touch(req.root, { away: req.away, paneId: req.paneId });
-          if (!b && !req.away) return { ok: true, kind: "ack" };
+          if (!req.away) {
+            const live = bindings.active(req.root);
+            if (!live) return { ok: true, kind: "ack" };
+            let announced2;
+            if (connected) {
+              try {
+                await channel.send(live.chatId, { card: awayCard(live.label, false, t(langOf(live)).awayOffBody, langOf(live)) });
+                announced2 = true;
+              } catch (err) {
+                log("away.announce-failed", { root: req.root, on: false, err: String(err).slice(0, 200) });
+                announced2 = false;
+              }
+            } else {
+              log("away.announce-failed", { root: req.root, on: false, err: "not connected" });
+              announced2 = false;
+            }
+            bindings.touch(req.root, { away: false, paneId: req.paneId });
+            lastStatus.delete(req.root);
+            log("away", { root: req.root, away: false });
+            return { ok: true, kind: "ack", announced: announced2 };
+          }
+          const patch = { away: true, paneId: req.paneId };
+          if (req.lang) patch.lang = req.lang;
+          const b = bindings.touch(req.root, patch);
           if (!b) return { ok: false, code: 4, message: msg.notBound };
           lastStatus.delete(req.root);
-          log("away", { root: req.root, away: req.away });
-          return { ok: true, kind: "ack" };
+          log("away", { root: req.root, away: true });
+          const view = await herdr.view();
+          let announced;
+          if (connected) {
+            const T = t(langOf(b));
+            const detail = !req.paneId ? T.awayOnNoHerdr : view.bin !== null ? T.awayOnFull : T.awayOnDaemonNoHerdr;
+            try {
+              await channel.send(b.chatId, { card: awayCard(b.label, true, detail, langOf(b)) });
+              announced = true;
+            } catch (err) {
+              log("away.announce-failed", { root: req.root, on: true, err: String(err).slice(0, 200) });
+              announced = false;
+            }
+          } else {
+            log("away.announce-failed", { root: req.root, on: true, err: "not connected" });
+            announced = false;
+          }
+          return { ok: true, kind: "ack", herdr: view, announced };
         }
         case "notify": {
           const b = bindings.touch(req.root, { paneId: req.paneId, label: req.label });
@@ -138883,7 +139025,6 @@ ${msg.renamePermissionHint}` : text;
             if (err instanceof ValidationError) return { ok: false, code: 1, message: err.problems.join("\n") };
             throw err;
           }
-          if (payload.lang) bindings.touch(req.root, { lang: payload.lang });
           try {
             const sent = await channel.send(b.chatId, { card: notifyCard(payload, b.label) });
             rememberCard(sent.messageId, "notify", payload.title);
@@ -138926,13 +139067,12 @@ ${msg.renamePermissionHint}` : text;
             if (err instanceof ValidationError) return { ok: false, code: 1, message: err.problems.join("\n") };
             throw err;
           }
-          if (payload.lang) bindings.touch(req.root, { lang: payload.lang });
           const reqId = randomUUID2().replace(/-/g, "").slice(0, 16);
           const urgent = req.urgent === true;
           let messageId;
           try {
             const sent = await channel.send(b.chatId, {
-              card: askCard({ payload, projectLabel: b.label, reqId, state: "pending", urgent })
+              card: askCard({ payload, projectLabel: b.label, reqId, state: "pending", urgent, lang: langOf(b) })
             });
             messageId = sent.messageId;
           } catch (err) {
@@ -139045,7 +139185,7 @@ init_creds();
 init_herdr();
 import { spawn } from "node:child_process";
 import { existsSync as existsSync5, openSync as openSync2, realpathSync as realpathSync2, unlinkSync as unlinkSync4 } from "node:fs";
-import { resolve as resolve3 } from "node:path";
+import { delimiter, dirname as dirname3, resolve as resolve3 } from "node:path";
 import { fileURLToPath } from "node:url";
 
 // src/tty.ts
@@ -139134,6 +139274,7 @@ for (const stream of [process.stdout, process.stderr]) {
   });
 }
 var HELP = msg.help;
+var cliLang = "en";
 var DEFAULT_SCOPES = [
   "im:message",
   "im:message:send_as_bot",
@@ -139511,6 +139652,15 @@ async function cmdSetup(args) {
   process.exit(code);
 }
 var daemonAlive = () => isDaemonListening(2e3);
+function daemonEnv() {
+  if (!insideHerdr()) return void 0;
+  const bin = process.env.HERDR_BIN_PATH;
+  if (!bin) return void 0;
+  const dir = dirname3(bin);
+  const path2 = process.env.PATH ?? "";
+  if (path2.split(delimiter).includes(dir)) return void 0;
+  return { ...process.env, PATH: `${dir}${delimiter}${path2}` };
+}
 async function startDaemonDetached() {
   const problem = sockPathProblem();
   if (problem) return { ok: false, code: 4, message: problem };
@@ -139518,7 +139668,7 @@ async function startDaemonDetached() {
   ensureHomeDir();
   const out = openSync2(logPath(), "a");
   const self2 = fileURLToPath(import.meta.url);
-  const child = spawn(process.execPath, [self2, "daemon"], { detached: true, stdio: ["ignore", out, out] });
+  const child = spawn(process.execPath, [self2, "daemon"], { detached: true, stdio: ["ignore", out, out], env: daemonEnv() });
   child.unref();
   const deadline = Date.now() + 1e4;
   while (Date.now() < deadline) {
@@ -139526,6 +139676,11 @@ async function startDaemonDetached() {
     if (await isDaemonListening(1e3)) return { ok: true, message: fill(msg.daemonStarted, { pid: child.pid ?? "?", log: logPath() }) };
   }
   return { ok: false, code: 3, message: fill(msg.daemonNoReply, { log: logPath() }) };
+}
+function herdrDaemonViewLine(view) {
+  if (view.bin === null) return msg.statusHerdrDaemonMissing;
+  if (view.reachable) return fill(msg.statusHerdrDaemonOk, { bin: view.bin });
+  return fill(msg.statusHerdrDaemonUnreachable, { bin: view.bin, error: view.error ?? "?" });
 }
 async function cmdDaemon(args) {
   const a = argv("daemon", args);
@@ -139538,6 +139693,8 @@ async function cmdDaemon(args) {
       `${fill(msg.daemonStatusLine, { pid: s.pid, connected: String(s.connected), connection: s.connection, pending: s.pendingAsks, bindings: s.bindings, startedAt: s.startedAt })}
 `
     );
+    process.stdout.write(`${herdrDaemonViewLine(s.herdr)}
+`);
     if (s.lastError) process.stdout.write(`${fill(msg.daemonLastError, { error: s.lastError })}
 `);
     const mb = (s.media.bytes / 1024 / 1024).toFixed(1);
@@ -139782,7 +139939,7 @@ async function cmdAway(args) {
 `);
     }
   }
-  const res = await request({ type: "setAway", root, away, paneId });
+  const res = await request({ type: "setAway", root, away, paneId, lang: cliLang });
   if (!away && !res.ok && (res.reason === "down" || res.reason === "path")) {
     const state = writeProjectState(root, { away: false });
     if (!state) process.stdout.write(`${msg.awayNeverUsed}
@@ -139798,6 +139955,14 @@ ${msg.awayOffLocal}
 `);
     if (away && !insideHerdr()) process.stdout.write(`${msg.awayOutsideHerdr}
 `);
+    if (away && res.ok && res.kind === "ack" && res.herdr && insideHerdr() && res.herdr.bin === null) {
+      process.stderr.write(`${msg.awayDaemonNoHerdr}
+`);
+    }
+    if (res.ok && res.kind === "ack" && res.announced === false) {
+      process.stdout.write(`${msg.awayNotAnnounced}
+`);
+    }
   });
 }
 async function cmdStatus() {
@@ -139819,6 +139984,8 @@ async function cmdStatus() {
       `${fill(msg.statusDaemonLine, { pid: ping.status.pid, connected: String(ping.status.connected), connection: ping.status.connection, pending: ping.status.pendingAsks })}
 `
     );
+    process.stdout.write(`${herdrDaemonViewLine(ping.status.herdr)}
+`);
     if (ping.status.lastError) process.stdout.write(`${fill(msg.daemonLastError, { error: ping.status.lastError })}
 `);
   }
@@ -139860,8 +140027,28 @@ function takeHome(argv2) {
   process.env.LARK_CONNECTOR_HOME = resolve3(dir);
   return [...argv2.slice(0, i), ...argv2.slice(i + (joined ? 1 : 2))];
 }
+function takeLang(argv2) {
+  const i = argv2.findIndex((a) => a === "--lang" || a.startsWith("--lang="));
+  if (i < 0) {
+    try {
+      cliLang = resolveLang();
+    } catch {
+      die(1, msg.badLang);
+    }
+    return argv2;
+  }
+  const joined = argv2[i].startsWith("--lang=");
+  const value = joined ? argv2[i].slice("--lang=".length) : argv2[i + 1];
+  if (!joined && (value === void 0 || value.startsWith("--"))) die(1, msg.badLang);
+  try {
+    cliLang = resolveLang(value, process.env);
+  } catch {
+    die(1, msg.badLang);
+  }
+  return [...argv2.slice(0, i), ...argv2.slice(i + (joined ? 1 : 2))];
+}
 async function main() {
-  const [cmd, ...args] = takeHome(process.argv.slice(2));
+  const [cmd, ...args] = takeLang(takeHome(process.argv.slice(2)));
   const isHelp = cmd === void 0 || cmd === "--help" || cmd === "-h" || cmd === "help";
   if (cmd === "away") {
     const sub = argv("away", args).positional() ?? "status";
@@ -139918,6 +140105,7 @@ if (isEntry)
   });
 export {
   argv,
+  daemonEnv,
   describeError,
   describeProbeError,
   isTransientNetworkError,
