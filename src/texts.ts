@@ -85,6 +85,13 @@ export const zh = {
   awayOnNoHerdr: '这台机器没有 herdr：你主动发的消息**不会**送到终端，只有卡片按钮和对提问的回复能回到 agent。',
   awayOnDaemonNoHerdr: 'daemon 找不到 herdr，重启前你主动发的消息送不到，推荐让 agent 帮你重启 daemon 来使用完整功能。',
   awayOffBody: '远程模式即将关闭，之后请回终端继续；群里的消息不再送达。',
+  // farewell cards: a group about to stop carrying the project (unbind, unbind --dissolve, a switch to another group)
+  unbindFarewellTitle: '本群即将与项目解绑',
+  unbindDissolveFarewellTitle: '本群即将与项目解绑并解散',
+  unbindFarewellBody: '远程模式随之关闭，之后请回终端继续；群里的消息不再送达。群会保留，下次在同一目录开启远程模式时可以选择复用它。',
+  unbindDissolveFarewellBody: '远程模式随之关闭，之后请回终端继续。本群马上会被解散。',
+  switchFarewellBody: '项目换到了群「{name}」，之后的消息与卡片都发到那里；本群的消息不再送达。',
+  switchFarewellBodyNoName: '项目换到了另一个群，之后的消息与卡片都发到那里；本群的消息不再送达。',
   // button / form toasts
   toastAnswered: '已回复',
   toastClosed: '这个问题已经结束了，刚才那下当成新指令发过去了',
@@ -168,6 +175,12 @@ export const en: Record<keyof typeof zh, string> = {
   awayOnDaemonNoHerdr:
     'The daemon cannot find herdr; messages you send on your own will not get through until it is restarted — ask the agent to restart the daemon for full functionality.',
   awayOffBody: 'Remote mode is about to turn off; continue from the terminal from here on — messages in this group will no longer be delivered.',
+  unbindFarewellTitle: 'This group is about to be unbound from the project',
+  unbindDissolveFarewellTitle: 'This group is about to be unbound from the project and dissolved',
+  unbindFarewellBody: 'Remote mode turns off along with it; continue from the terminal from here on — messages in this group will no longer be delivered. The group stays, and can be reused next time remote mode is turned on in this same directory.',
+  unbindDissolveFarewellBody: 'Remote mode turns off along with it; continue from the terminal from here on. This group is about to be dissolved.',
+  switchFarewellBody: 'The project moved to group "{name}"; messages and cards go there from now on — messages in this group will no longer be delivered.',
+  switchFarewellBodyNoName: 'The project moved to another group; messages and cards go there from now on — messages in this group will no longer be delivered.',
   toastAnswered: 'Replied',
   toastClosed: 'This question is already closed; that tap was forwarded as a new instruction',
   toastBadOption: 'That option does not match, try again',
@@ -341,6 +354,10 @@ Exit codes: 0 ok · 1 bad input · 2 timed out, nobody answered · 3 channel fai
   awayOn: 'Remote mode is on: decisions, and moments when the agent is stuck on a prompt that needs you, are pushed to this project\'s Feishu group.',
   awayDaemonNoHerdr: `warning: the daemon cannot find herdr on its PATH (was it started before herdr was installed?). Phone messages cannot be delivered until it is restarted from a herdr pane: ${CLI} daemon --stop, then ${CLI} away on`,
   awayNotAnnounced: '(the group was not notified: the daemon could not send the card)',
+  // bind --chat switching the live group: two groups are involved (the old
+  // one and the new one), so the note does not say which — unlike
+  // awayNotAnnounced, which always means the one group a command touches.
+  bindSwitchNotAnnounced: '(a group was not notified: the daemon could not send a card)',
   // status
   statusCredsYes: 'credentials: configured, from {origin}',
   statusCredsNo: `credentials: not configured; run ${CLI} setup first`,

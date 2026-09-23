@@ -211,11 +211,16 @@ export function statusCard(projectLabel: string, detail: string, lang: Lang = 'e
   return card({ icon: '🔔', title: `[${projectLabel}] ${T.statusBlocked}`, template: 'orange' }, [md(detail)]);
 }
 
-/** Pushed on each remote-mode transition, so the human on the phone learns the channel just opened or is about to close. */
-export function awayCard(projectLabel: string, on: boolean, detail: string, lang: Lang): object {
+/**
+ * Pushed on each remote-mode transition, so the human on the phone learns the
+ * channel just opened or is about to close — and, with `title`, on a group
+ * that is about to stop carrying the project at all (an unbind, a switch to
+ * another group), where the on/off wording does not fit.
+ */
+export function awayCard(projectLabel: string, on: boolean, detail: string, lang: Lang, title?: string): object {
   const T = t(lang);
   return card(
-    { icon: on ? '📱' : '🌙', title: `[${projectLabel}] ${on ? T.awayOnTitle : T.awayOffTitle}`, template: on ? 'green' : 'grey' },
+    { icon: on ? '📱' : '🌙', title: `[${projectLabel}] ${title ?? (on ? T.awayOnTitle : T.awayOffTitle)}`, template: on ? 'green' : 'grey' },
     [md(detail)],
   );
 }

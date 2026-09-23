@@ -73,6 +73,10 @@ same words in a sentence). Each maps to one flow:
 - **`off`** — `away off` (the switch only; the group and the daemon stay). The group is told
   automatically too, before the switch actually flips, so nobody keeps typing into a channel that
   stopped listening; again, no separate `notify` needed for this.
+  The same courtesy covers `unbind`, `unbind --dissolve` and a `bind --chat` switch to another group:
+  each tells the old group it is losing the project before letting it go (a switch also tells the new
+  group it just took over) — but only while remote mode was on for the group being left, and again no
+  separate `notify` needed.
 
 ## Ask a question
 

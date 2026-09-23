@@ -7,7 +7,7 @@ import { createLarkChannel, type CardActionEvent, type LarkChannel, type LarkCha
 import { BindingStore, BindingsFileError, groupName, taskNameProblem, type Binding } from './bindings.js';
 import { askCard, awayCard, checkerName, notifyCard, optionIdOf, receiptCard, statusCard } from './cards.js';
 import { resolveCreds } from './creds.js';
-import { agentList, findPaneForProject, herdrView, promptPane, sendKeys, type AgentInfo } from './herdr.js';
+import { agentList, findPaneForProject, herdrView, promptPane, sendKeys, type AgentInfo, type HerdrView } from './herdr.js';
 import { isDaemonListening, serve, type Candidate, type Request, type Response } from './ipc.js';
 import { legacyGroupMarker } from './migrate.js';
 import { ensureHomeDir, homeDir, ipcEndpoint, logPath, mediaDir, pidPath, sockPath, sockPathProblem, writeProjectState } from './paths.js';
@@ -396,6 +396,39 @@ export async function runDaemon(deps: DaemonDeps = {}): Promise<DaemonHandle> {
 
   /** The language of cards the daemon sends on its own: the project's recorded language (set by `away on`), else English. */
   const langOf = (b: Binding | undefined): Lang => b?.lang ?? 'en';
+
+  /**
+   * The on-card body for a group that just started carrying remote mode: no
+   * recorded pane, a reachable herdr, or a daemon that cannot find herdr at
+   * all. Shared by `setAway` and a `bind --chat` switch that carries remote
+   * mode over to the new group.
+   */
+  const awayOnDetail = (paneId: string | null | undefined, view: HerdrView, lang: Lang): string => {
+    const T = t(lang);
+    return !paneId ? T.awayOnNoHerdr : view.bin !== null ? T.awayOnFull : T.awayOnDaemonNoHerdr;
+  };
+
+  /**
+   * Send a remote-mode card of the daemon's own initiative (the on/off cards,
+   * a farewell, the open card a group switch sends the new group) and report
+   * whether it reached Feishu, logging `away.announce-failed` on any failure
+   * — including not being connected at all, which is a failure to send, not
+   * skipped. Never throws. `on` only labels the log line (the card itself is
+   * `card`, already built for whichever direction this is).
+   */
+  const announce = async (root: string, chatId: string, card: object, on: boolean): Promise<boolean> => {
+    if (!connected) {
+      log('away.announce-failed', { root, on, err: 'not connected' });
+      return false;
+    }
+    try {
+      await channel.send(chatId, { card });
+      return true;
+    } catch (err) {
+      log('away.announce-failed', { root, on, err: String(err).slice(0, 200) });
+      return false;
+    }
+  };
 
   const receipt = async (b: Binding, why: string, uncertain = false): Promise<void> => {
     try {
@@ -1391,8 +1424,13 @@ export async function runDaemon(deps: DaemonDeps = {}): Promise<DaemonHandle> {
             const holder = bindings.byChat(req.chatId);
             if (holder && holder.releasedAt === null && holder.root !== req.root)
               return { ok: false, code: 1, message: fill(msg.bindChatTaken, { chatId: req.chatId, root: holder.root }) };
-            if (switching) bindings.release(req.root);
-            // The name is only for showing the group back later; not knowing it is fine.
+            // Captured before bindings.release() below: release() mutates the
+            // live binding it returns in place (including `away`), and
+            // active() had already handed out that very object as `live`.
+            const wasAway = live?.away ?? false;
+            // The name is only for showing the group back later; not knowing
+            // it is fine — fetched ahead of the release below so a farewell
+            // to the old group, if any, can name where the project went.
             let name = holder?.name ?? null;
             if (connected) {
               try {
@@ -1401,13 +1439,34 @@ export async function runDaemon(deps: DaemonDeps = {}): Promise<DaemonHandle> {
                 // keep whatever was on record
               }
             }
+            // The name a task name given here rewrites the group to below —
+            // computed ahead of that rewrite so the farewell can name the
+            // group by the name it is about to carry, not the one it is
+            // about to lose.
+            const wanted = req.name !== undefined ? groupName(req.name, req.label) : undefined;
+            // A switch while remote mode is on tells the old group where the
+            // project went, before it is let go of — once released there may
+            // be nothing left to send to. A pending `ask` cannot land in the
+            // single await this send takes and then be refused afterwards:
+            // the farewell already commits to closing this channel, so
+            // re-checking and refusing here would leave a farewell sent and
+            // the group still bound — worse than the rare case this window
+            // allows (callers ask serially, one pending question per project
+            // at a time).
+            let farewellAnnounced: boolean | undefined;
+            if (switching && live !== undefined && wasAway) {
+              const switchName = wanted ?? name;
+              const body = switchName ? fill(t(langOf(live)).switchFarewellBody, { name: switchName }) : t(langOf(live)).switchFarewellBodyNoName;
+              farewellAnnounced = await announce(req.root, live.chatId, awayCard(live.label, false, body, langOf(live), t(langOf(live)).unbindFarewellTitle), false);
+            }
+            if (switching) bindings.release(req.root);
             const b: Binding = {
               root: req.root,
               label: req.label,
               chatId: req.chatId,
               name,
               paneId: req.paneId ?? holder?.paneId ?? live?.paneId ?? null,
-              away: live?.away ?? false,
+              away: wasAway,
               lang: holder?.lang ?? live?.lang ?? null,
               boundAt: now,
               releasedAt: null,
@@ -1418,15 +1477,24 @@ export async function runDaemon(deps: DaemonDeps = {}): Promise<DaemonHandle> {
             // The group now belongs to this project: its description says so
             // (that is how it is found again without local records), and a
             // task name given here is applied in the same call.
-            const wanted = req.name !== undefined ? groupName(req.name, req.label) : undefined;
             if (!connected) ctx.note(msg.bindUpdateSkipped);
             else {
               const r = await updateChat(req.chatId, { name: wanted, description: marker });
               if (r.ok && wanted !== undefined) bindings.touch(req.root, { name: wanted });
               else if (!r.ok) ctx.note(fill(msg.bindRenameFailed, { error: r.error }));
             }
+            // The new group carries remote mode over from the old one: it gets
+            // the same open card `setAway` would have sent it directly.
+            let openAnnounced: boolean | undefined;
+            if (switching && b.away) {
+              const view = await herdr.view();
+              openAnnounced = await announce(req.root, b.chatId, awayCard(b.label, true, awayOnDetail(req.paneId, view, langOf(b)), langOf(b)), true);
+            }
             const current = bindings.active(req.root);
-            return { ok: true, kind: 'bind', chatId: req.chatId, how: 'chat', name: current?.name ?? req.chatId };
+            const announced = farewellAnnounced === undefined && openAnnounced === undefined ? undefined : (farewellAnnounced ?? true) && (openAnnounced ?? true);
+            return announced === undefined
+              ? { ok: true, kind: 'bind', chatId: req.chatId, how: 'chat', name: current?.name ?? req.chatId }
+              : { ok: true, kind: 'bind', chatId: req.chatId, how: 'chat', name: current?.name ?? req.chatId, announced };
           }
 
           // The live group stays; a task name given now is applied to it.
@@ -1559,6 +1627,14 @@ export async function runDaemon(deps: DaemonDeps = {}): Promise<DaemonHandle> {
             // Nothing is touched until Feishu can be asked: a group that is
             // still there with no record of it is the one state to avoid.
             if (!connected) return notConnected();
+            // The farewell goes out first, while the group is still live and
+            // remote mode is still on for it — once deleteChat runs there may
+            // be no group left to send it to.
+            let announced: boolean | undefined;
+            if (live.away) {
+              const card = awayCard(live.label, false, t(langOf(live)).unbindDissolveFarewellBody, langOf(live), t(langOf(live)).unbindDissolveFarewellTitle);
+              announced = await announce(req.root, live.chatId, card, false);
+            }
             const r = await deleteChat(live.chatId, name);
             // Refused or not, the record goes: the human said the group is
             // not wanted, and a stale record would only be offered back.
@@ -1566,17 +1642,32 @@ export async function runDaemon(deps: DaemonDeps = {}): Promise<DaemonHandle> {
             refreshPolicy();
             lastStatus.delete(req.root);
             log('unbind', { root: req.root, chatId: live.chatId, dissolved: r.ok });
-            if (r.ok) return { ok: true, kind: 'unbind', chatId: live.chatId, name, dissolved: true };
+            if (r.ok) return announced === undefined ? { ok: true, kind: 'unbind', chatId: live.chatId, name, dissolved: true } : { ok: true, kind: 'unbind', chatId: live.chatId, name, dissolved: true, announced };
             // The group stays; without its marker the scan will not offer it back.
             const cleared = await clearMarker(live.chatId);
             const problem = `${r.error} ${cleared.ok ? msg.dissolveMarkerCleared : fill(msg.dissolveMarkerKept, { error: cleared.error })}`;
-            return { ok: true, kind: 'unbind', chatId: live.chatId, name, dissolved: false, problem };
+            return announced === undefined
+              ? { ok: true, kind: 'unbind', chatId: live.chatId, name, dissolved: false, problem }
+              : { ok: true, kind: 'unbind', chatId: live.chatId, name, dissolved: false, problem, announced };
+          }
+          // Same reasoning as the dissolve branch above: the farewell goes
+          // out while the group is still the project's live one. A pending
+          // `ask` cannot land in the single await this send takes and then
+          // be refused afterwards: the farewell already commits to closing
+          // this channel, so re-checking and refusing here would leave a
+          // farewell sent and the group still bound — worse than the rare
+          // case this window allows (callers ask serially, one pending
+          // question per project at a time).
+          let announced: boolean | undefined;
+          if (live.away) {
+            const card = awayCard(live.label, false, t(langOf(live)).unbindFarewellBody, langOf(live), t(langOf(live)).unbindFarewellTitle);
+            announced = await announce(req.root, live.chatId, card, false);
           }
           bindings.release(req.root);
           refreshPolicy();
           lastStatus.delete(req.root);
           log('unbind', { root: req.root, chatId: live.chatId });
-          return { ok: true, kind: 'unbind', chatId: live.chatId, name };
+          return announced === undefined ? { ok: true, kind: 'unbind', chatId: live.chatId, name } : { ok: true, kind: 'unbind', chatId: live.chatId, name, announced };
         }
 
         case 'rename': {
@@ -1602,24 +1693,21 @@ export async function runDaemon(deps: DaemonDeps = {}): Promise<DaemonHandle> {
             // the human on the phone is told before the channel actually
             // stops listening to them — flipping the switch first would leave
             // a window where messages they send are already ignored but no
-            // card has told them so.
+            // card has told them so. Remote mode already off has nothing to
+            // announce: no card, and `announced` is left unset.
             let announced: boolean | undefined;
-            if (connected) {
-              try {
-                await channel.send(live.chatId, { card: awayCard(live.label, false, t(langOf(live)).awayOffBody, langOf(live)) });
-                announced = true;
-              } catch (err) {
-                log('away.announce-failed', { root: req.root, on: false, err: String(err).slice(0, 200) });
-                announced = false;
-              }
-            } else {
-              log('away.announce-failed', { root: req.root, on: false, err: 'not connected' });
-              announced = false;
+            if (live.away) {
+              const card = awayCard(live.label, false, t(langOf(live)).awayOffBody, langOf(live));
+              announced = await announce(req.root, live.chatId, card, false);
             }
             bindings.touch(req.root, { away: false, paneId: req.paneId });
             lastStatus.delete(req.root);
             log('away', { root: req.root, away: false });
-            return { ok: true, kind: 'ack', announced };
+            // `announced` is left off the reply entirely when there was
+            // nothing to announce, rather than carried as an explicit
+            // `undefined` — the field means "did the card reach Feishu", not
+            // "was a card attempted at all".
+            return announced === undefined ? { ok: true, kind: 'ack' } : { ok: true, kind: 'ack', announced };
           }
 
           const patch: Partial<Pick<Binding, 'paneId' | 'away' | 'lang'>> = { away: true, paneId: req.paneId };
@@ -1634,21 +1722,8 @@ export async function runDaemon(deps: DaemonDeps = {}): Promise<DaemonHandle> {
           // The on card is built only once the language just recorded above
           // is on the binding, so it renders in the language the human just
           // asked for rather than whatever was there before this call.
-          let announced: boolean | undefined;
-          if (connected) {
-            const T = t(langOf(b));
-            const detail = !req.paneId ? T.awayOnNoHerdr : view.bin !== null ? T.awayOnFull : T.awayOnDaemonNoHerdr;
-            try {
-              await channel.send(b.chatId, { card: awayCard(b.label, true, detail, langOf(b)) });
-              announced = true;
-            } catch (err) {
-              log('away.announce-failed', { root: req.root, on: true, err: String(err).slice(0, 200) });
-              announced = false;
-            }
-          } else {
-            log('away.announce-failed', { root: req.root, on: true, err: 'not connected' });
-            announced = false;
-          }
+          const card = awayCard(b.label, true, awayOnDetail(req.paneId, view, langOf(b)), langOf(b));
+          const announced = await announce(req.root, b.chatId, card, true);
           return { ok: true, kind: 'ack', herdr: view, announced };
         }
 

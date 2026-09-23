@@ -155,7 +155,13 @@ are `away on`'s; `bind` itself prints `✅ Already bound to Feishu group "…" (
    live group is refused (rc 1 `group oc_… is the live group of another project (<root>); unbind it there first`);
    switching away from this project's own live group while a question is pending is refused like `unbind` (rc 4).
    The bot must be a member of the group: one it is not in is not in Feishu's list for it, and the
-   next sweep (§6) forgets the record again.
+   next sweep (§6) forgets the record again. Switching away from a live group while remote mode is on
+   for it sends that group a farewell card naming the new one (or a nameless version when Feishu could
+   not say), before it is let go of, and the new group gets the same open card `away on` would have sent
+   it directly — nothing while remote mode was off. Not connected, or either send failing, does not fail
+   the `bind` itself; stdout then carries a trailing `(a group was not notified: the daemon could not
+   send a card)` — a wording of its own, since a switch touches two groups and `bind` does not say which
+   one went unnotified.
 2. The project has a live group ⇒ it is kept (`Connected to Feishu group "…"`); `--name` renames it in the
    same call; `--reuse` / `--new` are ignored with a `note:`.
 3. No live group ⇒ **candidates** are collected: groups this project released earlier (on record) plus
@@ -175,7 +181,13 @@ are `away on`'s; `bind` itself prints `✅ Already bound to Feishu group "…" (
 `unbind` (rc 1 `this project is not bound`; rc 4 `a question is still pending on the phone; answer it or wait for the timeout`)
 sets `releasedAt`, switches `away` off on that binding, and makes the daemon stop listening to the
 group; the group itself is untouched in Feishu. `unbind --dissolve` (same rc 1 / rc 4 refusals) asks
-Feishu to dissolve the group (`im.v1.chat.delete`) and forgets the record either way:
+Feishu to dissolve the group (`im.v1.chat.delete`) and forgets the record either way. Either form sends
+the group a farewell card first, while remote mode is still on for it and before the release / the
+dissolve call — the plain form says the group is kept and can be reused, `--dissolve` that it is about
+to be dissolved; nothing while remote mode was already off. Not connected (the plain form only —
+`--dissolve` refuses outright when not connected, below) or the send failing does not block the unbind
+itself — stdout then adds a trailing
+`(the group was not notified: the daemon could not send the card)`:
 
 - not connected to Feishu ⇒ rc 3 (`not connected to Feishu (<last error>); the daemon keeps retrying, try again shortly`), nothing changes; a plain `unbind` still works;
 - Feishu dissolved it ⇒ rc 0, `Dissolved Feishu group "<name>"; the local record is removed.`;
@@ -374,7 +386,8 @@ written here.
 
 - **Cards**: the project's language is set once, by `away on` — a global `--lang zh|en` on that call, else
   `LARK_CONNECTOR_LANG`, else the system locale, else `en` — and recorded on the binding (`lang` above).
-  Every card the daemon renders for this project follows it from then on: the on/off cards, an `ask`
+  Every card the daemon renders for this project follows it from then on: the on/off cards, the farewell
+  an `unbind` or a group switch sends and the open card such a switch sends the new group, an `ask`
   card's wording (section labels, `← recommended`, hints, `Submit`, confirm dialogs, `Answered` /
   `Timed out` / `Cancelled`), the receipt (§5) and the stuck alert (§5). **Before any `away on`, `en`.**
   Neither `ask` nor `notify` takes a `lang` of its own any more: an unknown `lang` key in either JSON is

@@ -456,6 +456,165 @@ test('bind --chat while another group is live releases the old one; a group live
   await daemon.stop();
 });
 
+// ---- bind --chat: switching while remote mode is on ------------------------
+
+test('bind --chat: switching from an away-on group sends the old group its farewell (naming the new group) and the new group its open card', PER_TEST, async () => {
+  const { daemon, fake } = await start({
+    getChatInfo: async (id) => ({ chatId: id, chatType: 'group', name: id === 'oc_2' ? 'new task [p]' : undefined }),
+    chatUpdate: async () => ({ code: 0 }),
+  });
+  await connected();
+  await bindChat('/p', 'oc_1');
+  await request({ type: 'setAway', root: '/p', away: true, paneId: 'w1:p1', lang: 'en' });
+  const res = await request({ type: 'bind', root: '/p', label: 'p', paneId: 'w1:p1', chatId: 'oc_2' });
+  assert.ok(res.ok && res.kind === 'bind' && res.announced === true, JSON.stringify(res));
+  assert.equal(fake.sent.length, 3, 'the away-on card, the farewell to the old group, the open card to the new group');
+  assert.equal((fake.sent[1] as { chatId?: string }).chatId, 'oc_1');
+  assert.equal((fake.sent[2] as { chatId?: string }).chatId, 'oc_2');
+  const farewell = sentCard(fake, 1);
+  assert.equal(farewell.header.template, 'grey');
+  assert.equal(farewell.header.title.content, `🌙 [p] ${enText.unbindFarewellTitle}`);
+  assert.equal(String(farewell.body.elements[0]!.content), fill(enText.switchFarewellBody, { name: 'new task [p]' }));
+  const open = sentCard(fake, 2);
+  assert.equal(open.header.template, 'green');
+  assert.equal(open.header.title.content, `📱 [p] ${enText.awayOnTitle}`);
+  assert.match(String(open.body.elements[0]!.content), /delivered into the terminal/);
+  await daemon.stop();
+});
+
+test('bind --chat --name: switching while renaming the new group — the old group\'s farewell uses the new name, not the pre-rename one', PER_TEST, async () => {
+  const { daemon, fake } = await start({
+    // getChatInfo answers with the group's name before the rename below runs.
+    getChatInfo: async (id) => ({ chatId: id, chatType: 'group', name: id === 'oc_2' ? 'stale name [p]' : undefined }),
+    chatUpdate: async () => ({ code: 0 }),
+  });
+  await connected();
+  await bindChat('/p', 'oc_1');
+  await request({ type: 'setAway', root: '/p', away: true, paneId: 'w1:p1', lang: 'en' });
+  const res = await request({ type: 'bind', root: '/p', label: 'p', paneId: 'w1:p1', chatId: 'oc_2', name: 'new task' });
+  assert.ok(res.ok, JSON.stringify(res));
+  const farewell = sentCard(fake, 1);
+  assert.equal(String(farewell.body.elements[0]!.content), fill(enText.switchFarewellBody, { name: 'new task [p]' }));
+  await daemon.stop();
+});
+
+test('bind --chat: switching from an away-on group sends the farewell before bindings.release, and the persisted bindings carry the right away flags', PER_TEST, async () => {
+  const seenAtSend: Array<{ releasedAt: unknown; chatId: string | undefined }> = [];
+  const { daemon, fake, home } = await start({
+    getChatInfo: async (id) => ({ chatId: id, chatType: 'group', name: id === 'oc_2' ? 'new task [p]' : undefined }),
+    chatUpdate: async () => ({ code: 0 }),
+    send: async (chatId) => {
+      // The farewell to the old group is the second card sent (index 1); the
+      // first is the away-on card from setAway(true) below.
+      if (fake.sent.length !== 2) return;
+      seenAtSend.push({ releasedAt: (await bindings(home)).find((b) => b.chatId === 'oc_1')?.releasedAt ?? null, chatId });
+    },
+  });
+  await connected();
+  await bindChat('/p', 'oc_1');
+  await request({ type: 'setAway', root: '/p', away: true, paneId: 'w1:p1', lang: 'en' });
+  const res = await request({ type: 'bind', root: '/p', label: 'p', paneId: 'w1:p1', chatId: 'oc_2' });
+  assert.ok(res.ok, JSON.stringify(res));
+  assert.deepEqual(seenAtSend, [{ releasedAt: null, chatId: 'oc_1' }], 'the old group was still live at the moment the farewell was sent');
+  const all = await bindings(home);
+  const old = all.find((b) => b.chatId === 'oc_1');
+  const cur = all.find((b) => b.chatId === 'oc_2');
+  assert.equal(old?.away, false, 'the released group has away off');
+  assert.match(String(old?.releasedAt), /^\d{4}-/);
+  assert.equal(cur?.away, true, 'the new binding inherits the pre-switch away value');
+  assert.equal(cur?.releasedAt, null);
+  await daemon.stop();
+});
+
+test('bind --chat: switching to a group Feishu cannot name — the old group\'s farewell uses the no-name wording', PER_TEST, async () => {
+  const { daemon, fake } = await start({
+    getChatInfo: async () => {
+      throw new Error('boom');
+    },
+  });
+  await connected();
+  await bindChat('/p', 'oc_1');
+  await request({ type: 'setAway', root: '/p', away: true, paneId: 'w1:p1', lang: 'en' });
+  const res = await request({ type: 'bind', root: '/p', label: 'p', paneId: 'w1:p1', chatId: 'oc_2' });
+  assert.ok(res.ok, JSON.stringify(res));
+  const farewell = sentCard(fake, 1);
+  assert.equal(String(farewell.body.elements[0]!.content), enText.switchFarewellBodyNoName);
+  await daemon.stop();
+});
+
+test('bind --chat: switching — the farewell to the old group succeeds but the open card to the new group fails: announced:false', PER_TEST, async () => {
+  let calls = 0;
+  const { daemon } = await start({
+    getChatInfo: async (id) => ({ chatId: id, chatType: 'group', name: id === 'oc_2' ? 'new task [p]' : undefined }),
+    chatUpdate: async () => ({ code: 0 }),
+    send: async () => {
+      calls += 1;
+      // 1: the away-on card, 2: the farewell (let it through), 3: the open card.
+      if (calls === 3) throw new Error('boom');
+    },
+  });
+  await connected();
+  await bindChat('/p', 'oc_1');
+  await request({ type: 'setAway', root: '/p', away: true, paneId: 'w1:p1', lang: 'en' });
+  const res = await request({ type: 'bind', root: '/p', label: 'p', paneId: 'w1:p1', chatId: 'oc_2' });
+  assert.ok(res.ok && res.kind === 'bind' && res.announced === false, JSON.stringify(res));
+  await daemon.stop();
+});
+
+test('bind --chat: switching with paneId:null — the new group\'s open card uses the no-herdr wording, the same as setAway would send it', PER_TEST, async () => {
+  const { daemon, fake } = await start({
+    getChatInfo: async (id) => ({ chatId: id, chatType: 'group', name: id === 'oc_2' ? 'new task [p]' : undefined }),
+    chatUpdate: async () => ({ code: 0 }),
+  });
+  await connected();
+  await bindChat('/p', 'oc_1');
+  await request({ type: 'setAway', root: '/p', away: true, paneId: 'w1:p1', lang: 'en' });
+  const res = await request({ type: 'bind', root: '/p', label: 'p', paneId: null, chatId: 'oc_2' });
+  assert.ok(res.ok, JSON.stringify(res));
+  const open = sentCard(fake, 2);
+  assert.match(String(open.body.elements[0]!.content), /only button taps and replies to a question make it back to the agent/);
+  await daemon.stop();
+});
+
+test('bind --chat: switching groups while away is off sends neither card', PER_TEST, async () => {
+  const { daemon, fake } = await start({ getChatInfo: async (id) => ({ chatId: id, chatType: 'group', name: undefined }) });
+  await connected();
+  await bindChat('/p', 'oc_1');
+  const res = await bindChat('/p', 'oc_2');
+  assert.ok(res.ok && res.kind === 'bind' && !('announced' in res), JSON.stringify(res));
+  assert.equal(fake.sent.length, 0);
+  await daemon.stop();
+});
+
+test('bind --chat: re-pointing at the same live group while away is on is not a switch — no extra card', PER_TEST, async () => {
+  const { daemon, fake } = await start();
+  await connected();
+  await bindChat('/p', 'oc_1');
+  await request({ type: 'setAway', root: '/p', away: true, paneId: 'w1:p1' });
+  const before = fake.sent.length;
+  const res = await bindChat('/p', 'oc_1');
+  assert.ok(res.ok && res.kind === 'bind' && !('announced' in res), JSON.stringify(res));
+  assert.equal(fake.sent.length, before);
+  await daemon.stop();
+});
+
+test('bind --chat: switching while away is on but Feishu is unreachable — no cards attempted, announced:false, the switch still happens', PER_TEST, async () => {
+  const { daemon, home } = await start({
+    connect: async () => {
+      throw new Error('offline');
+    },
+  });
+  await waitFor(async () => (await ping())?.lastError, 'the failed handshake');
+  await bindChat('/p', 'oc_1');
+  await request({ type: 'setAway', root: '/p', away: true, paneId: 'w1:p1' });
+  const res = await request({ type: 'bind', root: '/p', label: 'p', paneId: 'w1:p1', chatId: 'oc_2' });
+  assert.ok(res.ok && res.kind === 'bind' && res.announced === false, JSON.stringify(res));
+  const all = await bindings(home);
+  assert.match(String(all.find((b) => b.chatId === 'oc_1')?.releasedAt), /^\d{4}-/);
+  assert.equal(all.find((b) => b.chatId === 'oc_2')?.releasedAt, null);
+  await daemon.stop();
+});
+
 test('unbind: code 4 while a question is pending; then the group leaves the allowlist, away is off, a second unbind is code 1', PER_TEST, async () => {
   const { daemon, fake, home } = await start();
   await connected();
@@ -470,7 +629,11 @@ test('unbind: code 4 while a question is pending; then the group leaves the allo
   await fake.message({ chatId: 'oc_x', content: 'Keep' });
   await asking;
   const res = await request({ type: 'unbind', root: '/p' });
-  assert.deepEqual(res, { ok: true, kind: 'unbind', chatId: 'oc_x', name: 'oc_x' });
+  // away was on, so the unbind also sends the farewell card: the away-on
+  // card, the question card, its rewrite to "answered" (also counted in
+  // `sent`), then the farewell.
+  assert.deepEqual(res, { ok: true, kind: 'unbind', chatId: 'oc_x', name: 'oc_x', announced: true });
+  assert.equal(fake.sent.length, 4);
   assert.deepEqual(lastAllowlist(fake), []);
   const entry = (await bindings(home)).find((b) => b.chatId === 'oc_x');
   assert.equal(entry?.away, false);
@@ -479,6 +642,73 @@ test('unbind: code 4 while a question is pending; then the group leaves the allo
   const again = await request({ type: 'unbind', root: '/p' });
   assert.equal(again.ok, false);
   if (!again.ok) assert.equal(again.code, 1);
+  await daemon.stop();
+});
+
+// ---- unbind: the farewell card -------------------------------------------------
+
+test('unbind: away off sends no card and the outcome carries no announced field', PER_TEST, async () => {
+  const { daemon, fake } = await start();
+  await connected();
+  await bindChat('/p', 'oc_x');
+  const res = await request({ type: 'unbind', root: '/p' });
+  assert.deepEqual(res, { ok: true, kind: 'unbind', chatId: 'oc_x', name: 'oc_x' });
+  assert.equal(fake.sent.length, 0);
+  await daemon.stop();
+});
+
+test('unbind: away on sends the farewell card before the group is released, grey/moon, the shared unbind title, en wording', PER_TEST, async () => {
+  const seenAtSend: unknown[] = [];
+  const { daemon, fake, home } = await start({
+    send: async () => {
+      seenAtSend.push((await bindings(home)).find((b) => b.chatId === 'oc_x')?.releasedAt ?? null);
+    },
+  });
+  await connected();
+  await bindChat('/p', 'oc_x');
+  await request({ type: 'setAway', root: '/p', away: true, paneId: 'w1:p1', lang: 'en' });
+  const res = await request({ type: 'unbind', root: '/p' });
+  assert.ok(res.ok && res.kind === 'unbind' && res.announced === true, JSON.stringify(res));
+  assert.equal(fake.sent.length, 2, 'the away-on card, then the farewell card');
+  assert.deepEqual(seenAtSend, [null, null], 'the group was still live at the moment both cards were sent');
+  const card = sentCard(fake, 1);
+  assert.equal(card.header.template, 'grey');
+  assert.equal(card.header.title.content, `🌙 [p] ${enText.unbindFarewellTitle}`);
+  assert.equal(String(card.body.elements[0]!.content), enText.unbindFarewellBody);
+  await daemon.stop();
+});
+
+test('unbind: the farewell card fails to send — the unbind still succeeds, announced:false, logged', PER_TEST, async () => {
+  let calls = 0;
+  const { daemon, home } = await start({
+    send: async () => {
+      calls += 1;
+      if (calls === 2) throw new Error('boom');
+    },
+  });
+  await connected();
+  await bindChat('/p', 'oc_x');
+  await request({ type: 'setAway', root: '/p', away: true, paneId: 'w1:p1' });
+  const res = await request({ type: 'unbind', root: '/p' });
+  assert.ok(res.ok && res.kind === 'unbind' && res.announced === false, JSON.stringify(res));
+  assert.match(String((await bindings(home)).find((b) => b.chatId === 'oc_x')?.releasedAt), /^\d{4}-/);
+  const log = readFileSync(join(home, 'daemon.log'), 'utf8');
+  assert.match(log, /away\.announce-failed.*"on":false/);
+  await daemon.stop();
+});
+
+test('unbind: away on but Feishu is not reachable — the farewell is not attempted, announced:false, unbind still succeeds', PER_TEST, async () => {
+  const { daemon, home } = await start({
+    connect: async () => {
+      throw new Error('offline');
+    },
+  });
+  await waitFor(async () => (await ping())?.lastError, 'the failed handshake');
+  await bindChat('/p', 'oc_x');
+  await request({ type: 'setAway', root: '/p', away: true, paneId: 'w1:p1' });
+  const res = await request({ type: 'unbind', root: '/p' });
+  assert.ok(res.ok && res.kind === 'unbind' && res.announced === false, JSON.stringify(res));
+  assert.match(String((await bindings(home)).find((b) => b.chatId === 'oc_x')?.releasedAt), /^\d{4}-/);
   await daemon.stop();
 });
 
@@ -575,6 +805,84 @@ test('unbind --dissolve when the SDK call throws: the record is still forgotten,
   assert.equal(res.dissolved, false);
   assert.match(res.problem ?? '', /socket hang up/);
   assert.deepEqual(await bindings(home), []);
+  await daemon.stop();
+});
+
+// ---- unbind --dissolve: the farewell card ---------------------------------
+
+test('unbind --dissolve: away off sends no card', PER_TEST, async () => {
+  const { daemon, fake } = await start({ chatDelete: async () => ({ code: 0 }) });
+  await connected();
+  await bindChat('/p', 'oc_x');
+  const res = await dissolve();
+  assert.equal(res.ok, true, JSON.stringify(res));
+  if (!res.ok || res.kind !== 'unbind') return;
+  assert.equal('announced' in res, false);
+  assert.equal(fake.sent.length, 0);
+  await daemon.stop();
+});
+
+test('unbind --dissolve: away on sends the farewell card before deleteChat, grey/moon, the dissolve title, en wording, dissolved:true announced:true', PER_TEST, async () => {
+  const seenAtDelete: number[] = [];
+  const { daemon, fake } = await start({
+    chatDelete: async () => {
+      seenAtDelete.push(fake.sent.length);
+      return { code: 0 };
+    },
+  });
+  await connected();
+  await bindChat('/p', 'oc_x');
+  await request({ type: 'setAway', root: '/p', away: true, paneId: 'w1:p1', lang: 'en' });
+  const res = await dissolve();
+  assert.equal(res.ok, true, JSON.stringify(res));
+  if (!res.ok || res.kind !== 'unbind') return;
+  assert.equal(res.dissolved, true);
+  assert.equal(res.announced, true);
+  assert.deepEqual(seenAtDelete, [2], 'both the away-on and farewell cards were already sent when deleteChat ran');
+  const card = sentCard(fake, 1);
+  assert.equal(card.header.template, 'grey');
+  assert.equal(card.header.title.content, `🌙 [p] ${enText.unbindDissolveFarewellTitle}`);
+  assert.equal(String(card.body.elements[0]!.content), enText.unbindDissolveFarewellBody);
+  await daemon.stop();
+});
+
+test('unbind --dissolve: the farewell card fails to send — the dissolve still proceeds, announced:false', PER_TEST, async () => {
+  let calls = 0;
+  const { daemon, home } = await start({
+    chatDelete: async () => ({ code: 0 }),
+    send: async () => {
+      calls += 1;
+      if (calls === 2) throw new Error('boom');
+    },
+  });
+  await connected();
+  await bindChat('/p', 'oc_x');
+  await request({ type: 'setAway', root: '/p', away: true, paneId: 'w1:p1' });
+  const res = await dissolve();
+  assert.equal(res.ok, true, JSON.stringify(res));
+  if (!res.ok || res.kind !== 'unbind') return;
+  assert.equal(res.dissolved, true);
+  assert.equal(res.announced, false);
+  assert.deepEqual(await bindings(home), []);
+  await daemon.stop();
+});
+
+test('unbind --dissolve: Feishu refuses the dissolve and the farewell also fails to send: dissolved:false, announced:false', PER_TEST, async () => {
+  const { daemon } = await start({
+    chatDelete: async () => ({ code: 232002, msg: 'no permission' }),
+    chatUpdate: async () => ({ code: 0 }),
+    send: async () => {
+      throw new Error('boom');
+    },
+  });
+  await connected();
+  await bindChat('/p', 'oc_x');
+  await request({ type: 'setAway', root: '/p', away: true, paneId: 'w1:p1' });
+  const res = await dissolve();
+  assert.equal(res.ok, true, JSON.stringify(res));
+  if (!res.ok || res.kind !== 'unbind') return;
+  assert.equal(res.dissolved, false);
+  assert.equal(res.announced, false);
   await daemon.stop();
 });
 
@@ -830,8 +1138,9 @@ test('a message in a released group is ignored; the stuck-alert poll only watche
   herdr.agents = [{ agent: 'claude', agent_status: 'blocked', cwd: '/p', pane_id: 'w1:p1', focused: true }];
   await fake.message({ chatId: 'oc_old', content: 'hello?' });
   assert.equal(herdr.prompts.length, 0);
-  // The only card sent in this test is the away-on one from setAway(true) above.
-  assert.equal(fake.sent.length, 1);
+  // Two cards were sent before the message: the away-on one from setAway(true),
+  // then the unbind farewell (away was still on at the time of the unbind).
+  assert.equal(fake.sent.length, 2);
   await daemon.stop();
 });
 
@@ -919,6 +1228,16 @@ test('setAway false with no live group is a no-op ack; setAway true still needs 
   const on = await request({ type: 'setAway', root: '/p', away: true, paneId: null });
   assert.equal(on.ok, false);
   if (!on.ok) assert.equal(on.code, 4);
+  await daemon.stop();
+});
+
+test('setAway false when the live group already has away off sends no card and the ack carries no announced field', PER_TEST, async () => {
+  const { daemon, fake } = await start();
+  await connected();
+  await bindChat('/p', 'oc_x');
+  const res = await request({ type: 'setAway', root: '/p', away: false, paneId: null });
+  assert.deepEqual(res, { ok: true, kind: 'ack' });
+  assert.equal(fake.sent.length, 0);
   await daemon.stop();
 });
 
