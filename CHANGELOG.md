@@ -11,6 +11,43 @@ Before 0.2.0 this repository was a section of the `agent-remote-communication-sk
 `agent-lark/vX.Y.Z` there; the entries below for those versions are unchanged, and the same versions are
 tagged plain `vX.Y.Z` here.
 
+### [0.3.0][lark-connector-0.3.0] - 2026-09-23
+
+#### Added
+
+- Switching remote mode on or off now posts a card to the project's group. The "on" card says what the
+  channel can actually do right now: messages typed in the group reach the terminal, or — when herdr is
+  absent, or the daemon cannot find it — what will not get through and what to do about it. The "off" card
+  goes out *before* the switch flips, so the last thing in the group is "continue from the terminal".
+- `status` and `daemon --status` print the daemon's own view of herdr: the path it resolved, or that it
+  found nothing on its PATH, with the two commands that fix it.
+- A global `--lang zh|en`, resolved as `--lang` > `LARK_CONNECTOR_LANG` > the system locale > `en`.
+
+#### Changed
+
+- Every command the CLI tells a human to run is now the full `node "<path>/dist/cli.mjs" …` form instead of
+  the bare name `lark-connector`, which is on nobody's PATH. The READMEs drop the alias step and give the
+  install locations instead; SKILL.md's examples follow the same form.
+- A message that could not be injected because the daemon cannot find the herdr executable now gets its own
+  receipt, explaining that the daemon was most likely started before herdr was installed and to restart it
+  from a herdr pane. The previous wording stays for a herdr that is found but does not answer.
+- `daemon --detach` started from inside herdr adds herdr's own directory to the daemon's PATH, so the case
+  above does not arise for daemons started that way.
+
+#### Fixed
+
+- Claude Code 2.1.278 wraps pasted text in its session transcript, which broke the check that turns the
+  queued reaction into `Get` the moment the agent reads the message — it fell back to waiting for the pane
+  to go idle, one whole turn later. The wrapper is now stripped before the comparison, and a read record
+  that matches no pending message is logged as `queued.unmatched`, so the next format change is visible
+  instead of silent.
+
+#### BREAKING
+
+- `ask` and `notify` no longer accept a `lang` field. A project's language is set once, by `away on`, and
+  every card the daemon renders for that project uses it. Callers that still pass `lang` are not rejected —
+  the field is ignored.
+
 ### [0.2.0][lark-connector-0.2.0] - 2026-09-20
 
 #### Changed
@@ -246,6 +283,7 @@ Feishu custom app of your own instead of a public notification service.
 - `node --test` suite (cards, validation, IPC, daemon with a fake Feishu channel, the CLI against a fake daemon)
   on ubuntu / windows / macos × Node 22 / 24.
 
+[lark-connector-0.3.0]: https://github.com/yezhoujie/lark-connector/compare/v0.2.0...v0.3.0
 [lark-connector-0.2.0]: https://github.com/yezhoujie/lark-connector/compare/v0.1.4...v0.2.0
 [agent-lark-0.1.4]: https://github.com/yezhoujie/lark-connector/compare/v0.1.3...v0.1.4
 [agent-lark-0.1.3]: https://github.com/yezhoujie/lark-connector/compare/v0.1.2...v0.1.3
