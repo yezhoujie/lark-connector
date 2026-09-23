@@ -4,7 +4,7 @@ import { after, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, writeFileSync, chmodSync } from 'node:fs';
 import { platform as hostPlatform, tmpdir } from 'node:os';
-import { join, posix } from 'node:path';
+import { join, posix, win32 } from 'node:path';
 
 import {
   closePane,
@@ -132,26 +132,59 @@ function writeExecutable(path: string, mode = 0o755): void {
   chmodSync(path, mode);
 }
 
+/**
+ * A herdr binary a lookup on THIS host would actually find: a bare,
+ * executable `herdr` on POSIX; `herdr.CMD` on win32 (`.CMD` is part of
+ * PATHEXT's own default list, `.EXE;.CMD;.BAT;.COM`). Real on-disk paths are
+ * always host-shaped — a Windows temp path's own drive letter carries a
+ * `:` — so any case that needs a real file on disk drives findHerdrOnPath
+ * with the host's own platform rather than an injected one, and uses this to
+ * build the matching fixture.
+ */
+function herdrViewBin(dir: string): string {
+  if (hostPlatform() === 'win32') {
+    const bin = join(dir, 'herdr.CMD');
+    writeFileSync(bin, '@echo off\r\n');
+    return bin;
+  }
+  const bin = join(dir, 'herdr');
+  writeExecutable(bin);
+  return bin;
+}
+
 after(() => {
   for (const dir of scratch) rmSync(dir, { recursive: true, force: true });
 });
 
 test('findHerdrOnPath: finds an executable herdr on a later PATH entry, ahead of dirs without it', () => {
+  // Driven by the real host platform, not a fixed 'darwin': mkdtempSync
+  // hands back a host-shaped absolute path, and on win32 that path's own
+  // drive letter carries a ':'. Forcing 'darwin' (posix.delimiter is ':')
+  // would let that drive-letter ':' collide with the join delimiter and
+  // shred the path into meaningless fragments on a Windows runner — that is
+  // exactly what happened before this fix. Matching the injected platform to
+  // the real host, and joining with that platform's own delimiter, keeps the
+  // two consistent on any host: on POSIX neither the delimiter (':') nor the
+  // real temp path contains the other's character; on win32 the delimiter
+  // is ';', which never collides with the drive letter's ':'.
   const empty = freshDir('al-path-empty-');
   const withBin = freshDir('al-path-has-herdr-');
-  const bin = join(withBin, 'herdr');
-  writeExecutable(bin);
-  // posix.delimiter, not the bare `delimiter` import (host-fixed: `;` on
-  // Windows): the platform passed to findHerdrOnPath is 'darwin', so the
-  // PATH string must be joined the same way that branch will split it,
-  // regardless of what host is actually running the test.
-  const env = { PATH: [empty, withBin].join(posix.delimiter) };
-  assert.equal(findHerdrOnPath(env, 'darwin'), bin);
+  const bin = herdrViewBin(withBin);
+  const platform = hostPlatform();
+  const delim = platform === 'win32' ? win32.delimiter : posix.delimiter;
+  const env = { PATH: [empty, withBin].join(delim) };
+  assert.equal(findHerdrOnPath(env, platform), bin);
 });
 
 test('findHerdrOnPath: nothing on PATH is null', () => {
+  // Same reasoning as above: a single real temp dir handed to a hard-coded
+  // 'darwin' would still be shredded around its own drive-letter ':' on a
+  // win32 host, and would happen to return null anyway — but for the wrong
+  // reason (a mangled path, not an empty directory). Driven by the real host
+  // platform instead, so the null comes from the directory genuinely holding
+  // nothing.
   const empty = freshDir('al-path-empty-');
-  assert.equal(findHerdrOnPath({ PATH: empty }, 'darwin'), null);
+  assert.equal(findHerdrOnPath({ PATH: empty }, hostPlatform()), null);
 });
 
 test('findHerdrOnPath: a non-executable file on PATH is skipped on POSIX', { skip: hostPlatform() === 'win32' }, () => {
@@ -168,7 +201,10 @@ test('findHerdrOnPath: win32 tries PATHEXT-suffixed names, defaulting to .EXE;.C
   writeFileSync(bin, '@echo off\n');
   // Joined with a literal `;`, not the host's own `path.delimiter` (`:` on
   // this test's POSIX host): the win32 branch must split on `;` regardless
-  // of what OS is actually running the test.
+  // of what OS is actually running the test. Unlike the posix/':' case
+  // above, this is safe on any host: ';' never appears inside a real
+  // filesystem path on either OS, so there is no equivalent collision to
+  // guard against here.
   const env = { PATH: [empty, dir].join(';') };
   assert.equal(findHerdrOnPath(env, 'win32'), bin);
 });
@@ -180,27 +216,49 @@ test('findHerdrOnPath: win32 honors a custom PATHEXT', () => {
   assert.equal(findHerdrOnPath({ PATH: dir, PATHEXT: '.FOO' }, 'win32'), bin);
 });
 
+// ---- findHerdrOnPath: pure delimiter logic, no real files on disk ----
+
+test('findHerdrOnPath: a win32-shaped PATH handed to the win32 branch splits on ";" (fake, nonexistent dirs; no disk access)', () => {
+  const env = { PATH: ['C:\\nonexistent\\alpha', 'C:\\nonexistent\\beta'].join(win32.delimiter) };
+  assert.equal(findHerdrOnPath(env, 'win32'), null);
+});
+
+test('findHerdrOnPath: a posix-shaped PATH handed to the posix branch splits on ":" (fake, nonexistent dirs; no disk access)', () => {
+  const env = { PATH: ['/nonexistent/alpha', '/nonexistent/beta'].join(posix.delimiter) };
+  assert.equal(findHerdrOnPath(env, 'darwin'), null);
+});
+
+test(
+  'findHerdrOnPath: a ";"-joined PATH is not split by the posix branch\'s ":" — a real herdr sitting right next to it stays unreachable',
+  { skip: hostPlatform() === 'win32' },
+  () => {
+    const dir = freshDir('al-path-semicolon-trap-');
+    const bin = join(dir, 'herdr');
+    writeExecutable(bin);
+    // Joined with ';' (the win32 delimiter), not this call's own posix
+    // delimiter (':'). The posix branch only ever splits on ':', so the
+    // whole string — an unrelated made-up name, then ';', then the real
+    // dir — reads as one nonexistent directory name; the real binary
+    // sitting right next to it is never reached. If the posix branch ever
+    // also split on ';', this would find it and return non-null instead.
+    // Skipped on win32: a real temp dir there carries its own drive-letter
+    // ':', which would shred this string for an unrelated reason before the
+    // ';' question is even reached (see the two cases above).
+    const env = { PATH: ['/no/such/place', dir].join(';') };
+    assert.equal(findHerdrOnPath(env, 'darwin'), null);
+  },
+);
+
 // ---- herdrView: findHerdrOnPath plus (when found) a probe run ----
 //
 // herdrView (unlike findHerdrOnPath) takes no injected platform: it always
 // calls findHerdrOnPath() with no arguments, which falls back to the real
 // process.env / process.platform of whatever host is running this test. So
-// the fixture below is named and probed the way that host's own lookup
-// actually resolves it — a bare, executable `herdr` on POSIX; `herdr.CMD`
-// under a PATHEXT pinned for the duration of the call on win32, so the match
-// does not depend on whatever PATHEXT the real environment happens to carry.
+// the fixture from herdrViewBin above is named and probed the way that
+// host's own lookup actually resolves it, with a PATHEXT pinned for the
+// duration of the call on win32, so the match does not depend on whatever
+// PATHEXT the real environment happens to carry.
 const HERDR_VIEW_PATHEXT = '.EXE;.CMD;.BAT;.COM';
-
-function herdrViewBin(dir: string): string {
-  if (hostPlatform() === 'win32') {
-    const bin = join(dir, 'herdr.CMD');
-    writeFileSync(bin, '@echo off\r\n');
-    return bin;
-  }
-  const bin = join(dir, 'herdr');
-  writeExecutable(bin);
-  return bin;
-}
 
 async function withHerdrViewPath<T>(dir: string, fn: () => Promise<T>): Promise<T> {
   const savedPath = process.env.PATH;
