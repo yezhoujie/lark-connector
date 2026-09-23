@@ -4,7 +4,7 @@ import { after, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, writeFileSync, chmodSync } from 'node:fs';
 import { platform as hostPlatform, tmpdir } from 'node:os';
-import { delimiter, join } from 'node:path';
+import { join, posix } from 'node:path';
 
 import {
   closePane,
@@ -141,7 +141,11 @@ test('findHerdrOnPath: finds an executable herdr on a later PATH entry, ahead of
   const withBin = freshDir('al-path-has-herdr-');
   const bin = join(withBin, 'herdr');
   writeExecutable(bin);
-  const env = { PATH: [empty, withBin].join(delimiter) };
+  // posix.delimiter, not the bare `delimiter` import (host-fixed: `;` on
+  // Windows): the platform passed to findHerdrOnPath is 'darwin', so the
+  // PATH string must be joined the same way that branch will split it,
+  // regardless of what host is actually running the test.
+  const env = { PATH: [empty, withBin].join(posix.delimiter) };
   assert.equal(findHerdrOnPath(env, 'darwin'), bin);
 });
 
@@ -177,6 +181,40 @@ test('findHerdrOnPath: win32 honors a custom PATHEXT', () => {
 });
 
 // ---- herdrView: findHerdrOnPath plus (when found) a probe run ----
+//
+// herdrView (unlike findHerdrOnPath) takes no injected platform: it always
+// calls findHerdrOnPath() with no arguments, which falls back to the real
+// process.env / process.platform of whatever host is running this test. So
+// the fixture below is named and probed the way that host's own lookup
+// actually resolves it — a bare, executable `herdr` on POSIX; `herdr.CMD`
+// under a PATHEXT pinned for the duration of the call on win32, so the match
+// does not depend on whatever PATHEXT the real environment happens to carry.
+const HERDR_VIEW_PATHEXT = '.EXE;.CMD;.BAT;.COM';
+
+function herdrViewBin(dir: string): string {
+  if (hostPlatform() === 'win32') {
+    const bin = join(dir, 'herdr.CMD');
+    writeFileSync(bin, '@echo off\r\n');
+    return bin;
+  }
+  const bin = join(dir, 'herdr');
+  writeExecutable(bin);
+  return bin;
+}
+
+async function withHerdrViewPath<T>(dir: string, fn: () => Promise<T>): Promise<T> {
+  const savedPath = process.env.PATH;
+  const savedExt = process.env.PATHEXT;
+  process.env.PATH = dir;
+  if (hostPlatform() === 'win32') process.env.PATHEXT = HERDR_VIEW_PATHEXT;
+  try {
+    return await fn();
+  } finally {
+    process.env.PATH = savedPath;
+    if (savedExt === undefined) delete process.env.PATHEXT;
+    else process.env.PATHEXT = savedExt;
+  }
+}
 
 test('herdrView: bin null when nothing is on PATH; the probe is never run', async () => {
   const empty = freshDir('al-view-empty-');
@@ -197,89 +235,60 @@ test('herdrView: bin null when nothing is on PATH; the probe is never run', asyn
 
 test('herdrView: bin found and `agent list` answers ok is reachable, no error', async () => {
   const dir = freshDir('al-view-ok-');
-  const bin = join(dir, 'herdr');
-  writeExecutable(bin);
-  const saved = process.env.PATH;
-  process.env.PATH = dir;
-  try {
-    const view = await herdrView(async () => ({ ok: true, stdout: JSON.stringify({ id: 'x', result: { agents: [] } }) }));
-    assert.deepEqual(view, { bin, reachable: true });
-  } finally {
-    process.env.PATH = saved;
-  }
+  const bin = herdrViewBin(dir);
+  const view = await withHerdrViewPath(dir, () =>
+    herdrView(async () => ({ ok: true, stdout: JSON.stringify({ id: 'x', result: { agents: [] } }) })),
+  );
+  assert.deepEqual(view, { bin, reachable: true });
 });
 
 test('herdrView: bin found but the envelope refuses is not reachable, error is the envelope code', async () => {
   const dir = freshDir('al-view-refused-');
-  const bin = join(dir, 'herdr');
-  writeExecutable(bin);
-  const saved = process.env.PATH;
-  process.env.PATH = dir;
-  try {
-    const view = await herdrView(async () => ({
+  const bin = herdrViewBin(dir);
+  const view = await withHerdrViewPath(dir, () =>
+    herdrView(async () => ({
       ok: false,
       stdout: '',
       stderr: JSON.stringify({ error: { code: 'agent_blocked', message: 'busy' } }),
-    }));
-    assert.equal(view.bin, bin);
-    assert.equal(view.reachable, false);
-    assert.equal(view.error, 'agent_blocked');
-  } finally {
-    process.env.PATH = saved;
-  }
+    })),
+  );
+  assert.equal(view.bin, bin);
+  assert.equal(view.reachable, false);
+  assert.equal(view.error, 'agent_blocked');
 });
 
 test('herdrView: a non-envelope spawn failure surfaces the real diagnostic, not the bare "spawn_failed" label', async () => {
   const dir = freshDir('al-view-spawnfail-');
-  const bin = join(dir, 'herdr');
-  writeExecutable(bin);
-  const saved = process.env.PATH;
-  process.env.PATH = dir;
-  try {
-    const view = await herdrView(async () => ({
+  const bin = herdrViewBin(dir);
+  const view = await withHerdrViewPath(dir, () =>
+    herdrView(async () => ({
       ok: false,
       stdout: '',
       stderr: 'boom: cannot connect to server',
       error: 'Command failed: herdr agent list',
-    }));
-    assert.equal(view.bin, bin);
-    assert.equal(view.reachable, false);
-    assert.notEqual(view.error, 'spawn_failed');
-    assert.match(view.error ?? '', /Command failed: herdr agent list/);
-  } finally {
-    process.env.PATH = saved;
-  }
+    })),
+  );
+  assert.equal(view.bin, bin);
+  assert.equal(view.reachable, false);
+  assert.notEqual(view.error, 'spawn_failed');
+  assert.match(view.error ?? '', /Command failed: herdr agent list/);
 });
 
 test('herdrView: bad_output (zero exit, unparseable stdout) surfaces the stdout excerpt, not the bare "bad_output" label', async () => {
   const dir = freshDir('al-view-badoutput-');
-  const bin = join(dir, 'herdr');
-  writeExecutable(bin);
-  const saved = process.env.PATH;
-  process.env.PATH = dir;
-  try {
-    const view = await herdrView(async () => ({ ok: true, stdout: 'not json at all garbage', stderr: '' }));
-    assert.equal(view.bin, bin);
-    assert.equal(view.reachable, false);
-    assert.notEqual(view.error, 'bad_output');
-    assert.match(view.error ?? '', /not json at all garbage/);
-  } finally {
-    process.env.PATH = saved;
-  }
+  const bin = herdrViewBin(dir);
+  const view = await withHerdrViewPath(dir, () => herdrView(async () => ({ ok: true, stdout: 'not json at all garbage', stderr: '' })));
+  assert.equal(view.bin, bin);
+  assert.equal(view.reachable, false);
+  assert.notEqual(view.error, 'bad_output');
+  assert.match(view.error ?? '', /not json at all garbage/);
 });
 
 test('herdrView: bad_output with an empty message (zero exit, whitespace-only output on both streams) falls back to the label, never an empty string', async () => {
   const dir = freshDir('al-view-badoutput-empty-');
-  const bin = join(dir, 'herdr');
-  writeExecutable(bin);
-  const saved = process.env.PATH;
-  process.env.PATH = dir;
-  try {
-    const view = await herdrView(async () => ({ ok: true, stdout: '  ', stderr: '' }));
-    assert.equal(view.bin, bin);
-    assert.equal(view.reachable, false);
-    assert.equal(view.error, 'bad_output');
-  } finally {
-    process.env.PATH = saved;
-  }
+  const bin = herdrViewBin(dir);
+  const view = await withHerdrViewPath(dir, () => herdrView(async () => ({ ok: true, stdout: '  ', stderr: '' })));
+  assert.equal(view.bin, bin);
+  assert.equal(view.reachable, false);
+  assert.equal(view.error, 'bad_output');
 });

@@ -50,11 +50,14 @@ test('the five herdr prompt failure codes have card wording in both languages', 
 });
 
 test('selfCommand: a given entry becomes node "<absolute path>"', () => {
-  assert.equal(selfCommand('/a b/c.mjs'), 'node "/a b/c.mjs"');
+  // Explicit 'darwin' so the POSIX resolver/escaping run on every host, not
+  // whatever process.platform the test happens to execute on (win32 turns
+  // this same input into a drive-letter path, which is covered separately).
+  assert.equal(selfCommand('/a b/c.mjs', 'darwin'), 'node "/a b/c.mjs"');
 });
 
 test('selfCommand: a double quote in the path is escaped', () => {
-  assert.equal(selfCommand('/a"b/c.mjs'), 'node "/a\\"b/c.mjs"');
+  assert.equal(selfCommand('/a"b/c.mjs', 'darwin'), 'node "/a\\"b/c.mjs"');
 });
 
 test('selfCommand: win32 escapes only the double quote — backslashes in the path are left alone', () => {
