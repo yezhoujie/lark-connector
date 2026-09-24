@@ -215,3 +215,9 @@ test('awayCard: the shell title follows lang, like the other cards', () => {
   const off = asCard(awayCard('proj', false, '正文', 'zh'));
   assert.equal(off.header.title.content, '🌙 [proj] 远程模式即将关闭');
 });
+
+test('awayCard: a title override replaces the on/off wording; icon and template still follow `on`', () => {
+  const c = asCard(awayCard('proj', false, 'body text', 'en', 'Custom title'));
+  assert.equal(c.header.template, 'grey');
+  assert.equal(c.header.title.content, '🌙 [proj] Custom title');
+});

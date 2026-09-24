@@ -136343,6 +136343,13 @@ var init_texts = __esm({
       awayOnNoHerdr: "\u8FD9\u53F0\u673A\u5668\u6CA1\u6709 herdr\uFF1A\u4F60\u4E3B\u52A8\u53D1\u7684\u6D88\u606F**\u4E0D\u4F1A**\u9001\u5230\u7EC8\u7AEF\uFF0C\u53EA\u6709\u5361\u7247\u6309\u94AE\u548C\u5BF9\u63D0\u95EE\u7684\u56DE\u590D\u80FD\u56DE\u5230 agent\u3002",
       awayOnDaemonNoHerdr: "daemon \u627E\u4E0D\u5230 herdr\uFF0C\u91CD\u542F\u524D\u4F60\u4E3B\u52A8\u53D1\u7684\u6D88\u606F\u9001\u4E0D\u5230\uFF0C\u63A8\u8350\u8BA9 agent \u5E2E\u4F60\u91CD\u542F daemon \u6765\u4F7F\u7528\u5B8C\u6574\u529F\u80FD\u3002",
       awayOffBody: "\u8FDC\u7A0B\u6A21\u5F0F\u5373\u5C06\u5173\u95ED\uFF0C\u4E4B\u540E\u8BF7\u56DE\u7EC8\u7AEF\u7EE7\u7EED\uFF1B\u7FA4\u91CC\u7684\u6D88\u606F\u4E0D\u518D\u9001\u8FBE\u3002",
+      // farewell cards: a group about to stop carrying the project (unbind, unbind --dissolve, a switch to another group)
+      unbindFarewellTitle: "\u672C\u7FA4\u5373\u5C06\u4E0E\u9879\u76EE\u89E3\u7ED1",
+      unbindDissolveFarewellTitle: "\u672C\u7FA4\u5373\u5C06\u4E0E\u9879\u76EE\u89E3\u7ED1\u5E76\u89E3\u6563",
+      unbindFarewellBody: "\u8FDC\u7A0B\u6A21\u5F0F\u968F\u4E4B\u5173\u95ED\uFF0C\u4E4B\u540E\u8BF7\u56DE\u7EC8\u7AEF\u7EE7\u7EED\uFF1B\u7FA4\u91CC\u7684\u6D88\u606F\u4E0D\u518D\u9001\u8FBE\u3002\u7FA4\u4F1A\u4FDD\u7559\uFF0C\u4E0B\u6B21\u5728\u540C\u4E00\u76EE\u5F55\u5F00\u542F\u8FDC\u7A0B\u6A21\u5F0F\u65F6\u53EF\u4EE5\u9009\u62E9\u590D\u7528\u5B83\u3002",
+      unbindDissolveFarewellBody: "\u8FDC\u7A0B\u6A21\u5F0F\u968F\u4E4B\u5173\u95ED\uFF0C\u4E4B\u540E\u8BF7\u56DE\u7EC8\u7AEF\u7EE7\u7EED\u3002\u672C\u7FA4\u9A6C\u4E0A\u4F1A\u88AB\u89E3\u6563\u3002",
+      switchFarewellBody: "\u9879\u76EE\u6362\u5230\u4E86\u7FA4\u300C{name}\u300D\uFF0C\u4E4B\u540E\u7684\u6D88\u606F\u4E0E\u5361\u7247\u90FD\u53D1\u5230\u90A3\u91CC\uFF1B\u672C\u7FA4\u7684\u6D88\u606F\u4E0D\u518D\u9001\u8FBE\u3002",
+      switchFarewellBodyNoName: "\u9879\u76EE\u6362\u5230\u4E86\u53E6\u4E00\u4E2A\u7FA4\uFF0C\u4E4B\u540E\u7684\u6D88\u606F\u4E0E\u5361\u7247\u90FD\u53D1\u5230\u90A3\u91CC\uFF1B\u672C\u7FA4\u7684\u6D88\u606F\u4E0D\u518D\u9001\u8FBE\u3002",
       // button / form toasts
       toastAnswered: "\u5DF2\u56DE\u590D",
       toastClosed: "\u8FD9\u4E2A\u95EE\u9898\u5DF2\u7ECF\u7ED3\u675F\u4E86\uFF0C\u521A\u624D\u90A3\u4E0B\u5F53\u6210\u65B0\u6307\u4EE4\u53D1\u8FC7\u53BB\u4E86",
@@ -136422,6 +136429,12 @@ var init_texts = __esm({
       awayOnNoHerdr: "This machine has no herdr: messages you send on your own **will not** reach the terminal \u2014 only button taps and replies to a question make it back to the agent.",
       awayOnDaemonNoHerdr: "The daemon cannot find herdr; messages you send on your own will not get through until it is restarted \u2014 ask the agent to restart the daemon for full functionality.",
       awayOffBody: "Remote mode is about to turn off; continue from the terminal from here on \u2014 messages in this group will no longer be delivered.",
+      unbindFarewellTitle: "This group is about to be unbound from the project",
+      unbindDissolveFarewellTitle: "This group is about to be unbound from the project and dissolved",
+      unbindFarewellBody: "Remote mode turns off along with it; continue from the terminal from here on \u2014 messages in this group will no longer be delivered. The group stays, and can be reused next time remote mode is turned on in this same directory.",
+      unbindDissolveFarewellBody: "Remote mode turns off along with it; continue from the terminal from here on. This group is about to be dissolved.",
+      switchFarewellBody: 'The project moved to group "{name}"; messages and cards go there from now on \u2014 messages in this group will no longer be delivered.',
+      switchFarewellBodyNoName: "The project moved to another group; messages and cards go there from now on \u2014 messages in this group will no longer be delivered.",
       toastAnswered: "Replied",
       toastClosed: "This question is already closed; that tap was forwarded as a new instruction",
       toastBadOption: "That option does not match, try again",
@@ -136590,6 +136603,10 @@ Wait for the answer, or do it anyway: ${CLI} daemon --stop --force`,
       awayOn: "Remote mode is on: decisions, and moments when the agent is stuck on a prompt that needs you, are pushed to this project's Feishu group.",
       awayDaemonNoHerdr: `warning: the daemon cannot find herdr on its PATH (was it started before herdr was installed?). Phone messages cannot be delivered until it is restarted from a herdr pane: ${CLI} daemon --stop, then ${CLI} away on`,
       awayNotAnnounced: "(the group was not notified: the daemon could not send the card)",
+      // bind --chat switching the live group: two groups are involved (the old
+      // one and the new one), so the note does not say which — unlike
+      // awayNotAnnounced, which always means the one group a command touches.
+      bindSwitchNotAnnounced: "(a group was not notified: the daemon could not send a card)",
       // status
       statusCredsYes: "credentials: configured, from {origin}",
       statusCredsNo: `credentials: not configured; run ${CLI} setup first`,
@@ -137826,10 +137843,10 @@ function statusCard(projectLabel2, detail, lang = "en") {
   const T = t(lang);
   return card({ icon: "\u{1F514}", title: `[${projectLabel2}] ${T.statusBlocked}`, template: "orange" }, [md(detail)]);
 }
-function awayCard(projectLabel2, on, detail, lang) {
+function awayCard(projectLabel2, on, detail, lang, title) {
   const T = t(lang);
   return card(
-    { icon: on ? "\u{1F4F1}" : "\u{1F319}", title: `[${projectLabel2}] ${on ? T.awayOnTitle : T.awayOffTitle}`, template: on ? "green" : "grey" },
+    { icon: on ? "\u{1F4F1}" : "\u{1F319}", title: `[${projectLabel2}] ${title ?? (on ? T.awayOnTitle : T.awayOffTitle)}`, template: on ? "green" : "grey" },
     [md(detail)]
   );
 }
@@ -138072,6 +138089,23 @@ async function runDaemon(deps = {}) {
     }
   };
   const langOf = (b) => b?.lang ?? "en";
+  const awayOnDetail = (paneId, view, lang) => {
+    const T = t(lang);
+    return !paneId ? T.awayOnNoHerdr : view.bin !== null ? T.awayOnFull : T.awayOnDaemonNoHerdr;
+  };
+  const announce = async (root, chatId, card2, on) => {
+    if (!connected) {
+      log("away.announce-failed", { root, on, err: "not connected" });
+      return false;
+    }
+    try {
+      await channel.send(chatId, { card: card2 });
+      return true;
+    } catch (err) {
+      log("away.announce-failed", { root, on, err: String(err).slice(0, 200) });
+      return false;
+    }
+  };
   const receipt = async (b, why, uncertain = false) => {
     try {
       const sent = await channel.send(b.chatId, { card: receiptCard(b.label, why, langOf(b), uncertain) });
@@ -138798,7 +138832,7 @@ ${msg.renamePermissionHint}` : text;
             const holder = bindings.byChat(req.chatId);
             if (holder && holder.releasedAt === null && holder.root !== req.root)
               return { ok: false, code: 1, message: fill(msg.bindChatTaken, { chatId: req.chatId, root: holder.root }) };
-            if (switching) bindings.release(req.root);
+            const wasAway = live?.away ?? false;
             let name2 = holder?.name ?? null;
             if (connected) {
               try {
@@ -138806,13 +138840,21 @@ ${msg.renamePermissionHint}` : text;
               } catch {
               }
             }
+            const wanted = req.name !== void 0 ? groupName(req.name, req.label) : void 0;
+            let farewellAnnounced;
+            if (switching && live !== void 0 && wasAway) {
+              const switchName = wanted ?? name2;
+              const body = switchName ? fill(t(langOf(live)).switchFarewellBody, { name: switchName }) : t(langOf(live)).switchFarewellBodyNoName;
+              farewellAnnounced = await announce(req.root, live.chatId, awayCard(live.label, false, body, langOf(live), t(langOf(live)).unbindFarewellTitle), false);
+            }
+            if (switching) bindings.release(req.root);
             const b = {
               root: req.root,
               label: req.label,
               chatId: req.chatId,
               name: name2,
               paneId: req.paneId ?? holder?.paneId ?? live?.paneId ?? null,
-              away: live?.away ?? false,
+              away: wasAway,
               lang: holder?.lang ?? live?.lang ?? null,
               boundAt: now,
               releasedAt: null
@@ -138820,15 +138862,20 @@ ${msg.renamePermissionHint}` : text;
             bindings.set(b);
             refreshPolicy();
             log("bind", { root: req.root, chatId: req.chatId, how: "chat" });
-            const wanted = req.name !== void 0 ? groupName(req.name, req.label) : void 0;
             if (!connected) ctx2.note(msg.bindUpdateSkipped);
             else {
               const r = await updateChat(req.chatId, { name: wanted, description: marker });
               if (r.ok && wanted !== void 0) bindings.touch(req.root, { name: wanted });
               else if (!r.ok) ctx2.note(fill(msg.bindRenameFailed, { error: r.error }));
             }
+            let openAnnounced;
+            if (switching && b.away) {
+              const view = await herdr.view();
+              openAnnounced = await announce(req.root, b.chatId, awayCard(b.label, true, awayOnDetail(req.paneId, view, langOf(b)), langOf(b)), true);
+            }
             const current = bindings.active(req.root);
-            return { ok: true, kind: "bind", chatId: req.chatId, how: "chat", name: current?.name ?? req.chatId };
+            const announced = farewellAnnounced === void 0 && openAnnounced === void 0 ? void 0 : (farewellAnnounced ?? true) && (openAnnounced ?? true);
+            return announced === void 0 ? { ok: true, kind: "bind", chatId: req.chatId, how: "chat", name: current?.name ?? req.chatId } : { ok: true, kind: "bind", chatId: req.chatId, how: "chat", name: current?.name ?? req.chatId, announced };
           }
           if (live) {
             bindings.touch(req.root, { paneId: req.paneId, label: req.label });
@@ -138939,21 +138986,31 @@ ${msg.renamePermissionHint}` : text;
           const name = live.name ?? live.chatId;
           if (req.dissolve) {
             if (!connected) return notConnected();
+            let announced2;
+            if (live.away) {
+              const card2 = awayCard(live.label, false, t(langOf(live)).unbindDissolveFarewellBody, langOf(live), t(langOf(live)).unbindDissolveFarewellTitle);
+              announced2 = await announce(req.root, live.chatId, card2, false);
+            }
             const r = await deleteChat(live.chatId, name);
             bindings.remove(live.chatId);
             refreshPolicy();
             lastStatus.delete(req.root);
             log("unbind", { root: req.root, chatId: live.chatId, dissolved: r.ok });
-            if (r.ok) return { ok: true, kind: "unbind", chatId: live.chatId, name, dissolved: true };
+            if (r.ok) return announced2 === void 0 ? { ok: true, kind: "unbind", chatId: live.chatId, name, dissolved: true } : { ok: true, kind: "unbind", chatId: live.chatId, name, dissolved: true, announced: announced2 };
             const cleared = await clearMarker(live.chatId);
             const problem = `${r.error} ${cleared.ok ? msg.dissolveMarkerCleared : fill(msg.dissolveMarkerKept, { error: cleared.error })}`;
-            return { ok: true, kind: "unbind", chatId: live.chatId, name, dissolved: false, problem };
+            return announced2 === void 0 ? { ok: true, kind: "unbind", chatId: live.chatId, name, dissolved: false, problem } : { ok: true, kind: "unbind", chatId: live.chatId, name, dissolved: false, problem, announced: announced2 };
+          }
+          let announced;
+          if (live.away) {
+            const card2 = awayCard(live.label, false, t(langOf(live)).unbindFarewellBody, langOf(live), t(langOf(live)).unbindFarewellTitle);
+            announced = await announce(req.root, live.chatId, card2, false);
           }
           bindings.release(req.root);
           refreshPolicy();
           lastStatus.delete(req.root);
           log("unbind", { root: req.root, chatId: live.chatId });
-          return { ok: true, kind: "unbind", chatId: live.chatId, name };
+          return announced === void 0 ? { ok: true, kind: "unbind", chatId: live.chatId, name } : { ok: true, kind: "unbind", chatId: live.chatId, name, announced };
         }
         case "rename": {
           const live = bindings.active(req.root);
@@ -138973,22 +139030,14 @@ ${msg.renamePermissionHint}` : text;
             const live = bindings.active(req.root);
             if (!live) return { ok: true, kind: "ack" };
             let announced2;
-            if (connected) {
-              try {
-                await channel.send(live.chatId, { card: awayCard(live.label, false, t(langOf(live)).awayOffBody, langOf(live)) });
-                announced2 = true;
-              } catch (err) {
-                log("away.announce-failed", { root: req.root, on: false, err: String(err).slice(0, 200) });
-                announced2 = false;
-              }
-            } else {
-              log("away.announce-failed", { root: req.root, on: false, err: "not connected" });
-              announced2 = false;
+            if (live.away) {
+              const card3 = awayCard(live.label, false, t(langOf(live)).awayOffBody, langOf(live));
+              announced2 = await announce(req.root, live.chatId, card3, false);
             }
             bindings.touch(req.root, { away: false, paneId: req.paneId });
             lastStatus.delete(req.root);
             log("away", { root: req.root, away: false });
-            return { ok: true, kind: "ack", announced: announced2 };
+            return announced2 === void 0 ? { ok: true, kind: "ack" } : { ok: true, kind: "ack", announced: announced2 };
           }
           const patch = { away: true, paneId: req.paneId };
           if (req.lang) patch.lang = req.lang;
@@ -138997,21 +139046,8 @@ ${msg.renamePermissionHint}` : text;
           lastStatus.delete(req.root);
           log("away", { root: req.root, away: true });
           const view = await herdr.view();
-          let announced;
-          if (connected) {
-            const T = t(langOf(b));
-            const detail = !req.paneId ? T.awayOnNoHerdr : view.bin !== null ? T.awayOnFull : T.awayOnDaemonNoHerdr;
-            try {
-              await channel.send(b.chatId, { card: awayCard(b.label, true, detail, langOf(b)) });
-              announced = true;
-            } catch (err) {
-              log("away.announce-failed", { root: req.root, on: true, err: String(err).slice(0, 200) });
-              announced = false;
-            }
-          } else {
-            log("away.announce-failed", { root: req.root, on: true, err: "not connected" });
-            announced = false;
-          }
+          const card2 = awayCard(b.label, true, awayOnDetail(req.paneId, view, langOf(b)), langOf(b));
+          const announced = await announce(req.root, b.chatId, card2, true);
           return { ok: true, kind: "ack", herdr: view, announced };
         }
         case "notify": {
@@ -139789,6 +139825,8 @@ async function cmdBind(args) {
     const line = r.how === "created" ? fill(msg.bindCreated, { name: r.name, root }) : r.how === "reused" ? fill(msg.bindReused, { name: r.name, root }) : r.how === "existing" ? fill(msg.bindKept, { name: r.name, root }) : fill(msg.bindExisting, { chatId: r.chatId, root });
     process.stdout.write(`${line}
 `);
+    if (r.announced === false) process.stdout.write(`${msg.bindSwitchNotAnnounced}
+`);
   });
 }
 async function cmdUnbind(args) {
@@ -139801,12 +139839,16 @@ async function cmdUnbind(args) {
   }
   if (res.ok && res.kind === "unbind" && res.dissolved === false) {
     writeProjectState(root, { chatId: null, away: false });
+    if (res.announced === false) process.stdout.write(`${msg.awayNotAnnounced}
+`);
     die(4, res.problem ?? "");
   }
   finish(res, (r) => {
     writeProjectState(root, { chatId: null, away: false });
     if (r.kind !== "unbind") return;
     process.stdout.write(`${r.dissolved ? fill(msg.dissolved, { name: r.name }) : fill(msg.unbound, { name: r.name })}
+`);
+    if (r.announced === false) process.stdout.write(`${msg.awayNotAnnounced}
 `);
   });
 }

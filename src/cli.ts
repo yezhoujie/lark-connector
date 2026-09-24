@@ -725,6 +725,7 @@ async function cmdBind(args: string[]): Promise<void> {
             ? fill(msg.bindKept, { name: r.name, root })
             : fill(msg.bindExisting, { chatId: r.chatId, root });
     process.stdout.write(`${line}\n`);
+    if (r.announced === false) process.stdout.write(`${msg.bindSwitchNotAnnounced}\n`);
   });
 }
 
@@ -742,12 +743,14 @@ async function cmdUnbind(args: string[]): Promise<void> {
   // dissolve it there, so this ends like the other "a human must act" cases.
   if (res.ok && res.kind === 'unbind' && res.dissolved === false) {
     writeProjectState(root, { chatId: null, away: false });
+    if (res.announced === false) process.stdout.write(`${msg.awayNotAnnounced}\n`);
     die(4, res.problem ?? '');
   }
   finish(res, (r) => {
     writeProjectState(root, { chatId: null, away: false });
     if (r.kind !== 'unbind') return;
     process.stdout.write(`${r.dissolved ? fill(msg.dissolved, { name: r.name }) : fill(msg.unbound, { name: r.name })}\n`);
+    if (r.announced === false) process.stdout.write(`${msg.awayNotAnnounced}\n`);
   });
 }
 

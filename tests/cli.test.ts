@@ -845,6 +845,83 @@ test('away off: an ack with announced: false adds a note on stdout, the exit cod
   }
 });
 
+test('unbind: a reply with announced: false adds the same note as away off', async () => {
+  const home = tmp('lark-connector-noannounce-unbind-');
+  const project = realpathSync(tmp('lark-connector-noannounce-unbind-proj-'));
+  const prev = process.env.LARK_CONNECTOR_HOME;
+  process.env.LARK_CONNECTOR_HOME = home;
+  const server = await serve({ handle: async () => ({ ok: true, kind: 'unbind', chatId: 'oc_x', name: 'x', announced: false }) });
+  try {
+    const r = await new Promise<{ status: number | null; stdout: string; stderr: string }>((resolve, reject) => {
+      const child = spawn(process.execPath, [cli, 'unbind'], { env: { ...isolatedEnv(), LARK_CONNECTOR_HOME: home }, cwd: project, stdio: ['ignore', 'pipe', 'pipe'] });
+      let stdout = '';
+      let stderr = '';
+      child.stdout.on('data', (d: Buffer) => (stdout += d.toString()));
+      child.stderr.on('data', (d: Buffer) => (stderr += d.toString()));
+      child.on('error', reject);
+      child.on('close', (status) => resolve({ status, stdout, stderr }));
+    });
+    assert.equal(r.status, 0, r.stdout + r.stderr);
+    assert.match(r.stdout, /the group was not notified: the daemon could not send the card/);
+  } finally {
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+    if (prev === undefined) delete process.env.LARK_CONNECTOR_HOME;
+    else process.env.LARK_CONNECTOR_HOME = prev;
+  }
+});
+
+test('unbind --dissolve refused by Feishu, with announced: false: the note lands on stdout before the stderr exit', async () => {
+  const home = tmp('lark-connector-noannounce-dissolve-');
+  const project = realpathSync(tmp('lark-connector-noannounce-dissolve-proj-'));
+  const prev = process.env.LARK_CONNECTOR_HOME;
+  process.env.LARK_CONNECTOR_HOME = home;
+  const server = await serve({ handle: async () => ({ ok: true, kind: 'unbind', chatId: 'oc_x', name: 'x', dissolved: false, problem: 'boom', announced: false }) });
+  try {
+    const r = await new Promise<{ status: number | null; stdout: string; stderr: string }>((resolve, reject) => {
+      const child = spawn(process.execPath, [cli, 'unbind', '--dissolve'], { env: { ...isolatedEnv(), LARK_CONNECTOR_HOME: home }, cwd: project, stdio: ['ignore', 'pipe', 'pipe'] });
+      let stdout = '';
+      let stderr = '';
+      child.stdout.on('data', (d: Buffer) => (stdout += d.toString()));
+      child.stderr.on('data', (d: Buffer) => (stderr += d.toString()));
+      child.on('error', reject);
+      child.on('close', (status) => resolve({ status, stdout, stderr }));
+    });
+    assert.equal(r.status, 4, r.stdout + r.stderr);
+    assert.match(r.stdout, /the group was not notified: the daemon could not send the card/);
+    assert.match(r.stderr, /boom/);
+  } finally {
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+    if (prev === undefined) delete process.env.LARK_CONNECTOR_HOME;
+    else process.env.LARK_CONNECTOR_HOME = prev;
+  }
+});
+
+test('bind --chat: a reply with announced: false adds a neutral note, distinct from away on/off\'s wording (a switch touches two groups)', async () => {
+  const home = tmp('lark-connector-noannounce-bind-');
+  const project = realpathSync(tmp('lark-connector-noannounce-bind-proj-'));
+  const prev = process.env.LARK_CONNECTOR_HOME;
+  process.env.LARK_CONNECTOR_HOME = home;
+  const server = await serve({ handle: async () => ({ ok: true, kind: 'bind', chatId: 'oc_2', how: 'chat', name: 'oc_2', announced: false }) });
+  try {
+    const r = await new Promise<{ status: number | null; stdout: string; stderr: string }>((resolve, reject) => {
+      const child = spawn(process.execPath, [cli, 'bind', '--chat', 'oc_2'], { env: { ...isolatedEnv(), LARK_CONNECTOR_HOME: home }, cwd: project, stdio: ['ignore', 'pipe', 'pipe'] });
+      let stdout = '';
+      let stderr = '';
+      child.stdout.on('data', (d: Buffer) => (stdout += d.toString()));
+      child.stderr.on('data', (d: Buffer) => (stderr += d.toString()));
+      child.on('error', reject);
+      child.on('close', (status) => resolve({ status, stdout, stderr }));
+    });
+    assert.equal(r.status, 0, r.stdout + r.stderr);
+    assert.match(r.stdout, /a group was not notified: the daemon could not send a card/);
+    assert.doesNotMatch(r.stdout, /the group was not notified: the daemon could not send the card/);
+  } finally {
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+    if (prev === undefined) delete process.env.LARK_CONNECTOR_HOME;
+    else process.env.LARK_CONNECTOR_HOME = prev;
+  }
+});
+
 // ---- reading a command line, in-process --------------------------------------
 // One rule for flags, option values and the positional: an option the command
 // takes a value for owns the next token, whatever it looks like.

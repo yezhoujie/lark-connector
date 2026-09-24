@@ -48,14 +48,22 @@ export type Response =
   | { ok: true; kind: 'pong'; status: DaemonStatus }
   /** `via`: a button tap · a multi-choice form submit · a typed message. */
   | { ok: true; kind: 'ask'; reply: string; via: 'button' | 'form' | 'text' }
-  /** `how`: the live group was kept · a released one was taken back · a new one was created · `chatId` was named outright. */
-  | { ok: true; kind: 'bind'; chatId: string; how: 'existing' | 'reused' | 'created' | 'chat'; name: string }
+  /**
+   * `how`: the live group was kept · a released one was taken back · a new
+   * one was created · `chatId` was named outright. `announced` is set only
+   * when naming a `chatId` switched the live group while remote mode was on:
+   * whether the farewell card (old group) and the open card (new group) both
+   * reached Feishu.
+   */
+  | { ok: true; kind: 'bind'; chatId: string; how: 'existing' | 'reused' | 'created' | 'chat'; name: string; announced?: boolean }
   /**
    * `dissolved` is set only for `dissolve`: true when Feishu dissolved the
    * group, false when it refused or the call failed — the record is removed
-   * either way, and `problem` then says what Feishu answered.
+   * either way, and `problem` then says what Feishu answered. `announced` is
+   * set only when remote mode was on for the group being let go: whether the
+   * farewell card reached Feishu.
    */
-  | { ok: true; kind: 'unbind'; chatId: string; name: string; dissolved?: boolean; problem?: string }
+  | { ok: true; kind: 'unbind'; chatId: string; name: string; dissolved?: boolean; problem?: string; announced?: boolean }
   | { ok: true; kind: 'rename'; name: string }
   | { ok: true; kind: 'list'; bindings: BindingSummary[] }
   /**
