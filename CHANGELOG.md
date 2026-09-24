@@ -11,6 +11,22 @@ Before 0.2.0 this repository was a section of the `agent-remote-communication-sk
 `agent-lark/vX.Y.Z` there; the entries below for those versions are unchanged, and the same versions are
 tagged plain `vX.Y.Z` here.
 
+### [0.3.1][lark-connector-0.3.1] - 2026-09-24
+
+#### Added
+
+- `unbind`, `unbind --dissolve` and `bind --chat` to another group now post a farewell card to the group that
+  is about to stop carrying the project — before the group is released or dissolved, and only while remote
+  mode is on. A switch names the new group, and the new group receives the same "on" card as `away on`.
+  A card that cannot be sent does not change the command's outcome; the CLI prints one line saying so.
+
+#### Fixed
+
+- After `bind --chat` switched groups, the new binding always came out with remote mode off on the daemon's
+  side (the CLI's state file still said on), so the new group never received the "on" card and the two
+  disagreed. `bindings.release()` was clearing the flag on the object the handler was still reading.
+- `away off` no longer posts the "about to turn off" card when remote mode is already off.
+
 ### [0.3.0][lark-connector-0.3.0] - 2026-09-23
 
 #### Added
@@ -283,6 +299,7 @@ Feishu custom app of your own instead of a public notification service.
 - `node --test` suite (cards, validation, IPC, daemon with a fake Feishu channel, the CLI against a fake daemon)
   on ubuntu / windows / macos × Node 22 / 24.
 
+[lark-connector-0.3.1]: https://github.com/yezhoujie/lark-connector/compare/v0.3.0...v0.3.1
 [lark-connector-0.3.0]: https://github.com/yezhoujie/lark-connector/compare/v0.2.0...v0.3.0
 [lark-connector-0.2.0]: https://github.com/yezhoujie/lark-connector/compare/v0.1.4...v0.2.0
 [agent-lark-0.1.4]: https://github.com/yezhoujie/lark-connector/compare/v0.1.3...v0.1.4
