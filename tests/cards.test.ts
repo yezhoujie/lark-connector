@@ -3,7 +3,7 @@
 // multi-choice one, and the language each card shell is rendered in.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { askCard, awayCard, notifyCard, receiptCard, statusCard, type StatusState } from '../src/cards.js';
+import { askCard, awayCard, notifyCard, receiptCard, statusCard, type StatusState, type StatusView } from '../src/cards.js';
 import type { ParsedScreen } from '../src/screen.js';
 import type { AskPayload } from '../src/validate.js';
 
@@ -321,7 +321,8 @@ test('resolved status cards: state word in the title, grey or green, no note, co
     ['closed', 'grey', '🌙 [p] 等你输入 · 已关闭 · 远程模式已关闭', '关闭'],
   ];
   for (const [state, template, title] of cases) {
-    const c = asCard(statusCard('p', 'd', 'zh', { screen: choiceScreen, state, choice: 2 }));
+    const view: StatusView = state === 'chosen' || state === 'chosenNext' ? { screen: choiceScreen, state, choice: 2 } : { screen: choiceScreen, state };
+    const c = asCard(statusCard('p', 'd', 'zh', view));
     assert.equal(c.header.title.content, title, state);
     assert.equal(c.header.template, template, state);
     assert.equal(c.body.elements.length, 2, state);
@@ -329,4 +330,12 @@ test('resolved status cards: state word in the title, grey or green, no note, co
   }
   const en = asCard(statusCard('p', 'd', 'en', { screen: choiceScreen, state: 'chosen', choice: 1 }));
   assert.equal(en.header.title.content, '✅ [p] waiting for you · Resolved · you picked 1 on the phone');
+});
+
+test('a picked state without the picked number is refused, in the types and at run time', () => {
+  // @ts-expect-error a picked state must say which number was picked
+  const missing: StatusView = { screen: choiceScreen, state: 'chosen' };
+  assert.throws(() => statusCard('p', 'd', 'zh', missing), /choice/);
+  const zero = { screen: choiceScreen, state: 'chosenNext', choice: 0 } as StatusView;
+  assert.throws(() => statusCard('p', 'd', 'zh', zero), /choice/);
 });

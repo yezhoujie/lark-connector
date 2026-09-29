@@ -10,6 +10,7 @@ import { createFakeChannel, pageOf, type FakeChannel, type FakeChannelOptions } 
 import { agentEntry, createFakeHerdr, type FakeHerdr } from './fixtures/fake-herdr.js';
 import { en as enText } from '../src/texts.js';
 import { homeOfSockBytes } from './fixtures/long-home.js';
+import type { BlockTiming } from '../src/blocks.js';
 
 process.env.LARK_CONNECTOR_APP_ID = 'cli_fake';
 process.env.LARK_CONNECTOR_APP_SECRET = 'fake-secret';
@@ -56,7 +57,11 @@ async function ping() {
   return res.ok && res.kind === 'pong' ? res.status : null;
 }
 
-async function start(channelOpts: FakeChannelOptions = {}, retryMs = 50, opts: { owner?: string; pollMs?: number; claudeConfigDir?: string; queuedMaxAgeMs?: number } = {}) {
+async function start(
+  channelOpts: FakeChannelOptions = {},
+  retryMs = 50,
+  opts: { owner?: string; pollMs?: number; claudeConfigDir?: string; queuedMaxAgeMs?: number; blockTiming?: Partial<BlockTiming> } = {},
+) {
   const home = freshHome();
   // The owner is read from the environment when the daemon starts; each test
   // says whether one is known.
@@ -71,6 +76,7 @@ async function start(channelOpts: FakeChannelOptions = {}, retryMs = 50, opts: {
     pollMs: opts.pollMs,
     claudeConfigDir: opts.claudeConfigDir,
     queuedMaxAgeMs: opts.queuedMaxAgeMs,
+    blockTiming: opts.blockTiming,
   });
   daemons.push(daemon);
   return { fake, herdr, daemon, home };
@@ -2869,4 +2875,184 @@ test('a session id herdr reports that cannot be a file name is logged once and n
   assert.equal((logText.match(/transcript\.invalid-session/g) ?? []).length, 1);
   assert.doesNotMatch(logText, /passwd/, 'the offending value is not echoed');
   await daemon.stop();
+});
+
+// ---- a pane stuck on a prompt: cards, numbers from the phone, redirected questions
+
+const screenSample = (name: string): string => readFileSync(join(process.cwd(), 'tests', 'fixtures', 'screens', `${name}.txt`), 'utf8');
+const FAST_BLOCKS: Partial<BlockTiming> = { verifyAtMs: [10, 25, 50], escWaitMs: 150, escPollMs: 10 };
+const updatesSent = (fake: { sent: unknown[] }): Array<{ update: string; card: Card }> =>
+  fake.sent.filter((s): s is { update: string; card: Card } => typeof (s as { update?: unknown }).update === 'string');
+
+/** Bound, away (English), the pane seen working, then turned blocked on `screen`. Resolves once the card count reaches `cards`. */
+async function blockedOn(screen: string | null, opts: { agent?: string; cards?: number; blockTiming?: Partial<BlockTiming> } = {}) {
+  const started = await start({}, 50, { pollMs: 15, blockTiming: opts.blockTiming ?? FAST_BLOCKS });
+  const { fake, herdr } = started;
+  await connected();
+  await request({ type: 'bind', root: '/p', label: 'p', paneId: 'w1:p1', chatId: 'oc_x' });
+  await request({ type: 'setAway', root: '/p', away: true, paneId: 'w1:p1', lang: 'en' });
+  const agent = opts.agent ?? 'claude';
+  const setStatus = (status: 'idle' | 'working' | 'blocked' | 'done'): void => {
+    herdr.agents = [agentEntry({ pane_id: 'w1:p1', agent, agent_status: status })];
+  };
+  setStatus('working');
+  await sleep(60);
+  if (screen !== null) herdr.screens['w1:p1'] = screen;
+  setStatus('blocked');
+  // the away-on card is the first one
+  if ((opts.cards ?? 2) > 1) await waitFor(() => cardsSent(fake).length >= (opts.cards ?? 2), 'the waiting-for-you card');
+  return { ...started, setStatus };
+}
+
+test('the poll opens a record for a permission prompt; a number from the phone is pressed, not injected, and the card turns green', PER_TEST, async () => {
+  const { daemon, fake, herdr, setStatus } = await blockedOn(screenSample('claude-bash'));
+  const card = cardsSent(fake)[1]!;
+  assert.match(String(card.body.elements[1]!.content), /^```/);
+  const orig = herdr.deps.sendKeys;
+  herdr.deps.sendKeys = async (p, k) => {
+    const r = await orig(p, k);
+    setStatus('working');
+    return r;
+  };
+  await fake.message({ chatId: 'oc_x', content: '1', messageId: 'om_h' });
+  await waitFor(() => updatesSent(fake).length === 1, 'the card rewrite');
+  assert.deepEqual(herdr.presses, [{ paneId: 'w1:p1', keys: ['1'] }]);
+  assert.equal(herdr.prompts.length, 0);
+  assert.deepEqual(emojisOn(fake, 'om_h'), ['DONE']);
+  assert.equal(updatesSent(fake)[0]!.card.header.template, 'green');
+  await daemon.stop();
+});
+
+test('with no record a number goes to the agent as before', PER_TEST, async () => {
+  const { daemon, fake, herdr } = await start();
+  await connected();
+  await request({ type: 'bind', root: '/p', label: 'p', paneId: 'w1:p1', chatId: 'oc_x' });
+  herdr.agents = [agentEntry({ pane_id: 'w1:p1', agent: 'claude', agent_status: 'idle' })];
+  await fake.message({ chatId: 'oc_x', content: '1', messageId: 'om_h' });
+  assert.equal(herdr.prompts.length, 1);
+  assert.equal(herdr.prompts[0]!.text, '[lark-connector remote] 1');
+  assert.deepEqual(herdr.presses, []);
+  await daemon.stop();
+});
+
+test('an open record answers a text message with a receipt instead of injecting it', PER_TEST, async () => {
+  const { daemon, fake, herdr } = await blockedOn(screenSample('claude-bash'));
+  await fake.message({ chatId: 'oc_x', content: 'what is this?', messageId: 'om_h' });
+  const receipt = await waitFor(() => cardsSent(fake)[2], 'the receipt');
+  assert.match(String(receipt.body.elements[0]!.content), new RegExp(enText.promptReplyNumber));
+  assert.equal(herdr.prompts.length, 0);
+  await daemon.stop();
+});
+
+test('a claude question is cancelled with esc and the agent is told, through the ordinary injection, to ask again', PER_TEST, async () => {
+  const { daemon, fake, herdr, setStatus } = await blockedOn(screenSample('claude-ask-single'), { cards: 1 });
+  await waitFor(() => herdr.presses.length === 1, 'the esc');
+  assert.deepEqual(herdr.presses[0]!.keys, ['esc']);
+  setStatus('done');
+  await waitFor(() => herdr.prompts.length === 1, 'the redirect');
+  assert.equal(herdr.prompts[0]!.text, `[lark-connector remote] ${msg.promptRedirect}`);
+  assert.equal(cardsSent(fake).length, 1, 'no card beyond the away-on one');
+  await daemon.stop();
+});
+
+test('a kimi question: esc, then the redirect is injected and kimi is woken with ctrl+s', PER_TEST, async () => {
+  const { daemon, herdr, setStatus } = await blockedOn(screenSample('kimi-question'), { agent: 'kimi', cards: 1 });
+  await waitFor(() => herdr.presses.length === 1, 'the esc');
+  setStatus('working');
+  await waitFor(() => herdr.presses.length === 2, 'the wake-up');
+  assert.deepEqual(herdr.presses.map((p) => p.keys), [['esc'], ['ctrl+s']]);
+  assert.equal(herdr.prompts[0]!.text, `[lark-connector remote] ${msg.promptRedirect}`);
+  await daemon.stop();
+});
+
+test('two prompts less than a minute apart each get their card (no cooldown)', PER_TEST, async () => {
+  const { daemon, fake, herdr, setStatus } = await blockedOn(screenSample('claude-bash'));
+  setStatus('working');
+  await waitFor(() => updatesSent(fake).length === 1, 'the first card closed at the terminal');
+  herdr.screens['w1:p1'] = screenSample('claude-write');
+  setStatus('blocked');
+  await waitFor(() => cardsSent(fake).length === 3, 'the second card');
+  assert.match(String(cardsSent(fake)[2]!.body.elements[1]!.content), /create note\.txt/);
+  await daemon.stop();
+});
+
+test('another agent keeps the plain card, twice within a minute too, and a number there is injected', PER_TEST, async () => {
+  const { daemon, fake, herdr, setStatus } = await blockedOn(screenSample('claude-bash'), { agent: 'codex' });
+  assert.equal(cardsSent(fake)[1]!.body.elements.length, 1, 'the plain card: one markdown element');
+  assert.deepEqual(herdr.reads, [], 'the screen is not read');
+  setStatus('working');
+  await sleep(60);
+  setStatus('blocked');
+  await waitFor(() => cardsSent(fake).length === 3, 'the second plain card');
+  await fake.message({ chatId: 'oc_x', content: '1', messageId: 'om_h' });
+  assert.equal(herdr.prompts.length, 1);
+  assert.deepEqual(herdr.presses, []);
+  await daemon.stop();
+});
+
+test('a question pending holds the card back and takes the number as its answer; once answered the card follows', PER_TEST, async () => {
+  const { daemon, fake, herdr } = await start({}, 50, { pollMs: 15, blockTiming: FAST_BLOCKS });
+  await connected();
+  await request({ type: 'bind', root: '/p', label: 'p', paneId: 'w1:p1', chatId: 'oc_x' });
+  await request({ type: 'setAway', root: '/p', away: true, paneId: 'w1:p1', lang: 'en' });
+  herdr.agents = [agentEntry({ pane_id: 'w1:p1', agent: 'claude', agent_status: 'working' })];
+  await sleep(60);
+  const asking = request({ type: 'ask', root: '/p', label: 'p', paneId: 'w1:p1', payload: askPayload, timeoutMs: 5000 });
+  await waitFor(() => cardsSent(fake).length === 2, 'the question card');
+  herdr.screens['w1:p1'] = screenSample('claude-bash');
+  herdr.agents = [agentEntry({ pane_id: 'w1:p1', agent: 'claude', agent_status: 'blocked' })];
+  await sleep(80);
+  assert.equal(cardsSent(fake).length, 2, 'no waiting-for-you card while the question is pending');
+  await fake.message({ chatId: 'oc_x', content: '1', messageId: 'om_h' });
+  assert.deepEqual(await asking, { ok: true, kind: 'ask', reply: '1', via: 'text' });
+  assert.deepEqual(herdr.presses, []);
+  await waitFor(() => cardsSent(fake).length === 3, 'the waiting-for-you card after the answer');
+  assert.match(String(cardsSent(fake)[2]!.body.elements[1]!.content), /^```/);
+  await daemon.stop();
+});
+
+test('away off drops the record and rewrites its card as remote mode closed', PER_TEST, async () => {
+  const { daemon, fake, herdr } = await blockedOn(screenSample('claude-bash'));
+  await request({ type: 'setAway', root: '/p', away: false, paneId: 'w1:p1' });
+  const u = await waitFor(() => updatesSent(fake)[0], 'the rewrite');
+  assert.equal(u.update, 'om_2');
+  assert.match(u.card.header.title.content, new RegExp(enText.statusClosed));
+  // remote mode off: a number is just a message again
+  await fake.message({ chatId: 'oc_x', content: '1', messageId: 'om_h' });
+  assert.deepEqual(herdr.presses, []);
+  await daemon.stop();
+});
+
+test('unbind drops the record and rewrites its card as remote mode closed', PER_TEST, async () => {
+  const { daemon, fake } = await blockedOn(screenSample('claude-bash'));
+  await request({ type: 'unbind', root: '/p' });
+  const u = await waitFor(() => updatesSent(fake)[0], 'the rewrite');
+  assert.equal(u.update, 'om_2');
+  assert.match(u.card.header.title.content, new RegExp(enText.statusClosed));
+  await daemon.stop();
+});
+
+test('switching the project to another group drops the record and rewrites its card as remote mode closed', PER_TEST, async () => {
+  const { daemon, fake } = await blockedOn(screenSample('claude-bash'));
+  const r = await request({ type: 'bind', root: '/p', label: 'p', paneId: 'w1:p1', chatId: 'oc_other' });
+  assert.ok(r.ok);
+  const u = await waitFor(() => updatesSent(fake)[0], 'the rewrite');
+  assert.equal(u.update, 'om_2');
+  assert.match(u.card.header.title.content, new RegExp(enText.statusClosed));
+  await daemon.stop();
+});
+
+test('stopping the daemon mid-check leaves the card and the message alone', PER_TEST, async () => {
+  const { daemon, fake, herdr, setStatus } = await blockedOn(screenSample('claude-bash'), { blockTiming: { verifyAtMs: [150, 200, 250] } });
+  const orig = herdr.deps.sendKeys;
+  herdr.deps.sendKeys = async (p, k) => {
+    const r = await orig(p, k);
+    setStatus('working');
+    return r;
+  };
+  await fake.message({ chatId: 'oc_x', content: '1', messageId: 'om_h' });
+  await daemon.stop();
+  await sleep(300);
+  assert.equal(updatesSent(fake).length, 0);
+  assert.deepEqual(emojisOn(fake, 'om_h'), []);
 });

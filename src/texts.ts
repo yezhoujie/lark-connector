@@ -94,6 +94,7 @@ export const zh = {
   promptNoSuchOption: '没有编号 {n}。',
   promptKeysIgnored: '按键没有生效，请回电脑处理。',
   promptKeysRefused: '按键被拒：{why}',
+  promptScreenUnreadable: '暂时读不到终端屏幕，请稍后再回一次编号。',
   // remote mode on/off card
   awayOnTitle: '远程模式已开启',
   awayOffTitle: '远程模式即将关闭',
@@ -198,6 +199,7 @@ export const en: Record<keyof typeof zh, string> = {
   promptNoSuchOption: 'There is no option {n}.',
   promptKeysIgnored: 'The keys had no effect; deal with it at the computer.',
   promptKeysRefused: 'The keys were refused: {why}',
+  promptScreenUnreadable: 'Could not read the terminal screen just now; reply with the number again in a moment.',
   awayOnTitle: 'Remote mode is on',
   awayOffTitle: 'Remote mode is about to turn off',
   awayOnFull: 'Messages you send in this group are delivered into the terminal; decisions that need you arrive here as cards.',

@@ -209,16 +209,28 @@ export function receiptCard(projectLabel: string, why: string, lang: Lang = 'en'
 /** How a "waiting for you" card ends: still open, or rewritten once the prompt is resolved. */
 export type StatusState = 'open' | 'chosen' | 'chosenNext' | 'terminal' | 'stale' | 'closed';
 
-export interface StatusView {
+/**
+ * What a "waiting for you" card shows. The two picked states carry the number
+ * picked on the phone; the others have none, so a picked card can never be
+ * rendered without its number.
+ */
+export type StatusView = {
   /** What the parser made of the pane's screen. */
   screen: ParsedScreen;
   /** The raw screen text; its last lines are shown when `screen.kind` is `unknown` (the parser keeps no block then). */
   raw?: string;
-  /** Defaults to `open`. */
-  state?: StatusState;
-  /** The number picked on the phone; used by `chosen` and `chosenNext`. */
-  choice?: number;
-}
+} & (
+  | {
+      /** Defaults to `open`. */
+      state?: Exclude<StatusState, 'chosen' | 'chosenNext'>;
+      choice?: undefined;
+    }
+  | {
+      state: 'chosen' | 'chosenNext';
+      /** The number picked on the phone. */
+      choice: number;
+    }
+);
 
 const MAX_LINE = 160;
 const MAX_LINES = 40;
@@ -273,6 +285,9 @@ export function statusCard(projectLabel: string, detail: string, lang: Lang = 'e
     return card({ icon: '🔔', title: `[${projectLabel}] ${T.statusBlocked}`, template: 'orange' }, elements);
   }
 
+  // The type already demands a number for the picked states; this catches a caller that cast its way past it.
+  if ((state === 'chosen' || state === 'chosenNext') && !(Number.isInteger(view.choice) && (view.choice as number) > 0))
+    throw new Error(`statusCard: state ${state} needs the picked number (choice), got ${String(view.choice)}`);
   const n = view.choice ?? 0;
   const resolved: Record<Exclude<StatusState, 'open'>, { icon: string; template: string; word: string }> = {
     chosen: { icon: '✅', template: 'green', word: fill(T.statusChosen, { n }) },
