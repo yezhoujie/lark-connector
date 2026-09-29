@@ -136336,6 +136336,22 @@ var init_texts = __esm({
       // "stuck" status card
       statusBlocked: "\u7B49\u4F60\u8F93\u5165",
       statusPane: "\u7A97\u683C {pane}",
+      statusHintReply: "\u56DE\u590D\u7F16\u53F7\u5373\u53EF\u9009\u62E9\uFF0C\u4F8B\u5982 1",
+      statusHintUnknown: "\u8BA4\u4E0D\u51FA\u9009\u9879\uFF0C\u8BF7\u56DE\u7535\u8111\u5904\u7406",
+      statusNumbering: "\u6309\u7F16\u53F7\u56DE\u590D\uFF1A",
+      statusOmitted: "\u2026 \u7701\u7565 {n} \u884C\uFF0C\u5B8C\u6574\u5185\u5BB9\u56DE\u7535\u8111\u770B \u2026",
+      statusChosen: "\u5DF2\u89E3\u9664 \xB7 \u624B\u673A\u4E0A\u9009\u4E86 {n}",
+      statusChosenNext: "\u5DF2\u89E3\u9664 \xB7 \u624B\u673A\u4E0A\u9009\u4E86 {n}\uFF0C\u4E0B\u4E00\u6B65\u89C1\u65B0\u5361",
+      statusTerminal: "\u5DF2\u89E3\u9664 \xB7 \u5DF2\u5728\u7EC8\u7AEF\u5904\u7406",
+      statusStale: "\u5DF2\u8FC7\u671F \xB7 \u63D0\u793A\u5DF2\u53D8\u5316\uFF0C\u89C1\u65B0\u5361",
+      statusClosed: "\u5DF2\u5173\u95ED \xB7 \u8FDC\u7A0B\u6A21\u5F0F\u5DF2\u5173\u95ED",
+      // replies to a phone message while the terminal sits on a prompt
+      promptReplyNumber: "\u7EC8\u7AEF\u6B63\u505C\u5728\u63D0\u793A\u4E0A\uFF0C\u56DE\u590D\u7F16\u53F7\u5373\u53EF\u9009\u62E9\u3002",
+      promptUnreadable: "\u8FD9\u4E2A\u63D0\u793A\u8BA4\u4E0D\u51FA\u9009\u9879\uFF0C\u8BF7\u56DE\u7535\u8111\u5904\u7406\u3002",
+      promptBusy: "\u4E0A\u4E00\u4E2A\u9009\u62E9\u8FD8\u5728\u5904\u7406\uFF0C\u8BF7\u7A0D\u5019\u3002",
+      promptNoSuchOption: "\u6CA1\u6709\u7F16\u53F7 {n}\u3002",
+      promptKeysIgnored: "\u6309\u952E\u6CA1\u6709\u751F\u6548\uFF0C\u8BF7\u56DE\u7535\u8111\u5904\u7406\u3002",
+      promptKeysRefused: "\u6309\u952E\u88AB\u62D2\uFF1A{why}",
       // remote mode on/off card
       awayOnTitle: "\u8FDC\u7A0B\u6A21\u5F0F\u5DF2\u5F00\u542F",
       awayOffTitle: "\u8FDC\u7A0B\u6A21\u5F0F\u5373\u5C06\u5173\u95ED",
@@ -136423,6 +136439,21 @@ var init_texts = __esm({
       promptHerdrMissing: `The daemon cannot find the herdr executable (it was probably started before herdr was installed). Restart it from a herdr pane: ${CLI} daemon --stop, then ${CLI} away on`,
       statusBlocked: "waiting for you",
       statusPane: "pane {pane}",
+      statusHintReply: "Reply with a number to choose, e.g. 1",
+      statusHintUnknown: "Cannot make out the options; deal with it at the computer",
+      statusNumbering: "Reply with the number:",
+      statusOmitted: "\u2026 {n} lines omitted; see the computer for the full text \u2026",
+      statusChosen: "Resolved \xB7 you picked {n} on the phone",
+      statusChosenNext: "Resolved \xB7 you picked {n} on the phone; next step is on a new card",
+      statusTerminal: "Resolved \xB7 handled in the terminal",
+      statusStale: "Expired \xB7 the prompt changed, see the new card",
+      statusClosed: "Closed \xB7 remote mode is off",
+      promptReplyNumber: "The terminal is sitting on a prompt; reply with a number to choose.",
+      promptUnreadable: "The options of this prompt cannot be made out; deal with it at the computer.",
+      promptBusy: "The previous choice is still being handled; please wait.",
+      promptNoSuchOption: "There is no option {n}.",
+      promptKeysIgnored: "The keys had no effect; deal with it at the computer.",
+      promptKeysRefused: "The keys were refused: {why}",
       awayOnTitle: "Remote mode is on",
       awayOffTitle: "Remote mode is about to turn off",
       awayOnFull: "Messages you send in this group are delivered into the terminal; decisions that need you arrive here as cards.",
@@ -136668,6 +136699,7 @@ If this is a permission problem the app lacks the im:chat (create group) scope: 
       latePick: "(follow-up) I pick {labels}",
       urgentNotSent: "the urgent flag was not delivered ({error}); the question itself was sent and is waiting as usual",
       urgentNoOwner: `the app owner is not recorded, so there is nobody to flag; rerun ${CLI} setup --update to record it`,
+      promptRedirect: "Remote mode is on and the human is away, so your question prompt was cancelled. Ask the same question again with the agent-lark skill's ask command so it reaches their phone.",
       urgentRefused: "Feishu error {code} {msg}",
       // validation
       vTitleRequired: "title: required and non-empty",
@@ -137849,9 +137881,59 @@ function receiptCard(projectLabel2, why, lang = "en", uncertain = false) {
     md(uncertain ? why : fill(T.notDeliveredBody, { why }))
   ]);
 }
-function statusCard(projectLabel2, detail, lang = "en") {
+function clipLine(line) {
+  const chars = [...line];
+  return chars.length <= MAX_LINE ? line : `${chars.slice(0, MAX_LINE - 1).join("")}\u2026`;
+}
+function clipBlock(lines, T) {
+  const clipped = lines.map(clipLine);
+  if (clipped.length <= MAX_LINES) return clipped;
+  const tail = MAX_LINES - HEAD_LINES - 1;
+  const omitted = clipped.length - HEAD_LINES - tail;
+  return [...clipped.slice(0, HEAD_LINES), fill(T.statusOmitted, { n: omitted }), ...clipped.slice(-tail)];
+}
+function codeBlock(lines) {
+  const body = lines.join("\n").replace(/`(?=``)/g, "`\u200B");
+  return md("```\n" + body + "\n```");
+}
+function statusCard(projectLabel2, detail, lang = "en", view) {
   const T = t(lang);
-  return card({ icon: "\u{1F514}", title: `[${projectLabel2}] ${T.statusBlocked}`, template: "orange" }, [md(detail)]);
+  const elements = [md(detail)];
+  if (!view) return card({ icon: "\u{1F514}", title: `[${projectLabel2}] ${T.statusBlocked}`, template: "orange" }, elements);
+  const { screen } = view;
+  const state = view.state ?? "open";
+  const lines = screen.kind === "unknown" ? trimBlank((view.raw ?? "").split("\n")).slice(-UNKNOWN_TAIL) : screen.block;
+  if (lines.length) elements.push(codeBlock(clipBlock(lines, T)));
+  if (state === "open") {
+    if (screen.kind === "unknown") {
+      elements.push(note(T.statusHintUnknown));
+    } else {
+      if (!screen.numbered) {
+        elements.push(md(`**${T.statusNumbering}**
+
+${screen.options.map((o) => `${o.n}. ${o.label}`).join("\n")}`));
+      }
+      elements.push(note(T.statusHintReply));
+    }
+    return card({ icon: "\u{1F514}", title: `[${projectLabel2}] ${T.statusBlocked}`, template: "orange" }, elements);
+  }
+  const n = view.choice ?? 0;
+  const resolved = {
+    chosen: { icon: "\u2705", template: "green", word: fill(T.statusChosen, { n }) },
+    chosenNext: { icon: "\u27A1\uFE0F", template: "grey", word: fill(T.statusChosenNext, { n }) },
+    terminal: { icon: "\u{1F4BB}", template: "grey", word: T.statusTerminal },
+    stale: { icon: "\u231B", template: "grey", word: T.statusStale },
+    closed: { icon: "\u{1F319}", template: "grey", word: T.statusClosed }
+  };
+  const r = resolved[state];
+  return card({ icon: r.icon, title: `[${projectLabel2}] ${T.statusBlocked} \xB7 ${r.word}`, template: r.template }, elements);
+}
+function trimBlank(lines) {
+  let a = 0;
+  let b = lines.length;
+  while (a < b && !lines[a].trim()) a++;
+  while (b > a && !lines[b - 1].trim()) b--;
+  return lines.slice(a, b);
 }
 function awayCard(projectLabel2, on, detail, lang, title) {
   const T = t(lang);
@@ -137860,7 +137942,7 @@ function awayCard(projectLabel2, on, detail, lang, title) {
     [md(detail)]
   );
 }
-var md, hr, note, HEADER, checkerName, optionIdOf;
+var md, hr, note, HEADER, checkerName, optionIdOf, MAX_LINE, MAX_LINES, HEAD_LINES, UNKNOWN_TAIL;
 var init_cards = __esm({
   "src/cards.ts"() {
     "use strict";
@@ -137880,6 +137962,10 @@ var init_cards = __esm({
     };
     checkerName = (optionId) => `opt:${optionId}`;
     optionIdOf = (checkerName2) => checkerName2.startsWith("opt:") ? checkerName2.slice(4) : null;
+    MAX_LINE = 160;
+    MAX_LINES = 40;
+    HEAD_LINES = 8;
+    UNKNOWN_TAIL = 20;
   }
 });
 

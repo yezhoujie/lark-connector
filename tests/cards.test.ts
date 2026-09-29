@@ -3,7 +3,8 @@
 // multi-choice one, and the language each card shell is rendered in.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { askCard, awayCard, notifyCard, receiptCard, statusCard } from '../src/cards.js';
+import { askCard, awayCard, notifyCard, receiptCard, statusCard, type StatusState } from '../src/cards.js';
+import type { ParsedScreen } from '../src/screen.js';
 import type { AskPayload } from '../src/validate.js';
 
 interface Card {
@@ -220,4 +221,112 @@ test('awayCard: a title override replaces the on/off wording; icon and template 
   const c = asCard(awayCard('proj', false, 'body text', 'en', 'Custom title'));
   assert.equal(c.header.template, 'grey');
   assert.equal(c.header.title.content, '🌙 [proj] Custom title');
+});
+
+// ---- status card with a prompt on screen ----
+
+const choiceScreen: ParsedScreen = {
+  kind: 'choice',
+  block: ['Bash command', '  date > stamp.txt', 'Do you want to proceed?', '❯ 1. Yes', '  2. No'],
+  options: [
+    { n: 1, label: 'Yes', cursor: true },
+    { n: 2, label: 'No', cursor: false },
+  ],
+  numbered: true,
+  fingerprint: 'fp',
+};
+const fence = (block: object): string => String((block as { content: string }).content);
+
+test('status card with a numbered prompt: code block holds the block, no rule, reply hint as the note', () => {
+  const c = asCard(statusCard('p', '**deploy**\npane w1:p1', 'zh', { screen: choiceScreen }));
+  assert.equal(c.header.title.content, '🔔 [p] 等你输入');
+  assert.equal(c.header.template, 'orange');
+  assert.equal(c.body.elements.length, 3);
+  assert.equal(c.body.elements[0]!.content, '**deploy**\npane w1:p1');
+  assert.equal(c.body.elements[1]!.content, '```\n' + choiceScreen.block.join('\n') + '\n```');
+  assert.ok(c.body.elements.every((e) => e.tag !== 'hr'));
+  assert.equal(c.body.elements[2]!.content, "<font color='grey'>回复编号即可选择，例如 1</font>");
+});
+
+test('status card without a screen is unchanged: one markdown element', () => {
+  const c = asCard(statusCard('p', 'pane w1:p1', 'en'));
+  assert.deepEqual(c.body.elements, [{ tag: 'markdown', content: 'pane w1:p1' }]);
+  assert.equal(c.header.title.content, '🔔 [p] waiting for you');
+});
+
+test('status card, prompt without printed numbers: the counted numbers are listed under the code block', () => {
+  const screen: ParsedScreen = {
+    kind: 'choice',
+    block: ['Trust this folder?', '❯ No, exit', '  Yes, I trust this folder'],
+    options: [
+      { n: 1, label: 'No, exit', cursor: true },
+      { n: 2, label: 'Yes, I trust this folder', cursor: false },
+    ],
+    numbered: false,
+    fingerprint: 'x',
+  };
+  const c = asCard(statusCard('p', 'd', 'en', { screen }));
+  assert.equal(c.body.elements.length, 4);
+  assert.equal(c.body.elements[2]!.content, '**Reply with the number:**\n\n1. No, exit\n2. Yes, I trust this folder');
+});
+
+test('status card, unrecognised prompt: last 20 raw lines in the code block and a go-to-the-computer note', () => {
+  const raw = Array.from({ length: 30 }, (_, i) => `row ${i + 1}`).join('\n') + '\n\n';
+  const screen: ParsedScreen = { kind: 'unknown', block: [], options: [], numbered: false, fingerprint: '' };
+  const c = asCard(statusCard('p', 'd', 'zh', { screen, raw }));
+  const lines = String(c.body.elements[1]!.content).split('\n');
+  assert.equal(lines.length, 22);
+  assert.equal(lines[1], 'row 11');
+  assert.equal(lines[20], 'row 30');
+  assert.equal(c.body.elements[2]!.content, "<font color='grey'>认不出选项，请回电脑处理</font>");
+});
+
+test('status card clips a line over 160 characters with an ellipsis', () => {
+  const screen: ParsedScreen = { ...choiceScreen, block: ['a'.repeat(200), 'b'.repeat(160)] };
+  const lines = fence(asCard(statusCard('p', 'd', 'en', { screen })).body.elements[1]!).split('\n');
+  assert.equal(lines[1], 'a'.repeat(159) + '…');
+  assert.equal(lines[2], 'b'.repeat(160));
+});
+
+test('status card keeps the first 8 and last 31 lines of a prompt over 40 lines, with an omission line between', () => {
+  const block = Array.from({ length: 60 }, (_, i) => `L${i + 1}`);
+  const screen: ParsedScreen = { ...choiceScreen, block };
+  const lines = fence(asCard(statusCard('p', 'd', 'en', { screen })).body.elements[1]!).split('\n').slice(1, -1);
+  assert.equal(lines.length, 40);
+  assert.deepEqual(lines.slice(0, 8), block.slice(0, 8));
+  assert.equal(lines[8], '… 21 lines omitted; see the computer for the full text …');
+  assert.deepEqual(lines.slice(9), block.slice(-31));
+});
+
+test('exactly 40 lines are shown whole', () => {
+  const block = Array.from({ length: 40 }, (_, i) => `L${i + 1}`);
+  const lines = fence(asCard(statusCard('p', 'd', 'en', { screen: { ...choiceScreen, block } })).body.elements[1]!).split('\n').slice(1, -1);
+  assert.deepEqual(lines, block);
+});
+
+test('a triple backtick inside the prompt cannot close the code fence', () => {
+  const screen: ParsedScreen = { ...choiceScreen, block: ['run ```rm``` and ````x'] };
+  const content = fence(asCard(statusCard('p', 'd', 'en', { screen })).body.elements[1]!);
+  const inner = content.slice(4, -4);
+  assert.doesNotMatch(inner, /```/);
+  assert.equal(inner.replace(/​/g, ''), 'run ```rm``` and ````x');
+});
+
+test('resolved status cards: state word in the title, grey or green, no note, code block kept', () => {
+  const cases: Array<[StatusState, string, string, string]> = [
+    ['chosen', 'green', '✅ [p] 等你输入 · 已解除 · 手机上选了 2', '手机上选了 2'],
+    ['chosenNext', 'grey', '➡️ [p] 等你输入 · 已解除 · 手机上选了 2，下一步见新卡', '下一步'],
+    ['terminal', 'grey', '💻 [p] 等你输入 · 已解除 · 已在终端处理', '终端'],
+    ['stale', 'grey', '⌛ [p] 等你输入 · 已过期 · 提示已变化，见新卡', '过期'],
+    ['closed', 'grey', '🌙 [p] 等你输入 · 已关闭 · 远程模式已关闭', '关闭'],
+  ];
+  for (const [state, template, title] of cases) {
+    const c = asCard(statusCard('p', 'd', 'zh', { screen: choiceScreen, state, choice: 2 }));
+    assert.equal(c.header.title.content, title, state);
+    assert.equal(c.header.template, template, state);
+    assert.equal(c.body.elements.length, 2, state);
+    assert.match(String(c.body.elements[1]!.content), /^```/, state);
+  }
+  const en = asCard(statusCard('p', 'd', 'en', { screen: choiceScreen, state: 'chosen', choice: 1 }));
+  assert.equal(en.header.title.content, '✅ [p] waiting for you · Resolved · you picked 1 on the phone');
 });

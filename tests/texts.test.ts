@@ -118,3 +118,16 @@ test('both(): a single-line value is zh and en side by side; a multi-line value 
   assert.deepEqual(lines.slice(0, 3), zh.setupMenu.split('\n'));
   assert.deepEqual(lines.slice(3), en.setupMenu.split('\n'));
 });
+
+test('the redirect notice for a cancelled question prompt is English and carries no channel prefix', () => {
+  assert.match(msg.promptRedirect, /^Remote mode is on and the human is away/);
+  assert.match(msg.promptRedirect, /ask command/);
+  assert.doesNotMatch(msg.promptRedirect, /\[lark-connector remote\]/);
+});
+
+test('the prompt-relay wording exists in both languages with the placeholders the callers fill', () => {
+  for (const key of ['statusOmitted', 'statusChosen', 'statusChosenNext', 'promptNoSuchOption'] as const) {
+    assert.ok(en[key].includes('{n}') && zh[key].includes('{n}'), key);
+  }
+  assert.ok(en.promptKeysRefused.includes('{why}') && zh.promptKeysRefused.includes('{why}'));
+});

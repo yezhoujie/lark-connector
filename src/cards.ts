@@ -1,3 +1,4 @@
+import type { ParsedScreen } from './screen.js';
 import { fill, t } from './texts.js';
 import type { AskOption, AskPayload, Lang, NotifyPayload } from './validate.js';
 
@@ -205,10 +206,92 @@ export function receiptCard(projectLabel: string, why: string, lang: Lang = 'en'
   ]);
 }
 
+/** How a "waiting for you" card ends: still open, or rewritten once the prompt is resolved. */
+export type StatusState = 'open' | 'chosen' | 'chosenNext' | 'terminal' | 'stale' | 'closed';
+
+export interface StatusView {
+  /** What the parser made of the pane's screen. */
+  screen: ParsedScreen;
+  /** The raw screen text; its last lines are shown when `screen.kind` is `unknown` (the parser keeps no block then). */
+  raw?: string;
+  /** Defaults to `open`. */
+  state?: StatusState;
+  /** The number picked on the phone; used by `chosen` and `chosenNext`. */
+  choice?: number;
+}
+
+const MAX_LINE = 160;
+const MAX_LINES = 40;
+const HEAD_LINES = 8;
+const UNKNOWN_TAIL = 20;
+
+/** Cuts one line to `MAX_LINE` characters (counted by code point), ending in an ellipsis. */
+function clipLine(line: string): string {
+  const chars = [...line];
+  return chars.length <= MAX_LINE ? line : `${chars.slice(0, MAX_LINE - 1).join('')}…`;
+}
+
+/**
+ * The lines to show inside the code block: over-long lines cut, and a long
+ * prompt reduced to its first lines and its last ones (the options sit at the
+ * bottom) with a one-line note in between; the result is `MAX_LINES` lines.
+ */
+function clipBlock(lines: string[], T: ReturnType<typeof t>): string[] {
+  const clipped = lines.map(clipLine);
+  if (clipped.length <= MAX_LINES) return clipped;
+  const tail = MAX_LINES - HEAD_LINES - 1;
+  const omitted = clipped.length - HEAD_LINES - tail;
+  return [...clipped.slice(0, HEAD_LINES), fill(T.statusOmitted, { n: omitted }), ...clipped.slice(-tail)];
+}
+
+/** A fenced code block; a triple backtick in the text is broken up so it cannot close the fence early. */
+function codeBlock(lines: string[]): object {
+  const body = lines.join('\n').replace(/`(?=``)/g, '`\u200b');
+  return md('```\n' + body + '\n```');
+}
+
 /** Pushed while remote mode is on and the agent is stuck on a prompt only a human can answer. */
-export function statusCard(projectLabel: string, detail: string, lang: Lang = 'en'): object {
+export function statusCard(projectLabel: string, detail: string, lang: Lang = 'en', view?: StatusView): object {
   const T = t(lang);
-  return card({ icon: '🔔', title: `[${projectLabel}] ${T.statusBlocked}`, template: 'orange' }, [md(detail)]);
+  const elements: object[] = [md(detail)];
+  if (!view) return card({ icon: '🔔', title: `[${projectLabel}] ${T.statusBlocked}`, template: 'orange' }, elements);
+
+  const { screen } = view;
+  const state = view.state ?? 'open';
+  const lines = screen.kind === 'unknown' ? trimBlank((view.raw ?? '').split('\n')).slice(-UNKNOWN_TAIL) : screen.block;
+  if (lines.length) elements.push(codeBlock(clipBlock(lines, T)));
+
+  if (state === 'open') {
+    if (screen.kind === 'unknown') {
+      elements.push(note(T.statusHintUnknown));
+    } else {
+      if (!screen.numbered) {
+        elements.push(md(`**${T.statusNumbering}**\n\n${screen.options.map((o) => `${o.n}. ${o.label}`).join('\n')}`));
+      }
+      elements.push(note(T.statusHintReply));
+    }
+    return card({ icon: '🔔', title: `[${projectLabel}] ${T.statusBlocked}`, template: 'orange' }, elements);
+  }
+
+  const n = view.choice ?? 0;
+  const resolved: Record<Exclude<StatusState, 'open'>, { icon: string; template: string; word: string }> = {
+    chosen: { icon: '✅', template: 'green', word: fill(T.statusChosen, { n }) },
+    chosenNext: { icon: '➡️', template: 'grey', word: fill(T.statusChosenNext, { n }) },
+    terminal: { icon: '💻', template: 'grey', word: T.statusTerminal },
+    stale: { icon: '⌛', template: 'grey', word: T.statusStale },
+    closed: { icon: '🌙', template: 'grey', word: T.statusClosed },
+  };
+  const r = resolved[state];
+  return card({ icon: r.icon, title: `[${projectLabel}] ${T.statusBlocked} · ${r.word}`, template: r.template }, elements);
+}
+
+/** Drops blank lines from both ends. */
+function trimBlank(lines: string[]): string[] {
+  let a = 0;
+  let b = lines.length;
+  while (a < b && !(lines[a] as string).trim()) a++;
+  while (b > a && !(lines[b - 1] as string).trim()) b--;
+  return lines.slice(a, b);
 }
 
 /**
