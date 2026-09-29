@@ -32,6 +32,24 @@ tagged plain `vX.Y.Z` here.
 - The 🔔 card is no longer held back for 60 s after the previous one: two permission prompts in a row now
   give two cards. For Claude Code and Kimi CLI panes each project keeps at most one open card instead; other
   agents keep the plain card, now without any cool-down.
+- For Claude Code and Kimi CLI panes the 🔔 card no longer waits for the status to change to `blocked`: a
+  blocked pane without an open card for the prompt it shows gets one. That covers a pane already blocked
+  when first seen (Claude Code's start-up trust prompt) or when remote mode is switched on, and a new prompt
+  reached while a question was pending. While a card is open the screen is re-read on every poll (5 s), and a
+  changed prompt gets a new card while the old one turns `Expired`. Other agents keep the plain card, pushed
+  when the status changes to `blocked`.
+
+#### Fixed
+
+- A long command in a Claude Code permission prompt could push the top of the prompt off the screen, and the
+  card then said the options could not be made out; a numbered prompt with its hint line below is now read
+  from the first line on screen.
+- A permission prompt whose command merely contained the words of a question form (`Chat about this`,
+  `Ready to submit your answers?`) was taken for a question, cancelled with Esc (declining the permission) and
+  redirected to `ask`; only an option or a line that is exactly those words counts now.
+- A 🔔 card sent at the very moment remote mode was switched off (or the project unbound, or moved to another
+  group) stayed on "waiting for you" and could swallow a later number in the group; it is now closed like the
+  others.
 
 ### [0.3.1][lark-connector-0.3.1] - 2026-09-24
 

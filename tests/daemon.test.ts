@@ -2880,7 +2880,7 @@ test('a session id herdr reports that cannot be a file name is logged once and n
 // ---- a pane stuck on a prompt: cards, numbers from the phone, redirected questions
 
 const screenSample = (name: string): string => readFileSync(join(process.cwd(), 'tests', 'fixtures', 'screens', `${name}.txt`), 'utf8');
-const FAST_BLOCKS: Partial<BlockTiming> = { verifyAtMs: [10, 25, 50], escWaitMs: 150, escPollMs: 10 };
+const FAST_BLOCKS: Partial<BlockTiming> = { verifyAtMs: [10, 25, 50], escWaitMs: 1000, escPollMs: 10 };
 const updatesSent = (fake: { sent: unknown[] }): Array<{ update: string; card: Card }> =>
   fake.sent.filter((s): s is { update: string; card: Card } => typeof (s as { update?: unknown }).update === 'string');
 
@@ -2896,7 +2896,7 @@ async function blockedOn(screen: string | null, opts: { agent?: string; cards?: 
     herdr.agents = [agentEntry({ pane_id: 'w1:p1', agent, agent_status: status })];
   };
   setStatus('working');
-  await sleep(60);
+  await sleep(150);
   if (screen !== null) herdr.screens['w1:p1'] = screen;
   setStatus('blocked');
   // the away-on card is the first one
@@ -2981,7 +2981,7 @@ test('another agent keeps the plain card, twice within a minute too, and a numbe
   assert.equal(cardsSent(fake)[1]!.body.elements.length, 1, 'the plain card: one markdown element');
   assert.deepEqual(herdr.reads, [], 'the screen is not read');
   setStatus('working');
-  await sleep(60);
+  await sleep(150);
   setStatus('blocked');
   await waitFor(() => cardsSent(fake).length === 3, 'the second plain card');
   await fake.message({ chatId: 'oc_x', content: '1', messageId: 'om_h' });

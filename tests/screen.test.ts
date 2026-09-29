@@ -308,3 +308,23 @@ test('a numbered block with a single option line is unknown', () => {
   const text = [RULE, ' Do you want to proceed?', ' ❯ 1. Yes', '', ' Esc to cancel'].join('\n');
   assert.equal(parseScreen(text, 'claude').kind, 'unknown');
 });
+
+test('a permission prompt whose command mentions the question markers is still a permission prompt', () => {
+  const bash = load('claude-bash');
+  for (const marker of ['Chat about this', 'Ready to submit your answers?']) {
+    const text = bash.replace('   date > stamp2.txt\n', `   grep "${marker}" src/screen.ts\n`);
+    assert.ok(text.includes(`grep "${marker}"`), marker);
+    const p = parseScreen(text, 'claude');
+    assert.equal(p.kind, 'choice', marker);
+    assert.deepEqual(
+      p.options.map((o) => o.n),
+      [1, 2, 3],
+    );
+  }
+});
+
+test('every claude question sample is still a question', () => {
+  for (const name of ['claude-ask-single', 'claude-ask-multi', 'claude-ask-twoq', 'claude-ask-review']) {
+    assert.equal(parseScreen(load(name), 'claude').kind, 'question', name);
+  }
+});

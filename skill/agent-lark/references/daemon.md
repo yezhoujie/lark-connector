@@ -286,19 +286,30 @@ the daemon looks for the moment claude read the entry:
   and forgets all of them on restart; a reaction on a forgotten message does nothing.
 
 **The stuck alert.** Every 5 s the daemon runs `herdr agent list` for the bindings that have `away: true`
-and a pane. When a session's status changes *to* `blocked` (a permission prompt, a choice dialog — herdr's
-own judgement) and no question of that project is pending, it acts on what the pane shows. Idle and
-finished sessions never trigger anything. Outside herdr `paneId` is never recorded, so nothing is polled.
-A pane whose agent is neither `claude` nor `kimi` gets the plain orange **`🔔 [<dir>] waiting for you`**
-card (terminal title and pane id) and nothing more. For `claude` and `kimi` (source: `src/blocks.ts`,
-`src/screen.ts`) the daemon reads the screen (`herdr agent read <pane> --source visible`) and classifies it:
+and a pane, and skips any project with a question pending (it is looked at again once the question is
+answered). Only a session in `blocked` (a permission prompt, a choice dialog — herdr's own judgement) triggers
+anything; idle and finished sessions never do. Outside herdr `paneId` is never recorded, so nothing is polled.
+
+- A pane whose agent is neither `claude` nor `kimi` gets the plain orange **`🔔 [<dir>] waiting for you`**
+  card (terminal title and pane id) and nothing more, when its status changes *to* `blocked` from a status
+  seen on an earlier poll. A pane already blocked when first seen (or when remote mode is switched on) gets
+  none.
+- A `claude` or `kimi` pane (source: `src/blocks.ts`, `src/screen.ts`) that is `blocked` with no open card
+  for the prompt it shows gets one — including a pane first seen already blocked (Claude Code's start-up
+  trust prompt) and a pane already blocked when remote mode is switched on, which gets exactly one card.
+  The daemon reads the screen (`herdr agent read <pane> --source visible`; herdr does not let a blocked pane
+  be read beyond what is visible) and classifies it, as below. While a card is open the screen is read again
+  on every poll (5 s): a different prompt pushes its own card (or is redirected, if it is a question) and
+  only then turns the old one into `Expired · the prompt changed, see the new card`; a screen that cannot
+  be read or made out changes nothing that round.
 
 - *A question* (`AskUserQuestion` / Kimi's question form): no card. The daemon presses Esc, looks at the pane
   once a second for up to 20 s until it leaves `blocked`, then injects the redirect line through the usual
   channel (`[lark-connector remote] Remote mode is on and the human is away, so your question prompt was
   cancelled. Ask the same question again with the agent-lark skill's ask command so it reaches their
   phone.`), so the question arrives as an `ask` card. If the pane is still blocked after 20 s (or Esc is
-  refused), the prompt is pushed as a card after all, and it cannot be answered by number.
+  refused), the prompt is pushed as a card after all, and it cannot be answered by number; later polls that
+  still find the same question leave that card as it is (no second Esc).
 - *Any other prompt* (permission, trust check, or one that cannot be told apart): the daemon pushes the
   `🔔` card with the prompt text and opens **one record per project** (in memory; a project never has two
   cards open, which replaces the old 60 s cool-down). A prompt whose options are numbered on screen is
@@ -320,7 +331,7 @@ receipt below. A digit sent when the prompt was already dealt with at the termin
 injects nothing, gets a `SILENT` reaction and the card becomes `Resolved · handled in the terminal`. A
 prompt dealt with at the computer while no message arrives is noticed by the poll and its card turns the
 same way. `away off`, `unbind` and a group switch discard the record and turn the card into
-`Closed · remote mode is off`.
+`Closed · remote mode is off` — also a card that was still on its way to Feishu at that moment.
 
 Receipts (the same kind of receipt card as above, sent to the group), wording in `en`:
 

@@ -190,7 +190,7 @@ export function createBlockRelay(deps: BlockRelayDeps): BlockRelay {
    * for it. False when Feishu did not take the card: no record is opened, so
    * the next poll that finds the pane still blocked tries again.
    */
-  const pushCard = async (b: Binding, agent: AgentInfo & { agent: ScreenCli }, raw: string, screen: ParsedScreen, replyable: boolean): Promise<boolean> => {
+  const pushCard = async (b: Binding, epoch: number, agent: AgentInfo & { agent: ScreenCli }, raw: string, screen: ParsedScreen, replyable: boolean): Promise<boolean> => {
     const lang = deps.langOf(b);
     const detail = statusDetail(agent, lang);
     let cardId: string;
@@ -203,6 +203,14 @@ export function createBlockRelay(deps: BlockRelayDeps): BlockRelay {
     }
     deps.onCardSent(cardId, t(lang).statusBlocked);
     const rec: BlockRecord = { root: b.root, chatId: b.chatId, paneId: agent.pane_id, cli: agent.agent, cardId, detail, screen, raw, replyable, busy: false };
+    // Remote mode may have ended (or the group changed) while the card was on
+    // its way: nothing is left to answer it, so it is closed on the spot
+    // rather than left waiting forever with a record nobody will clear.
+    if (!alive(b.root, epoch, b.chatId)) {
+      log('block.opened', { root: b.root, paneId: agent.pane_id, cardId, dropped: true });
+      await rewrite(b, rec, { how: 'closed' });
+      return false;
+    }
     records.set(b.root, rec);
     log('block.opened', { root: b.root, paneId: agent.pane_id, cli: agent.agent, kind: screen.kind, numbered: screen.numbered, options: screen.options.length, cardId, replyable });
     if (screen.kind === 'unknown') {
@@ -222,12 +230,12 @@ export function createBlockRelay(deps: BlockRelayDeps): BlockRelay {
    * the prompt behind an open record changed): a question is redirected, any
    * other prompt is pushed as a card. False only when that card could not be sent.
    */
-  const present = async (b: Binding, agent: AgentInfo & { agent: ScreenCli }, raw: string, screen: ParsedScreen): Promise<boolean> => {
+  const present = async (b: Binding, epoch: number, agent: AgentInfo & { agent: ScreenCli }, raw: string, screen: ParsedScreen): Promise<boolean> => {
     if (screen.kind === 'question') {
       startRedirect(b, agent);
       return true;
     }
-    return pushCard(b, agent, raw, screen, screen.kind === 'choice');
+    return pushCard(b, epoch, agent, raw, screen, screen.kind === 'choice');
   };
 
   /**
@@ -238,11 +246,24 @@ export function createBlockRelay(deps: BlockRelayDeps): BlockRelay {
    * could not be sent the old card is left as it is and the record is gone, so
    * the next poll presents the prompt again.
    */
-  const replace = async (b: Binding, rec: BlockRecord, agent: AgentInfo & { agent: ScreenCli }, seen: { raw: string; screen: ParsedScreen }, old: Outcome): Promise<void> => {
+  const replace = async (
+    b: Binding,
+    epoch: number,
+    rec: BlockRecord,
+    agent: AgentInfo & { agent: ScreenCli },
+    seen: { raw: string; screen: ParsedScreen },
+    old: Outcome,
+  ): Promise<void> => {
     rec.busy = true;
-    const ok = await present(b, agent, seen.raw, seen.screen);
-    if (records.get(rec.root) === rec) records.delete(rec.root);
-    if (ok) await rewrite(b, rec, old);
+    let ok = false;
+    try {
+      ok = await present(b, epoch, agent, seen.raw, seen.screen);
+    } finally {
+      if (records.get(rec.root) === rec) records.delete(rec.root);
+      rec.busy = false;
+    }
+    // Dropped meanwhile: the drop already closed the old card.
+    if (ok && alive(b.root, epoch, b.chatId)) await rewrite(b, rec, old);
   };
 
   /** Read and parse the pane's screen; a failed read is an unrecognised screen. */
@@ -294,7 +315,7 @@ export function createBlockRelay(deps: BlockRelayDeps): BlockRelay {
         if (!alive(root, epoch, chatId)) return;
         log('block.redirected', { root, paneId: agent.pane_id, cli: agent.agent, outcome: esc.ok ? 'esc-ignored' : 'esc-refused' });
         const screen = seen.screen.kind === 'question' ? { ...seen.screen, kind: 'unknown' as const } : seen.screen;
-        await pushCard(live, { ...now, agent: agent.agent }, seen.raw, screen, screen.kind === 'choice');
+        await pushCard(live, epoch, { ...now, agent: agent.agent }, seen.raw, screen, screen.kind === 'choice');
       } finally {
         // A later redirect for the same project (after a drop and a new block) keeps its own mark.
         if (redirecting.get(root) === token) redirecting.delete(root);
@@ -328,7 +349,7 @@ export function createBlockRelay(deps: BlockRelayDeps): BlockRelay {
         if (!live || records.get(root) !== rec) return;
         log('block.verify', { root, paneId, at, outcome: 'resolved', status: a?.agent_status ?? 'gone' });
         records.delete(root);
-          await react(messageId, CHOSEN_EMOJI);
+        await react(messageId, CHOSEN_EMOJI);
         await rewrite(live, rec, { how: 'chosen', choice: n });
         return;
       }
@@ -344,7 +365,7 @@ export function createBlockRelay(deps: BlockRelayDeps): BlockRelay {
       if (!live || records.get(root) !== rec) return;
       log('block.verify', { root, paneId, at, outcome: 'next', kind: seen.screen.kind });
       await react(messageId, CHOSEN_EMOJI);
-      await replace(live, rec, { ...a, agent: rec.cli }, seen, { how: 'chosenNext', choice: n });
+      await replace(live, epoch, rec, { ...a, agent: rec.cli }, seen, { how: 'chosenNext', choice: n });
       return;
     }
     const live = alive(root, epoch, chatId);
@@ -390,12 +411,12 @@ export function createBlockRelay(deps: BlockRelayDeps): BlockRelay {
         if (!seen.readable || seen.screen.kind === 'unknown') return;
         if (seen.screen.fingerprint === rec.screen.fingerprint) return;
         log('block.verify', { root, paneId: rec.paneId, outcome: 'changed-unanswered', kind: seen.screen.kind });
-        await replace(b, rec, agent, seen, { how: 'stale' });
+        await replace(b, epoch, rec, agent, seen, { how: 'stale' });
         return;
       }
       // A record left over from another pane.
       if (rec) await close(b, rec, { how: 'terminal' });
-      await present(b, agent, seen.raw, seen.screen);
+      await present(b, epoch, agent, seen.raw, seen.screen);
     } finally {
       polling.delete(root);
     }
@@ -427,7 +448,7 @@ export function createBlockRelay(deps: BlockRelayDeps): BlockRelay {
       // herdr does not list the pane: no telling what is on it, so the message goes the ordinary way.
       if (!a) return false;
       if (settled(a.agent_status)) {
-          await close(b, rec, { how: 'terminal' });
+        await close(b, rec, { how: 'terminal' });
         if (!isNumber) return false;
         await react(messageId, IGNORED_EMOJI);
         return true;
@@ -456,7 +477,7 @@ export function createBlockRelay(deps: BlockRelayDeps): BlockRelay {
       if (seen.screen.fingerprint !== rec.screen.fingerprint) {
         log('block.verify', { root: b.root, paneId: rec.paneId, outcome: 'stale-before-keys', kind: seen.screen.kind });
         await react(messageId, IGNORED_EMOJI);
-        await replace(b, rec, { ...a, agent: rec.cli }, seen, { how: 'stale' });
+        await replace(b, epoch, rec, { ...a, agent: rec.cli }, seen, { how: 'stale' });
         return true;
       }
       if (!seen.screen.options.some((o) => o.n === n)) {

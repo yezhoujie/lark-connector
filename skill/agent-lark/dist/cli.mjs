@@ -138045,8 +138045,7 @@ function parseScreen(text, cli) {
   }
   if (options.length < 2) return unknown();
   if (clipped && options[0]?.n !== 1) return unknown();
-  const body = block.join("\n");
-  const isQuestion = cli === "claude" ? body.includes("Chat about this") || body.includes("Ready to submit your answers?") : block[0].trim() === "question";
+  const isQuestion = cli === "claude" ? options.some((o) => o.label.trim() === "Chat about this") || block.some((l) => l.trim() === "Ready to submit your answers?") : block[0].trim() === "question";
   const fingerprint = block.map((l) => l.replace(CURSOR_MARK, "").replace(/\s+/g, " ").trim()).filter((l) => l !== "").join("\n");
   return { kind: isQuestion ? "question" : "choice", block, options, numbered, fingerprint };
 }
@@ -138128,7 +138127,7 @@ function createBlockRelay(deps) {
     if (records.get(rec.root) === rec) records.delete(rec.root);
     await rewrite(b, rec, outcome);
   };
-  const pushCard = async (b, agent, raw, screen, replyable) => {
+  const pushCard = async (b, epoch, agent, raw, screen, replyable) => {
     const lang = deps.langOf(b);
     const detail = statusDetail(agent, lang);
     let cardId;
@@ -138141,6 +138140,11 @@ function createBlockRelay(deps) {
     }
     deps.onCardSent(cardId, t(lang).statusBlocked);
     const rec = { root: b.root, chatId: b.chatId, paneId: agent.pane_id, cli: agent.agent, cardId, detail, screen, raw, replyable, busy: false };
+    if (!alive(b.root, epoch, b.chatId)) {
+      log2("block.opened", { root: b.root, paneId: agent.pane_id, cardId, dropped: true });
+      await rewrite(b, rec, { how: "closed" });
+      return false;
+    }
     records.set(b.root, rec);
     log2("block.opened", { root: b.root, paneId: agent.pane_id, cli: agent.agent, kind: screen.kind, numbered: screen.numbered, options: screen.options.length, cardId, replyable });
     if (screen.kind === "unknown") {
@@ -138149,18 +138153,23 @@ function createBlockRelay(deps) {
     }
     return true;
   };
-  const present = async (b, agent, raw, screen) => {
+  const present = async (b, epoch, agent, raw, screen) => {
     if (screen.kind === "question") {
       startRedirect(b, agent);
       return true;
     }
-    return pushCard(b, agent, raw, screen, screen.kind === "choice");
+    return pushCard(b, epoch, agent, raw, screen, screen.kind === "choice");
   };
-  const replace = async (b, rec, agent, seen, old) => {
+  const replace = async (b, epoch, rec, agent, seen, old) => {
     rec.busy = true;
-    const ok = await present(b, agent, seen.raw, seen.screen);
-    if (records.get(rec.root) === rec) records.delete(rec.root);
-    if (ok) await rewrite(b, rec, old);
+    let ok = false;
+    try {
+      ok = await present(b, epoch, agent, seen.raw, seen.screen);
+    } finally {
+      if (records.get(rec.root) === rec) records.delete(rec.root);
+      rec.busy = false;
+    }
+    if (ok && alive(b.root, epoch, b.chatId)) await rewrite(b, rec, old);
   };
   const look = async (paneId, cli) => {
     const text = await herdr.readScreen(paneId);
@@ -138201,7 +138210,7 @@ function createBlockRelay(deps) {
         if (!alive(root, epoch, chatId)) return;
         log2("block.redirected", { root, paneId: agent.pane_id, cli: agent.agent, outcome: esc.ok ? "esc-ignored" : "esc-refused" });
         const screen = seen.screen.kind === "question" ? { ...seen.screen, kind: "unknown" } : seen.screen;
-        await pushCard(live, { ...now, agent: agent.agent }, seen.raw, screen, screen.kind === "choice");
+        await pushCard(live, epoch, { ...now, agent: agent.agent }, seen.raw, screen, screen.kind === "choice");
       } finally {
         if (redirecting.get(root) === token) redirecting.delete(root);
       }
@@ -138241,7 +138250,7 @@ function createBlockRelay(deps) {
       if (!live2 || records.get(root) !== rec) return;
       log2("block.verify", { root, paneId, at, outcome: "next", kind: seen.screen.kind });
       await react(messageId, CHOSEN_EMOJI);
-      await replace(live2, rec, { ...a, agent: rec.cli }, seen, { how: "chosenNext", choice: n });
+      await replace(live2, epoch, rec, { ...a, agent: rec.cli }, seen, { how: "chosenNext", choice: n });
       return;
     }
     const live = alive(root, epoch, chatId);
@@ -138280,11 +138289,11 @@ function createBlockRelay(deps) {
         if (!seen.readable || seen.screen.kind === "unknown") return;
         if (seen.screen.fingerprint === rec.screen.fingerprint) return;
         log2("block.verify", { root, paneId: rec.paneId, outcome: "changed-unanswered", kind: seen.screen.kind });
-        await replace(b, rec, agent, seen, { how: "stale" });
+        await replace(b, epoch, rec, agent, seen, { how: "stale" });
         return;
       }
       if (rec) await close(b, rec, { how: "terminal" });
-      await present(b, agent, seen.raw, seen.screen);
+      await present(b, epoch, agent, seen.raw, seen.screen);
     } finally {
       polling.delete(root);
     }
@@ -138342,7 +138351,7 @@ function createBlockRelay(deps) {
       if (seen.screen.fingerprint !== rec.screen.fingerprint) {
         log2("block.verify", { root: b.root, paneId: rec.paneId, outcome: "stale-before-keys", kind: seen.screen.kind });
         await react(messageId, IGNORED_EMOJI);
-        await replace(b, rec, { ...a, agent: rec.cli }, seen, { how: "stale" });
+        await replace(b, epoch, rec, { ...a, agent: rec.cli }, seen, { how: "stale" });
         return true;
       }
       if (!seen.screen.options.some((o) => o.n === n)) {

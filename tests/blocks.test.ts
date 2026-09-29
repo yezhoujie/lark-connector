@@ -633,6 +633,66 @@ test('a reply landing while the poll is sending the card for a changed prompt wa
 
 // ---- dropping ----
 
+test('remote mode switched off while the card for a new prompt is being sent: no record, the card is rewritten closed, a later number is not taken', async () => {
+  const s = setup();
+  s.setScreen(sample('claude-bash'));
+  s.setStatus('blocked');
+  s.sendHook.fn = async () => {
+    s.sendHook.fn = undefined;
+    s.b.away = false;
+    await s.relay.drop(s.b);
+  };
+  await s.relay.onPoll(s.b, s.agent('blocked'));
+  assert.equal(s.relay.has('/p'), false);
+  const sent = s.sentCards();
+  assert.equal(sent.length, 1);
+  const u = s.updates();
+  assert.equal(u.length, 1);
+  assert.equal(u[0]!.id, sent[0]!.id);
+  assert.match(u[0]!.card.header.title.content, new RegExp(T.statusClosed));
+  s.b.away = true;
+  assert.equal(await s.relay.onMessage(s.b, '1', 'om_h'), false);
+  assert.deepEqual(s.fake.reactions, []);
+});
+
+test('remote mode switched off while the card for a changed prompt is being sent: both cards end closed, no record left', async () => {
+  const s = setup();
+  await s.block(sample('claude-bash'));
+  s.setScreen(sample('claude-write'));
+  s.sendHook.fn = async () => {
+    s.sendHook.fn = undefined;
+    s.b.away = false;
+    await s.relay.drop(s.b);
+  };
+  await s.relay.onPoll(s.b, s.agent('blocked'));
+  assert.equal(s.relay.has('/p'), false);
+  const first = s.sentCards()[0]!;
+  assert.equal(s.sentCards().length, 2);
+  const closedIds = s.updates().filter((u) => new RegExp(T.statusClosed).test(u.card.header.title.content)).map((u) => u.id);
+  // the old card (closed by the drop) and the new one (closed once its send returned)
+  assert.equal(closedIds.length, 2);
+  assert.ok(closedIds.includes(first.id));
+  assert.equal(new Set(closedIds).size, 2);
+  assert.ok(!s.updates().some((u) => new RegExp(T.statusStale).test(u.card.header.title.content)), 'the old card is not also marked stale');
+});
+
+test('remote mode switched off while the fallback card of an ignored esc is being sent: no record, that card is rewritten closed', async () => {
+  const s = setup();
+  await s.block(sample('claude-ask-single'));
+  s.sendHook.fn = async () => {
+    s.sendHook.fn = undefined;
+    s.b.away = false;
+    await s.relay.drop(s.b);
+  };
+  await s.relay.idle();
+  assert.equal(s.relay.has('/p'), false);
+  const sent = s.sentCards();
+  assert.equal(sent.length, 1);
+  assert.equal(s.updates().length, 1);
+  assert.equal(s.updates()[0]!.id, sent[0]!.id);
+  assert.match(s.updates()[0]!.card.header.title.content, new RegExp(T.statusClosed));
+});
+
 test('remote mode switched off: the record is dropped and the card says remote mode closed; a later number is not handled', async () => {
   const s = setup();
   await s.block(sample('claude-bash'));

@@ -148,10 +148,11 @@ export function parseScreen(text: string, cli: ScreenCli): ParsedScreen {
   // Without a rule to mark its top, only a list numbered from 1 is trusted to be the whole list.
   if (clipped && options[0]?.n !== 1) return unknown();
 
-  const body = block.join('\n');
+  // Matched whole, never as a substring: a permission prompt's command may
+  // quote these very words (a grep for them, say) and is still a permission.
   const isQuestion =
     cli === 'claude'
-      ? body.includes('Chat about this') || body.includes('Ready to submit your answers?')
+      ? options.some((o) => o.label.trim() === 'Chat about this') || block.some((l) => l.trim() === 'Ready to submit your answers?')
       : (block[0] as string).trim() === 'question';
 
   const fingerprint = block
