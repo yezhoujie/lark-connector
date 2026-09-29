@@ -11,6 +11,28 @@ Before 0.2.0 this repository was a section of the `agent-remote-communication-sk
 `agent-lark/vX.Y.Z` there; the entries below for those versions are unchanged, and the same versions are
 tagged plain `vX.Y.Z` here.
 
+### [Unreleased]
+
+#### Added
+
+- The 🔔 *waiting for you* card of a Claude Code or Kimi CLI session now shows the prompt the terminal is
+  stuck on. Reply in the group with a bare number to choose that option (a numbered prompt gets its digit key,
+  an unnumbered one arrow keys plus Enter). The screen is checked again before any key is pressed; the
+  outcome is checked afterwards, and the card is rewritten to say how the prompt ended (green `Resolved · you
+  picked N on the phone`, or handled in the terminal, expired, next step on a new card, remote mode closed).
+  Your message gets a `DONE` reaction when the choice took effect and `SILENT` when nothing was pressed
+  because the prompt had already ended or changed. New receipts for a non-number, an unknown option, a choice
+  still in progress, keys with no effect, refused keys and an unreadable screen.
+- When a Claude Code or Kimi CLI session stops on its own question form while remote mode is on, the daemon
+  cancels it with Esc and tells the agent to ask the same question again with `ask`, so it reaches the phone
+  as a question card. If Esc does not take within 20 s the prompt is pushed as a card instead.
+
+#### Changed
+
+- The 🔔 card is no longer held back for 60 s after the previous one: two permission prompts in a row now
+  give two cards. For Claude Code and Kimi CLI panes each project keeps at most one open card instead; other
+  agents keep the plain card, now without any cool-down.
+
 ### [0.3.1][lark-connector-0.3.1] - 2026-09-24
 
 #### Added
