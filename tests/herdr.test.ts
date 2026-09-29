@@ -12,6 +12,7 @@ import {
   herdrView,
   promptPane,
   quoteForPaneShell,
+  readScreen,
   runInPane,
   sendKeys,
   splitPane,
@@ -90,6 +91,39 @@ test('sendKeys sends one logical key to the agent and reads the answer like prom
   assert.deepEqual(ok.calls, [['agent', 'send-keys', 'w1:p1', 'ctrl+enter']]);
   const gone = recorder(() => ({ ok: false, stdout: '', stderr: refusal, error: 'Command failed' }));
   assert.equal((await sendKeys('w1:p1', 'ctrl+s', gone.run)).code, 'agent_not_found');
+});
+
+test('sendKeys presses several keys in one herdr call, in the order given, and reads the answer the same way', async () => {
+  const ok = recorder(() => ({ ok: true, stdout: JSON.stringify({ id: 'cli:agent:send-keys', result: { type: 'ok' } }) }));
+  assert.deepEqual(await sendKeys('w1:p1', ['down', 'enter'], ok.run), { ok: true });
+  assert.deepEqual(ok.calls, [['agent', 'send-keys', 'w1:p1', 'down', 'enter']]);
+  const one = recorder(() => ({ ok: true, stdout: JSON.stringify({ result: { type: 'ok' } }) }));
+  await sendKeys('w1:p1', ['esc'], one.run);
+  assert.deepEqual(one.calls, [['agent', 'send-keys', 'w1:p1', 'esc']]);
+  const gone = recorder(() => ({ ok: false, stdout: '', stderr: refusal, error: 'Command failed' }));
+  assert.equal((await sendKeys('w1:p1', ['down', 'enter'], gone.run)).code, 'agent_not_found');
+});
+
+test('readScreen: asks for the visible screen and returns its text as printed', async () => {
+  const screen = 'Do you want to proceed?\n  1. Yes\n  2. No\n';
+  const rec = recorder(() => ({ ok: true, stdout: screen }));
+  assert.equal(await readScreen('w1:p1', rec.run), screen);
+  assert.deepEqual(rec.calls, [['agent', 'read', 'w1:p1', '--source', 'visible']]);
+});
+
+test('readScreen: a blank screen is an empty string, not a failure', async () => {
+  assert.equal(await readScreen('w1:p1', recorder(() => ({ ok: true, stdout: '' })).run), '');
+});
+
+test('readScreen: a non-zero exit, a timeout or a spawn failure is null', async () => {
+  assert.equal(await readScreen('w1:p1', recorder(() => ({ ok: false, stdout: 'partial', stderr: '', error: 'Command failed' })).run), null);
+  assert.equal(await readScreen('w1:p1', recorder(() => ({ ok: false, stdout: '', error: 'timed out', code: 'ETIMEDOUT' })).run), null);
+  assert.equal(await readScreen('w1:p1', recorder(() => ({ ok: false, stdout: '', error: 'spawn herdr ENOENT', code: 'ENOENT' })).run), null);
+});
+
+test('readScreen: an error envelope is null even on a zero exit, on either stream', async () => {
+  assert.equal(await readScreen('w1:p1', recorder(() => ({ ok: true, stdout: refusal })).run), null);
+  assert.equal(await readScreen('w1:p1', recorder(() => ({ ok: true, stdout: '', stderr: refusal })).run), null);
 });
 
 test('promptPane: a zero exit with no envelope on either stream is bad_output, not ok', async () => {

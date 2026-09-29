@@ -1,0 +1,26 @@
+
+  Thought for 1s
+
+⏺ User declined to answer questions
+  ⎿  · Which fruits do you like? (Apple / Banana / Cherry)
+
+✻ Crunched for 2s · done 10:54
+
+❯ Use the AskUserQuestion tool ONCE with two single-select questions: color (red, green) and pet (cat, dog). Nothing else.
+
+  Thought for 2s
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+←  ☒ Color  ☒ Pet  ✔ Submit  →
+
+Review your answers
+
+ ● Which color do you prefer?
+   → Red
+ ● Which pet do you prefer?
+   → Cat
+
+Ready to submit your answers?
+
+❯ 1. Submit answers
+  2. Cancel

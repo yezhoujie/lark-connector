@@ -8,6 +8,14 @@ export interface FakeHerdr {
   prompts: Array<{ paneId: string; text: string }>;
   /** Keys pressed with sendKeys, oldest first. */
   keys: Array<{ paneId: string; key: string }>;
+  /** Every sendKeys call with its exact key sequence, oldest first (`keys` holds the same calls, the sequence joined by a space). */
+  presses: Array<{ paneId: string; keys: string[] }>;
+  /** Screen text per pane for readScreen; a pane not listed reads as null. */
+  screens: Record<string, string>;
+  /** Panes whose readScreen fails (null) even when a screen is configured. */
+  screenFails: Set<string>;
+  /** Panes readScreen was asked about, oldest first. */
+  reads: string[];
   /** What promptPane answers; defaults to accepted. */
   outcome: PromptOutcome;
   /** What sendKeys answers; defaults to accepted. */
@@ -26,6 +34,10 @@ export function createFakeHerdr(opts: { agents?: AgentInfo[]; outcome?: PromptOu
     agents: opts.agents ?? [],
     prompts: [],
     keys: [],
+    presses: [],
+    screens: {},
+    screenFails: new Set(),
+    reads: [],
     outcome: opts.outcome ?? { ok: true },
     keysOutcome: { ok: true },
     view: opts.view ?? { bin: '/fake/herdr', reachable: true },
@@ -35,9 +47,16 @@ export function createFakeHerdr(opts: { agents?: AgentInfo[]; outcome?: PromptOu
         fake.prompts.push({ paneId, text });
         return fake.outcome;
       },
-      sendKeys: async (paneId, key) => {
-        fake.keys.push({ paneId, key });
+      sendKeys: async (paneId, keys) => {
+        const seq = Array.isArray(keys) ? keys : [keys];
+        fake.keys.push({ paneId, key: seq.join(' ') });
+        fake.presses.push({ paneId, keys: seq });
         return fake.keysOutcome;
+      },
+      readScreen: async (paneId) => {
+        fake.reads.push(paneId);
+        if (fake.screenFails.has(paneId)) return null;
+        return fake.screens[paneId] ?? null;
       },
       findPaneForProject,
       view: async () => fake.view,

@@ -136976,8 +136976,18 @@ function outcomeOf(r) {
 async function promptPane(paneId, text, run = (args) => runHerdr(args, 2e4)) {
   return outcomeOf(await run(["agent", "prompt", paneId, text]));
 }
-async function sendKeys(paneId, key, run = runHerdr) {
-  return outcomeOf(await run(["agent", "send-keys", paneId, key]));
+async function sendKeys(paneId, keys, run = runHerdr) {
+  return outcomeOf(await run(["agent", "send-keys", paneId, ...Array.isArray(keys) ? keys : [keys]]));
+}
+async function readScreen(paneId, run = runHerdr) {
+  const r = await run(["agent", "read", paneId, "--source", "visible"]);
+  if (!r.ok) return null;
+  for (const stream of [r.stdout, r.stderr ?? ""]) {
+    if (!stream.trim().startsWith("{")) continue;
+    const err = parse(stream).error;
+    if (err && err.code !== "bad_output") return null;
+  }
+  return r.stdout;
 }
 function findPaneForProject(agents, root) {
   const inProject = agents.filter((a) => a.cwd === root || a.foreground_cwd === root);
@@ -138003,7 +138013,7 @@ async function runDaemon(deps = {}) {
   if (!creds) throw new DaemonStartError(4, msg.daemonNoCreds);
   ensureHomeDir();
   if (await isDaemonListening(2e3)) throw new DaemonStartError(3, msg.daemonAlready);
-  const herdr = deps.herdr ?? { agentList, promptPane, sendKeys, findPaneForProject, view: herdrView };
+  const herdr = deps.herdr ?? { agentList, promptPane, sendKeys, readScreen, findPaneForProject, view: herdrView };
   const retryMs = deps.connectRetryMs ?? CONNECT_RETRY_MS;
   const ttl = mediaTtlDays();
   if (ttl.invalid !== void 0) {

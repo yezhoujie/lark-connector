@@ -7,7 +7,7 @@ import { createLarkChannel, type CardActionEvent, type LarkChannel, type LarkCha
 import { BindingStore, BindingsFileError, groupName, taskNameProblem, type Binding } from './bindings.js';
 import { askCard, awayCard, checkerName, notifyCard, optionIdOf, receiptCard, statusCard } from './cards.js';
 import { resolveCreds } from './creds.js';
-import { agentList, findPaneForProject, herdrView, promptPane, sendKeys, type AgentInfo, type HerdrView } from './herdr.js';
+import { agentList, findPaneForProject, herdrView, promptPane, readScreen, sendKeys, type AgentInfo, type HerdrView } from './herdr.js';
 import { isDaemonListening, serve, type Candidate, type Request, type Response } from './ipc.js';
 import { legacyGroupMarker } from './migrate.js';
 import { ensureHomeDir, homeDir, ipcEndpoint, logPath, mediaDir, pidPath, sockPath, sockPathProblem, writeProjectState } from './paths.js';
@@ -144,6 +144,7 @@ export interface HerdrDeps {
   agentList: typeof agentList;
   promptPane: typeof promptPane;
   sendKeys: typeof sendKeys;
+  readScreen: typeof readScreen;
   findPaneForProject: typeof findPaneForProject;
   view: typeof herdrView;
 }
@@ -287,7 +288,7 @@ export async function runDaemon(deps: DaemonDeps = {}): Promise<DaemonHandle> {
   ensureHomeDir();
   // A live daemon must not be duplicated; a dead socket file is not a daemon.
   if (await isDaemonListening(2000)) throw new DaemonStartError(3, msg.daemonAlready);
-  const herdr: HerdrDeps = deps.herdr ?? { agentList, promptPane, sendKeys, findPaneForProject, view: herdrView };
+  const herdr: HerdrDeps = deps.herdr ?? { agentList, promptPane, sendKeys, readScreen, findPaneForProject, view: herdrView };
   const retryMs = deps.connectRetryMs ?? CONNECT_RETRY_MS;
   const ttl = mediaTtlDays();
   if (ttl.invalid !== undefined) {

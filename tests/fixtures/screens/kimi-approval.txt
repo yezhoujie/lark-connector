@@ -1,0 +1,25 @@
+
+   No session yet — one will be created on your first message.
+   MCP server "idea" connected · 59 tools (http)
+
+ ✨ Run this exact shell command: date > stamp3.txt
+
+ ● The user wants me to run a simple shell command: `date > stamp3.txt`. This is a trivial request.
+
+   … (13 more lines, ctrl+o to expand)
+
+ ● Running a command · $ date > stamp3.txt
+ ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+   ▶ Run this command?
+
+   cwd: /tmp/project
+   $ date > stamp3.txt
+
+   ▶ 1. Approve once
+     2. Approve for this session
+     3. Reject
+     4. Reject with feedback
+
+   ↑/↓ select · 1/2/3/4 choose · ↵ confirm
+ ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ Kimi K3 thinking: high  …/project
