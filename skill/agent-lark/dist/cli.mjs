@@ -137998,15 +137998,16 @@ function parseScreen(text, cli) {
     group = [j, k];
   }
   let end = group[1];
+  let footer = false;
   for (let i = group[1] + 1; i <= Math.min(group[1] + 3, lines.length - 1); i++) {
     if (FOOTER.test(lines[i])) {
       end = i;
+      footer = true;
       break;
     }
   }
   const rules = [];
   for (let i = 0; i < group[0]; i++) if (RULE.test(lines[i])) rules.push(i);
-  if (rules.length === 0) return unknown();
   let r = rules.length - 1;
   const firstBelow = (at) => lines.slice(at + 1, end + 1).find((l) => l.trim() !== "" && !RULE.test(l)) ?? "";
   while (r >= 0) {
@@ -138014,8 +138015,9 @@ function parseScreen(text, cli) {
     if (!NUMBERED.test(below) && !CURSOR_ONLY.test(below)) break;
     r--;
   }
-  if (r < 0) return unknown();
-  const start = rules[r];
+  const clipped = r < 0;
+  if (clipped && !(numbered && footer)) return unknown();
+  const start = clipped ? lines.findIndex((l) => l.trim() !== "") - 1 : rules[r];
   const block = lines.slice(start + 1, end + 1).filter((l) => !RULE.test(l));
   while (block.length > 0 && block[0].trim() === "") block.shift();
   while (block.length > 0 && block[block.length - 1].trim() === "") block.pop();
@@ -138042,6 +138044,7 @@ function parseScreen(text, cli) {
     }
   }
   if (options.length < 2) return unknown();
+  if (clipped && options[0]?.n !== 1) return unknown();
   const body = block.join("\n");
   const isQuestion = cli === "claude" ? body.includes("Chat about this") || body.includes("Ready to submit your answers?") : block[0].trim() === "question";
   const fingerprint = block.map((l) => l.replace(CURSOR_MARK, "").replace(/\s+/g, " ").trim()).filter((l) => l !== "").join("\n");
@@ -138074,7 +138077,7 @@ function createBlockRelay(deps) {
   const { herdr, channel, log: log2 } = deps;
   const records = /* @__PURE__ */ new Map();
   const redirecting = /* @__PURE__ */ new Map();
-  const sawSettled = /* @__PURE__ */ new Set();
+  const polling = /* @__PURE__ */ new Set();
   const epochs = /* @__PURE__ */ new Map();
   const flows = /* @__PURE__ */ new Set();
   const sleeps = /* @__PURE__ */ new Set();
@@ -138134,7 +138137,6 @@ function createBlockRelay(deps) {
       cardId = sent.messageId;
     } catch (err) {
       log2("status.failed", { root: b.root, err: String(err).slice(0, 200) });
-      sawSettled.add(b.root);
       return false;
     }
     deps.onCardSent(cardId, t(lang).statusBlocked);
@@ -138154,6 +138156,12 @@ function createBlockRelay(deps) {
     }
     return pushCard(b, agent, raw, screen, screen.kind === "choice");
   };
+  const replace = async (b, rec, agent, seen, old) => {
+    rec.busy = true;
+    const ok = await present(b, agent, seen.raw, seen.screen);
+    if (records.get(rec.root) === rec) records.delete(rec.root);
+    if (ok) await rewrite(b, rec, old);
+  };
   const look = async (paneId, cli) => {
     const text = await herdr.readScreen(paneId);
     return { raw: text ?? "", screen: parseScreen(text ?? "", cli), readable: text !== null };
@@ -138168,7 +138176,6 @@ function createBlockRelay(deps) {
       if (!a || !settled(a.agent_status)) return false;
       const live = alive(root, epoch, chatId);
       if (!live) return true;
-      sawSettled.add(root);
       log2("block.redirected", { root, paneId: agent.pane_id, cli: agent.agent, outcome: "asked", status: a.agent_status });
       await deps.inject(live, msg.promptRedirect);
       return true;
@@ -138221,7 +138228,6 @@ function createBlockRelay(deps) {
         if (!live3 || records.get(root) !== rec) return;
         log2("block.verify", { root, paneId, at, outcome: "resolved", status: a?.agent_status ?? "gone" });
         records.delete(root);
-        sawSettled.add(root);
         await react(messageId, CHOSEN_EMOJI);
         await rewrite(live3, rec, { how: "chosen", choice: n });
         return;
@@ -138234,9 +138240,8 @@ function createBlockRelay(deps) {
       const live2 = alive(root, epoch, chatId);
       if (!live2 || records.get(root) !== rec) return;
       log2("block.verify", { root, paneId, at, outcome: "next", kind: seen.screen.kind });
-      records.delete(root);
       await react(messageId, CHOSEN_EMOJI);
-      if (await present(live2, { ...a, agent: rec.cli }, seen.raw, seen.screen)) await rewrite(live2, rec, { how: "chosenNext", choice: n });
+      await replace(live2, rec, { ...a, agent: rec.cli }, seen, { how: "chosenNext", choice: n });
       return;
     }
     const live = alive(root, epoch, chatId);
@@ -138253,28 +138258,36 @@ function createBlockRelay(deps) {
     }
     return rec;
   };
-  const onPoll = async (b, agent, prev) => {
+  const onPoll = async (b, agent) => {
     if (stopped || !isRelayed(agent)) return;
-    if (redirecting.has(b.root)) return;
-    let rec = recordFor(b);
-    if (rec?.busy) return;
-    const epoch = epochOf(b.root);
-    if (agent.agent_status !== "blocked") sawSettled.delete(b.root);
-    if (rec && rec.paneId === agent.pane_id && settled(agent.agent_status)) {
-      await close(b, rec, { how: "terminal" });
-      rec = void 0;
+    const { root } = b;
+    if (redirecting.has(root) || polling.has(root)) return;
+    polling.add(root);
+    try {
+      let rec = recordFor(b);
+      if (rec?.busy) return;
+      const epoch = epochOf(root);
+      if (rec && rec.paneId === agent.pane_id && settled(agent.agent_status)) {
+        await close(b, rec, { how: "terminal" });
+        return;
+      }
+      if (agent.agent_status !== "blocked") return;
+      const seen = await look(agent.pane_id, agent.agent);
+      if (!alive(root, epoch, b.chatId) || redirecting.has(root)) return;
+      rec = recordFor(b);
+      if (rec?.busy) return;
+      if (rec && rec.paneId === agent.pane_id) {
+        if (!seen.readable || seen.screen.kind === "unknown") return;
+        if (seen.screen.fingerprint === rec.screen.fingerprint) return;
+        log2("block.verify", { root, paneId: rec.paneId, outcome: "changed-unanswered", kind: seen.screen.kind });
+        await replace(b, rec, agent, seen, { how: "stale" });
+        return;
+      }
+      if (rec) await close(b, rec, { how: "terminal" });
+      await present(b, agent, seen.raw, seen.screen);
+    } finally {
+      polling.delete(root);
     }
-    if (agent.agent_status !== "blocked") return;
-    const turned = prev !== void 0 && prev !== "blocked" || sawSettled.has(b.root);
-    if (!turned) return;
-    sawSettled.delete(b.root);
-    const seen = await look(agent.pane_id, agent.agent);
-    if (!alive(b.root, epoch, b.chatId)) return;
-    rec = recordFor(b);
-    if (rec?.busy) return;
-    if (rec && rec.paneId === agent.pane_id && rec.screen.fingerprint !== "" && rec.screen.fingerprint === seen.screen.fingerprint) return;
-    if (rec) await close(b, rec, { how: "terminal" });
-    await present(b, agent, seen.raw, seen.screen);
   };
   const onMessage = async (b, text, messageId) => {
     if (stopped) return false;
@@ -138301,7 +138314,6 @@ function createBlockRelay(deps) {
       }
       if (!a) return false;
       if (settled(a.agent_status)) {
-        sawSettled.add(b.root);
         await close(b, rec, { how: "terminal" });
         if (!isNumber) return false;
         await react(messageId, IGNORED_EMOJI);
@@ -138329,9 +138341,8 @@ function createBlockRelay(deps) {
       }
       if (seen.screen.fingerprint !== rec.screen.fingerprint) {
         log2("block.verify", { root: b.root, paneId: rec.paneId, outcome: "stale-before-keys", kind: seen.screen.kind });
-        records.delete(b.root);
         await react(messageId, IGNORED_EMOJI);
-        if (await present(b, { ...a, agent: rec.cli }, seen.raw, seen.screen)) await rewrite(b, rec, { how: "stale" });
+        await replace(b, rec, { ...a, agent: rec.cli }, seen, { how: "stale" });
         return true;
       }
       if (!seen.screen.options.some((o) => o.n === n)) {
@@ -138355,7 +138366,6 @@ function createBlockRelay(deps) {
   const drop = async (b) => {
     epochs.set(b.root, epochOf(b.root) + 1);
     redirecting.delete(b.root);
-    sawSettled.delete(b.root);
     const rec = records.get(b.root);
     if (!rec) return;
     records.delete(b.root);
@@ -139168,7 +139178,7 @@ ${msg.renamePermissionHint}` : text;
       const prev = lastStatus.get(b.root);
       lastStatus.set(b.root, a.agent_status);
       if (isRelayed(a)) {
-        await relay.onPoll(b, a, prev);
+        await relay.onPoll(b, a);
         continue;
       }
       if (!prev || prev === a.agent_status) continue;

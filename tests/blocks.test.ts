@@ -25,10 +25,13 @@ interface Card {
 function setup(opts: { cli?: 'claude' | 'kimi'; timing?: Partial<BlockTiming> } = {}) {
   /** While true, every card send is refused by Feishu. */
   const sendFails = { on: false };
+  /** Runs inside every card send, before it resolves. */
+  const sendHook: { fn?: () => Promise<void> } = {};
   const cli = opts.cli ?? 'claude';
   const herdr = createFakeHerdr();
   const fake = createFakeChannel({
     send: async () => {
+      if (sendHook.fn) await sendHook.fn();
       if (sendFails.on) throw new Error('feishu down');
     },
   });
@@ -71,17 +74,17 @@ function setup(opts: { cli?: 'claude' | 'kimi'; timing?: Partial<BlockTiming> } 
       return r;
     };
   };
-  /** The pane turns blocked on `screen` and the poll sees it (coming from working). */
+  /** The pane is blocked on `screen` and the poll sees it. */
   const block = async (screen: string | null): Promise<void> => {
     setScreen(screen);
     setStatus('blocked');
-    await relay.onPoll(b, agent('blocked'), 'working');
+    await relay.onPoll(b, agent('blocked'));
   };
   const sentCards = (): Array<{ id: string; card: Card }> =>
     fake.sent.flatMap((s, i) => ('input' in s ? [{ id: `om_${i + 1}`, card: (s.input as { card: Card }).card }] : []));
   const updates = (): Array<{ id: string; card: Card }> =>
     fake.sent.flatMap((s) => ('update' in s ? [{ id: s.update, card: s.card as Card }] : []));
-  return { sendFails, cli, herdr, fake, b, relay, receipts, injects, logs, agent, setStatus, setScreen, onKeys, block, sentCards, updates };
+  return { sendHook, sendFails, cli, herdr, fake, b, relay, receipts, injects, logs, agent, setStatus, setScreen, onKeys, block, sentCards, updates };
 }
 
 const noteOf = (c: Card): string => String(c.body.elements.at(-1)?.content ?? '');
@@ -105,7 +108,7 @@ test('a permission prompt becoming blocked pushes one card with the prompt block
 test('the poll seeing the prompt of the open card again keeps that card: no second card, no rewrite', async () => {
   const s = setup();
   await s.block(sample('claude-bash'));
-  await s.relay.onPoll(s.b, s.agent('blocked'), 'working');
+  await s.relay.onPoll(s.b, s.agent('blocked'));
   assert.equal(s.sentCards().length, 1);
   assert.equal(s.updates().length, 0);
 });
@@ -212,7 +215,7 @@ test('multi-step prompt: still blocked on a new prompt after the key ⇒ old car
   assert.equal(s.relay.has('/p'), true);
   // the record now belongs to the new card: resolving at the terminal rewrites that one
   s.setStatus('working');
-  await s.relay.onPoll(s.b, s.agent('working'), 'blocked');
+  await s.relay.onPoll(s.b, s.agent('working'));
   assert.equal(s.updates().at(-1)!.id, second.id);
   assert.match(s.updates().at(-1)!.card.header.title.content, new RegExp(T.statusTerminal));
 });
@@ -321,7 +324,7 @@ test('resolved at the computer: the poll rewrites the card as handled at the ter
   const s = setup();
   await s.block(sample('claude-bash'));
   s.setStatus('working');
-  await s.relay.onPoll(s.b, s.agent('working'), 'blocked');
+  await s.relay.onPoll(s.b, s.agent('working'));
   assert.equal(s.sentCards().length, 1);
   assert.equal(s.updates().length, 1);
   assert.match(s.updates()[0]!.card.header.title.content, new RegExp(T.statusTerminal));
@@ -334,7 +337,7 @@ test('while a reply is being pressed and checked, the poll seeing the pane leave
   await s.block(sample('claude-bash'));
   s.onKeys(() => s.setStatus('working'));
   await s.relay.onMessage(s.b, '1', 'om_h');
-  await s.relay.onPoll(s.b, s.agent('working'), 'blocked');
+  await s.relay.onPoll(s.b, s.agent('working'));
   assert.equal(s.updates().length, 0, 'the poll did not rewrite the card');
   await s.relay.idle();
   assert.equal(s.updates().length, 1);
@@ -385,11 +388,11 @@ test('the pane left blocked after a phone pick and blocked again before the poll
   // the poll last saw blocked (before the key); it never saw the working in between
   s.setScreen(sample('claude-write'));
   s.setStatus('blocked');
-  await s.relay.onPoll(s.b, s.agent('blocked'), 'blocked');
+  await s.relay.onPoll(s.b, s.agent('blocked'));
   assert.equal(s.sentCards().length, 2);
   assert.match(String(s.sentCards()[1]!.card.body.elements[1]!.content), /create note\.txt/);
   // and only once
-  await s.relay.onPoll(s.b, s.agent('blocked'), 'blocked');
+  await s.relay.onPoll(s.b, s.agent('blocked'));
   assert.equal(s.sentCards().length, 2);
 });
 
@@ -402,17 +405,117 @@ test('the same after a redirected question: a prompt that follows before the pol
   await s.relay.idle();
   s.setScreen(sample('claude-bash'));
   s.setStatus('blocked');
-  await s.relay.onPoll(s.b, s.agent('blocked'), 'blocked');
+  await s.relay.onPoll(s.b, s.agent('blocked'));
   assert.equal(s.sentCards().length, 1);
 });
 
-test('a pane already blocked when first seen gets no card (only a turn into blocked does)', async () => {
+test('a pane already blocked when first seen gets one card (a trust prompt at start-up, remote mode switched on mid-prompt)', async () => {
+  const s = setup();
+  s.setScreen(sample('claude-trust'));
+  s.setStatus('blocked');
+  await s.relay.onPoll(s.b, s.agent('blocked'));
+  await s.relay.onPoll(s.b, s.agent('blocked'));
+  assert.equal(s.sentCards().length, 1);
+  assert.equal(s.relay.has('/p'), true);
+});
+
+test('the prompt changes under an open card while nobody replies: the poll marks the old card stale and pushes the new prompt', async () => {
+  const s = setup();
+  await s.block(sample('claude-bash'));
+  s.setScreen(sample('claude-write'));
+  await s.relay.onPoll(s.b, s.agent('blocked'));
+  const cards = s.sentCards();
+  assert.equal(cards.length, 2);
+  assert.match(String(cards[1]!.card.body.elements[1]!.content), /create note\.txt/);
+  assert.equal(s.updates().length, 1);
+  assert.equal(s.updates()[0]!.id, cards[0]!.id);
+  assert.match(s.updates()[0]!.card.header.title.content, new RegExp(T.statusStale));
+  // the record moved to the new card
+  s.setStatus('working');
+  await s.relay.onPoll(s.b, s.agent('working'));
+  assert.equal(s.updates().at(-1)!.id, cards[1]!.id);
+});
+
+test('with a card open, a screen that cannot be read or parsed decides nothing', async () => {
+  const s = setup();
+  await s.block(sample('claude-bash'));
+  s.setScreen(null);
+  await s.relay.onPoll(s.b, s.agent('blocked'));
+  s.setScreen('redrawing…\n');
+  await s.relay.onPoll(s.b, s.agent('blocked'));
+  assert.equal(s.sentCards().length, 1);
+  assert.equal(s.updates().length, 0);
+  assert.equal(s.relay.has('/p'), true);
+});
+
+test('two polls running over each other on a new prompt push one card', async () => {
   const s = setup();
   s.setScreen(sample('claude-bash'));
   s.setStatus('blocked');
-  await s.relay.onPoll(s.b, s.agent('blocked'), undefined);
-  await s.relay.onPoll(s.b, s.agent('blocked'), 'blocked');
-  assert.equal(s.sentCards().length, 0);
+  await Promise.all([s.relay.onPoll(s.b, s.agent('blocked')), s.relay.onPoll(s.b, s.agent('blocked'))]);
+  assert.equal(s.sentCards().length, 1);
+});
+
+test('a question seen by several polls is cancelled once: one esc, one redirect', async () => {
+  const s = setup();
+  s.setScreen(sample('claude-ask-single'));
+  s.setStatus('blocked');
+  let escs = 0;
+  s.onKeys((keys) => {
+    if (keys.includes('esc')) escs += 1;
+    // esc takes a while
+    if (keys.includes('esc')) setTimeout(() => s.setStatus('done'), 30);
+  });
+  await Promise.all([s.relay.onPoll(s.b, s.agent('blocked')), s.relay.onPoll(s.b, s.agent('blocked'))]);
+  await s.relay.onPoll(s.b, s.agent('blocked'));
+  await s.relay.idle();
+  assert.equal(escs, 1);
+  assert.deepEqual(s.injects, [msg.promptRedirect]);
+});
+
+test('after esc was ignored and the question went out as a card, later polls leave it be (no second esc)', async () => {
+  const s = setup();
+  await s.block(sample('claude-ask-single'));
+  await s.relay.idle();
+  assert.equal(s.sentCards().length, 1);
+  await s.relay.onPoll(s.b, s.agent('blocked'));
+  await s.relay.idle();
+  assert.equal(s.herdr.presses.length, 1);
+  assert.equal(s.sentCards().length, 1);
+  assert.equal(s.updates().length, 0);
+});
+
+test('a poll landing while the next prompt card of a phone pick is being sent does not push it a second time', async () => {
+  const s = setup();
+  await s.block(sample('claude-bash'));
+  let polled = false;
+  s.onKeys(() => s.setScreen(sample('claude-write')));
+  s.sendHook.fn = async () => {
+    if (polled) return;
+    polled = true;
+    await s.relay.onPoll(s.b, s.agent('blocked'));
+  };
+  s.setStatus('blocked');
+  await s.relay.onMessage(s.b, '1', 'om_h');
+  await s.relay.idle();
+  assert.ok(polled);
+  assert.equal(s.sentCards().length, 2);
+});
+
+test('a poll landing while the card for a changed prompt is being sent (reply path) does not push it a second time', async () => {
+  const s = setup();
+  await s.block(sample('claude-bash'));
+  s.setScreen(sample('claude-write'));
+  let polled = false;
+  s.sendHook.fn = async () => {
+    if (polled) return;
+    polled = true;
+    await s.relay.onPoll(s.b, s.agent('blocked'));
+  };
+  await s.relay.onMessage(s.b, '1', 'om_h');
+  await s.relay.idle();
+  assert.ok(polled);
+  assert.equal(s.sentCards().length, 2);
 });
 
 test('herdr lists no agents at all after the key: no conclusion from that, so no DONE and no picked card; ends as keys had no effect', async () => {
@@ -472,7 +575,7 @@ test('multi-step, but the card for the next prompt cannot be sent: the old card 
   assert.deepEqual(s.fake.reactions, [{ messageId: 'om_h', emoji: CHOSEN_EMOJI }]);
   s.sendFails.on = false;
   const before = s.sentCards().length;
-  await s.relay.onPoll(s.b, s.agent('blocked'), 'blocked');
+  await s.relay.onPoll(s.b, s.agent('blocked'));
   assert.equal(s.sentCards().length, before + 1);
   assert.match(String(s.sentCards().at(-1)!.card.body.elements[1]!.content), /create note\.txt/);
   assert.equal(s.relay.has('/p'), true);
@@ -489,7 +592,7 @@ test('prompt changed before the key, but the card for the new prompt cannot be s
   assert.deepEqual(s.fake.reactions, [{ messageId: 'om_h', emoji: IGNORED_EMOJI }]);
   s.sendFails.on = false;
   const before = s.sentCards().length;
-  await s.relay.onPoll(s.b, s.agent('blocked'), 'blocked');
+  await s.relay.onPoll(s.b, s.agent('blocked'));
   assert.equal(s.sentCards().length, before + 1);
   assert.match(String(s.sentCards().at(-1)!.card.body.elements[1]!.content), /create note\.txt/);
 });
@@ -509,6 +612,23 @@ test('after the key the pane is still blocked on a screen that cannot be parsed,
   assert.equal(s.updates().length, 1);
   assert.match(s.updates()[0]!.card.header.title.content, /you picked 1/);
   assert.equal(s.relay.has('/p'), false);
+});
+
+test('a reply landing while the poll is sending the card for a changed prompt waits: it gets the please-wait receipt and pushes nothing', async () => {
+  const s = setup();
+  await s.block(sample('claude-bash'));
+  s.setScreen(sample('claude-write'));
+  let replied: boolean | undefined;
+  s.sendHook.fn = async () => {
+    if (replied !== undefined) return;
+    replied = await s.relay.onMessage(s.b, '1', 'om_h');
+  };
+  await s.relay.onPoll(s.b, s.agent('blocked'));
+  await s.relay.idle();
+  assert.equal(replied, true);
+  assert.deepEqual(s.receipts, [T.promptBusy]);
+  assert.equal(s.sentCards().length, 2);
+  assert.deepEqual(s.herdr.presses, []);
 });
 
 // ---- dropping ----

@@ -56,11 +56,11 @@ export interface BlockRelayDeps {
 export interface BlockRelay {
   /**
    * The poll saw `agent` (the pane of an away project with no question
-   * pending); `prev` is the state it saw there last time, undefined on the
-   * first look. Opens a record on a turn into blocked, closes one whose
-   * prompt ended at the terminal.
+   * pending). A blocked pane with no card out for the prompt it shows gets
+   * one (a question is redirected instead); a card whose prompt ended at the
+   * terminal is closed, one whose prompt changed goes stale.
    */
-  onPoll(b: Binding, agent: AgentInfo, prev: AgentStatus | undefined): Promise<void>;
+  onPoll(b: Binding, agent: AgentInfo): Promise<void>;
   /**
    * A phone message for the project. True when it was dealt with here (a
    * number pressed, a receipt sent, a reaction put on it) and must not also
@@ -118,14 +118,8 @@ export function createBlockRelay(deps: BlockRelayDeps): BlockRelay {
   const records = new Map<string, BlockRecord>();
   /** Projects whose question was just cancelled with Esc and whose redirect is not done yet, each with the token of that redirect. */
   const redirecting = new Map<string, object>();
-  /**
-   * Projects whose pane this relay saw leave blocked (after a key, on a reply,
-   * after Esc) since the poll last looked. The poll only reacts to a turn into
-   * blocked, and it may have last seen the pane blocked on the prompt that
-   * just ended: without this, a new prompt the agent stops on before the next
-   * poll would look like the same block and get no card.
-   */
-  const sawSettled = new Set<string>();
+  /** Projects a poll is working on right now; a poll running over it leaves the project alone. */
+  const polling = new Set<string>();
   /** Bumped when a project's record is dropped; a background flow started under an older value stops. */
   const epochs = new Map<string, number>();
   const flows = new Set<Promise<void>>();
@@ -193,7 +187,7 @@ export function createBlockRelay(deps: BlockRelayDeps): BlockRelay {
 
   /**
    * Push a "waiting for you" card for what the pane shows and open a record
-   * for it. False when Feishu did not take the card: no record is opened, and
+   * for it. False when Feishu did not take the card: no record is opened, so
    * the next poll that finds the pane still blocked tries again.
    */
   const pushCard = async (b: Binding, agent: AgentInfo & { agent: ScreenCli }, raw: string, screen: ParsedScreen, replyable: boolean): Promise<boolean> => {
@@ -205,7 +199,6 @@ export function createBlockRelay(deps: BlockRelayDeps): BlockRelay {
       cardId = sent.messageId;
     } catch (err) {
       log('status.failed', { root: b.root, err: String(err).slice(0, 200) });
-      sawSettled.add(b.root);
       return false;
     }
     deps.onCardSent(cardId, t(lang).statusBlocked);
@@ -237,6 +230,21 @@ export function createBlockRelay(deps: BlockRelayDeps): BlockRelay {
     return pushCard(b, agent, raw, screen, screen.kind === 'choice');
   };
 
+  /**
+   * The prompt behind an open record gave way to another one: present the new
+   * one first, and only once that went out rewrite the old card (`old` says
+   * how). The old record stays in place, busy, until the new one takes its
+   * place, so neither a poll nor a reply can act on the gap. When the new card
+   * could not be sent the old card is left as it is and the record is gone, so
+   * the next poll presents the prompt again.
+   */
+  const replace = async (b: Binding, rec: BlockRecord, agent: AgentInfo & { agent: ScreenCli }, seen: { raw: string; screen: ParsedScreen }, old: Outcome): Promise<void> => {
+    rec.busy = true;
+    const ok = await present(b, agent, seen.raw, seen.screen);
+    if (records.get(rec.root) === rec) records.delete(rec.root);
+    if (ok) await rewrite(b, rec, old);
+  };
+
   /** Read and parse the pane's screen; a failed read is an unrecognised screen. */
   const look = async (paneId: string, cli: ScreenCli): Promise<{ raw: string; screen: ParsedScreen; readable: boolean }> => {
     const text = await herdr.readScreen(paneId);
@@ -260,7 +268,6 @@ export function createBlockRelay(deps: BlockRelayDeps): BlockRelay {
       if (!a || !settled(a.agent_status)) return false;
       const live = alive(root, epoch, chatId);
       if (!live) return true;
-      sawSettled.add(root);
       log('block.redirected', { root, paneId: agent.pane_id, cli: agent.agent, outcome: 'asked', status: a.agent_status });
       await deps.inject(live, msg.promptRedirect);
       return true;
@@ -321,8 +328,7 @@ export function createBlockRelay(deps: BlockRelayDeps): BlockRelay {
         if (!live || records.get(root) !== rec) return;
         log('block.verify', { root, paneId, at, outcome: 'resolved', status: a?.agent_status ?? 'gone' });
         records.delete(root);
-        sawSettled.add(root);
-        await react(messageId, CHOSEN_EMOJI);
+          await react(messageId, CHOSEN_EMOJI);
         await rewrite(live, rec, { how: 'chosen', choice: n });
         return;
       }
@@ -337,11 +343,8 @@ export function createBlockRelay(deps: BlockRelayDeps): BlockRelay {
       const live = alive(root, epoch, chatId);
       if (!live || records.get(root) !== rec) return;
       log('block.verify', { root, paneId, at, outcome: 'next', kind: seen.screen.kind });
-      records.delete(root);
       await react(messageId, CHOSEN_EMOJI);
-      // The next prompt goes out first: the old card may only say "see the new card" once there is one.
-      // If it could not be sent, the old card is left as it is and the next poll pushes the new prompt.
-      if (await present(live, { ...a, agent: rec.cli }, seen.raw, seen.screen)) await rewrite(live, rec, { how: 'chosenNext', choice: n });
+      await replace(live, rec, { ...a, agent: rec.cli }, seen, { how: 'chosenNext', choice: n });
       return;
     }
     const live = alive(root, epoch, chatId);
@@ -361,30 +364,41 @@ export function createBlockRelay(deps: BlockRelayDeps): BlockRelay {
     return rec;
   };
 
-  const onPoll = async (b: Binding, agent: AgentInfo, prev: AgentStatus | undefined): Promise<void> => {
+  const onPoll = async (b: Binding, agent: AgentInfo): Promise<void> => {
     if (stopped || !isRelayed(agent)) return;
-    if (redirecting.has(b.root)) return;
-    let rec = recordFor(b);
-    if (rec?.busy) return;
-    const epoch = epochOf(b.root);
-    if (agent.agent_status !== 'blocked') sawSettled.delete(b.root);
-    if (rec && rec.paneId === agent.pane_id && settled(agent.agent_status)) {
-      await close(b, rec, { how: 'terminal' });
-      rec = undefined;
+    const { root } = b;
+    if (redirecting.has(root) || polling.has(root)) return;
+    polling.add(root);
+    try {
+      let rec = recordFor(b);
+      if (rec?.busy) return;
+      const epoch = epochOf(root);
+      if (rec && rec.paneId === agent.pane_id && settled(agent.agent_status)) {
+        await close(b, rec, { how: 'terminal' });
+        return;
+      }
+      if (agent.agent_status !== 'blocked') return;
+      // Blocked: every poll looks at the screen, whether or not a card is out
+      // for it — the pane may have been blocked since before it was first seen,
+      // or moved on to another prompt while nobody was watching.
+      const seen = await look(agent.pane_id, agent.agent);
+      if (!alive(root, epoch, b.chatId) || redirecting.has(root)) return;
+      rec = recordFor(b);
+      if (rec?.busy) return;
+      if (rec && rec.paneId === agent.pane_id) {
+        // A screen that cannot be read or parsed says nothing about whether the prompt changed.
+        if (!seen.readable || seen.screen.kind === 'unknown') return;
+        if (seen.screen.fingerprint === rec.screen.fingerprint) return;
+        log('block.verify', { root, paneId: rec.paneId, outcome: 'changed-unanswered', kind: seen.screen.kind });
+        await replace(b, rec, agent, seen, { how: 'stale' });
+        return;
+      }
+      // A record left over from another pane.
+      if (rec) await close(b, rec, { how: 'terminal' });
+      await present(b, agent, seen.raw, seen.screen);
+    } finally {
+      polling.delete(root);
     }
-    if (agent.agent_status !== 'blocked') return;
-    const turned = (prev !== undefined && prev !== 'blocked') || sawSettled.has(b.root);
-    if (!turned) return;
-    sawSettled.delete(b.root);
-    const seen = await look(agent.pane_id, agent.agent);
-    if (!alive(b.root, epoch, b.chatId)) return;
-    // Another look at the prompt the open card already shows (the poll caught
-    // the pane between the steps of a reply): the card stands.
-    rec = recordFor(b);
-    if (rec?.busy) return;
-    if (rec && rec.paneId === agent.pane_id && rec.screen.fingerprint !== '' && rec.screen.fingerprint === seen.screen.fingerprint) return;
-    if (rec) await close(b, rec, { how: 'terminal' });
-    await present(b, agent, seen.raw, seen.screen);
   };
 
   const onMessage = async (b: Binding, text: string, messageId: string): Promise<boolean> => {
@@ -413,8 +427,7 @@ export function createBlockRelay(deps: BlockRelayDeps): BlockRelay {
       // herdr does not list the pane: no telling what is on it, so the message goes the ordinary way.
       if (!a) return false;
       if (settled(a.agent_status)) {
-        sawSettled.add(b.root);
-        await close(b, rec, { how: 'terminal' });
+          await close(b, rec, { how: 'terminal' });
         if (!isNumber) return false;
         await react(messageId, IGNORED_EMOJI);
         return true;
@@ -442,10 +455,8 @@ export function createBlockRelay(deps: BlockRelayDeps): BlockRelay {
       }
       if (seen.screen.fingerprint !== rec.screen.fingerprint) {
         log('block.verify', { root: b.root, paneId: rec.paneId, outcome: 'stale-before-keys', kind: seen.screen.kind });
-        records.delete(b.root);
         await react(messageId, IGNORED_EMOJI);
-        // As with a next step: the card for the new prompt first, and "stale, see the new card" only once it exists.
-        if (await present(b, { ...a, agent: rec.cli }, seen.raw, seen.screen)) await rewrite(b, rec, { how: 'stale' });
+        await replace(b, rec, { ...a, agent: rec.cli }, seen, { how: 'stale' });
         return true;
       }
       if (!seen.screen.options.some((o) => o.n === n)) {
@@ -470,7 +481,6 @@ export function createBlockRelay(deps: BlockRelayDeps): BlockRelay {
   const drop = async (b: Binding): Promise<void> => {
     epochs.set(b.root, epochOf(b.root) + 1);
     redirecting.delete(b.root);
-    sawSettled.delete(b.root);
     const rec = records.get(b.root);
     if (!rec) return;
     records.delete(b.root);

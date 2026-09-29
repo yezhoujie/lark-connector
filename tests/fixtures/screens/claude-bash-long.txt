@@ -1,0 +1,26 @@
+   │ {
+   │   "title": "你喜欢哪种颜色?红、绿、蓝",
+   │   "doing": "回答你在终端里提的一个颜色偏好小问题",
+   │   "description": "你让我问一下你更喜欢红色、绿色还是蓝色。终端里的提问框被取消了(远程模式已开),所以改用手机卡片重问一遍。这只是一个偏好问题,不影响任何代码或文件。",
+   │   "blocker": "没有你的答案,我无法记录你的颜色偏好。",
+   │   "options": [
+   │     {"id": "red", "label": "红色", "consequence": "记录为红色(Red)"},
+   │     {"id": "green", "label": "绿色", "consequence": "记录为绿色(Green)"},
+   │     {"id": "blue", "label": "蓝色", "consequence": "记录为蓝色(Blue)"}
+   │   ],
+   │   "recommend": "blue",
+   │   "reasoning": "这是纯个人偏好,没有对错;我随手默认蓝色。最强反对理由:我并不知道你的真实偏好,推荐仅仅是占位。",
+   │   "question": "你更喜欢红、绿、蓝中的哪一个?"
+   │ }
+   │ JSON
+   │ echo "rc=$?" >"$OUT/ask.rc"
+   Send color question to phone via agent-lark
+
+ Contains brace with quote character (expansion obfuscation)
+
+ Do you want to proceed?
+ ❯ 1. Yes
+   2. Yes, and switch to auto mode · auto mode handles these prompts for you
+   3. No
+
+ Esc to cancel · Tab to amend

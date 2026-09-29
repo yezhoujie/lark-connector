@@ -174,11 +174,51 @@ test('text without option lines is unknown', () => {
   assert.equal(parseScreen(text, 'claude').kind, 'unknown');
 });
 
-test('options without a rule above them are unknown', () => {
-  const text = 'Do you want to proceed?\n ❯ 1. Yes\n   2. No\n\n Esc to cancel\n';
+test('numbered options from 1 with a hint line below and no rule above: the prompt starts at the first line on screen', () => {
+  const text = '\nDo you want to proceed?\n ❯ 1. Yes\n   2. No\n\n Esc to cancel\n';
+  const p = parseScreen(text, 'claude');
+  assert.equal(p.kind, 'choice');
+  assert.deepEqual(summary(p), [
+    [1, 'Yes', true],
+    [2, 'No', false],
+  ]);
+  assert.equal(first(p), 'Do you want to proceed?');
+  assert.equal(last(p), 'Esc to cancel');
+});
+
+test('without a rule above, unnumbered options stay unknown', () => {
+  const text = 'Trust this folder?\n ❯ No, exit\n   Yes, I trust this folder\n\n Enter to confirm · Esc to cancel\n';
   const p = parseScreen(text, 'claude');
   assert.equal(p.kind, 'unknown');
   assert.deepEqual(p.options, []);
+});
+
+test('without a rule above, numbered options with no hint line below stay unknown', () => {
+  const text = 'some list\n 1. Yes\n 2. No\n';
+  assert.equal(parseScreen(text, 'claude').kind, 'unknown');
+});
+
+test('without a rule above, numbered options that do not start at 1 stay unknown', () => {
+  const text = 'more\n 2. Yes\n 3. No\n\n Esc to cancel\n';
+  assert.equal(parseScreen(text, 'claude').kind, 'unknown');
+});
+
+test('a long bash approval whose top rule scrolled off is still a numbered choice, from the first line on screen', () => {
+  const p = parseScreen(load('claude-bash-long'), 'claude');
+  assert.equal(p.kind, 'choice');
+  assert.equal(p.numbered, true);
+  assert.deepEqual(
+    p.options.map((o) => [o.n, o.cursor]),
+    [
+      [1, true],
+      [2, false],
+      [3, false],
+    ],
+  );
+  assert.equal(p.options[0]!.label, 'Yes');
+  assert.equal(p.options[2]!.label, 'No');
+  assert.equal(first(p), '│ {');
+  assert.equal(last(p), 'Esc to cancel · Tab to amend');
 });
 
 test('moving only the cursor keeps the fingerprint and moves the cursor flag', () => {
@@ -240,13 +280,18 @@ test('a numbered line inside the shown content is not taken for an option', () =
   ]);
 });
 
-test('a question whose top has scrolled off is unknown, not a one-option question', () => {
+test('a question whose top has scrolled off is still the whole question, not a one-option question', () => {
   const lines = load('claude-ask-single').split('\n');
   const top = lines.findIndex((l) => l.includes(RULE));
   assert.ok(top >= 0);
   const clipped = lines.slice(top + 1).join('\n');
   assert.ok(clipped.includes('5. Chat about this'));
-  assert.equal(parseScreen(clipped, 'claude').kind, 'unknown');
+  const p = parseScreen(clipped, 'claude');
+  assert.equal(p.kind, 'question');
+  assert.deepEqual(
+    p.options.map((o) => o.n),
+    [1, 2, 3, 4, 5],
+  );
 });
 
 test('a bare option-and-rule tail is unknown', () => {

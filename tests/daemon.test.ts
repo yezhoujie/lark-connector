@@ -3011,6 +3011,36 @@ test('a question pending holds the card back and takes the number as its answer;
   await daemon.stop();
 });
 
+test('the prompt changes while a question is pending: once the question is answered, the new prompt gets its card and the old one goes stale', PER_TEST, async () => {
+  const { daemon, fake, herdr } = await blockedOn(screenSample('claude-bash'));
+  const asking = request({ type: 'ask', root: '/p', label: 'p', paneId: 'w1:p1', payload: askPayload, timeoutMs: 5000 });
+  await waitFor(() => cardsSent(fake).length === 3, 'the question card');
+  herdr.screens['w1:p1'] = screenSample('claude-write');
+  await sleep(80);
+  assert.equal(cardsSent(fake).length, 3, 'nothing while the question is pending');
+  await fake.message({ chatId: 'oc_x', content: 'Keep', messageId: 'om_h' });
+  assert.equal((await asking).ok, true);
+  await waitFor(() => cardsSent(fake).length === 4, 'the card for the new prompt');
+  assert.match(String(cardsSent(fake)[3]!.body.elements[1]!.content), /create note\.txt/);
+  await sleep(80);
+  assert.equal(cardsSent(fake).length, 4, 'one card only');
+  assert.ok(updatesSent(fake).some((u) => u.update === 'om_2' && new RegExp(enText.statusStale).test(u.card.header.title.content)));
+  await daemon.stop();
+});
+
+test('a pane already blocked when remote mode is switched on gets one card', PER_TEST, async () => {
+  const { daemon, fake, herdr } = await start({}, 50, { pollMs: 15, blockTiming: FAST_BLOCKS });
+  await connected();
+  await request({ type: 'bind', root: '/p', label: 'p', paneId: 'w1:p1', chatId: 'oc_x' });
+  herdr.screens['w1:p1'] = screenSample('claude-trust');
+  herdr.agents = [agentEntry({ pane_id: 'w1:p1', agent: 'claude', agent_status: 'blocked' })];
+  await request({ type: 'setAway', root: '/p', away: true, paneId: 'w1:p1', lang: 'en' });
+  await waitFor(() => cardsSent(fake).length === 2, 'the card');
+  await sleep(80);
+  assert.equal(cardsSent(fake).length, 2);
+  await daemon.stop();
+});
+
 test('away off drops the record and rewrites its card as remote mode closed', PER_TEST, async () => {
   const { daemon, fake, herdr } = await blockedOn(screenSample('claude-bash'));
   await request({ type: 'setAway', root: '/p', away: false, paneId: 'w1:p1' });

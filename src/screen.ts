@@ -81,9 +81,11 @@ export function parseScreen(text: string, cli: ScreenCli): ParsedScreen {
 
   // Bottom: a hint line within three lines below the options, if any.
   let end = group[1];
+  let footer = false;
   for (let i = group[1] + 1; i <= Math.min(group[1] + 3, lines.length - 1); i++) {
     if (FOOTER.test(lines[i] as string)) {
       end = i;
+      footer = true;
       break;
     }
   }
@@ -93,7 +95,6 @@ export function parseScreen(text: string, cli: ScreenCli): ParsedScreen {
   // the prompt, so take the one above it; if there is none, the view is clipped.
   const rules: number[] = [];
   for (let i = 0; i < group[0]; i++) if (RULE.test(lines[i] as string)) rules.push(i);
-  if (rules.length === 0) return unknown();
   let r = rules.length - 1;
   const firstBelow = (at: number): string =>
     (lines.slice(at + 1, end + 1).find((l) => l.trim() !== '' && !RULE.test(l)) as string | undefined) ?? '';
@@ -102,10 +103,15 @@ export function parseScreen(text: string, cli: ScreenCli): ParsedScreen {
     if (!NUMBERED.test(below) && !CURSOR_ONLY.test(below)) break;
     r--;
   }
-  // Every rule had an option line right under it: the top of the prompt has
-  // scrolled off, so what is left is a clipped view.
-  if (r < 0) return unknown();
-  const start = rules[r] as number;
+  // No usable rule: none at all, or every rule has an option line right under
+  // it, so the top of the prompt has scrolled off (a long command pushes it
+  // out, and a blocked pane cannot be read beyond what is visible). A
+  // numbered list with a hint line below it is still a prompt: it is taken
+  // to start at the first line on screen, provided its numbers run from 1
+  // (checked with the options below). Anything else is a clipped view.
+  const clipped = r < 0;
+  if (clipped && !(numbered && footer)) return unknown();
+  const start = clipped ? lines.findIndex((l) => l.trim() !== '') - 1 : (rules[r] as number);
 
   const block = lines.slice(start + 1, end + 1).filter((l) => !RULE.test(l));
   while (block.length > 0 && (block[0] as string).trim() === '') block.shift();
@@ -139,6 +145,8 @@ export function parseScreen(text: string, cli: ScreenCli): ParsedScreen {
   // Real prompts always offer at least two options; a lone one is a misread
   // (an echoed `❯ message` line, an idle input box).
   if (options.length < 2) return unknown();
+  // Without a rule to mark its top, only a list numbered from 1 is trusted to be the whole list.
+  if (clipped && options[0]?.n !== 1) return unknown();
 
   const body = block.join('\n');
   const isQuestion =

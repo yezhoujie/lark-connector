@@ -1204,7 +1204,7 @@ export async function runDaemon(deps: DaemonDeps = {}): Promise<DaemonHandle> {
       lastStatus.set(b.root, a.agent_status);
       // An agent whose screen can be read gets the prompt on its card and can be answered from the phone.
       if (isRelayed(a)) {
-        await relay.onPoll(b, a, prev);
+        await relay.onPoll(b, a);
         continue;
       }
       if (!prev || prev === a.agent_status) continue;
