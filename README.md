@@ -35,10 +35,10 @@ One project (the directory the agent works in) gets one Feishu group; whichever 
 - **Platform**: macOS is tested end to end on real machines; Linux and Windows have unit tests on CI only (Windows runs natively, use Git Bash or WSL for the shell examples) — pull requests with a real-machine report are welcome.
 - Node.js 22 or newer. The CLI is one self-contained file (`dist/cli.mjs`): nothing to `npm install`, nothing to build.
 - A Feishu / Lark account — a personal one is enough — and outbound access to Feishu from the machine the daemon runs on.
-- **[herdr](https://herdr.dev) is optional** (`brew install herdr` on macOS / Linux). What depends on it, in three lines:
+- **[herdr](https://herdr.dev) is strongly recommended — install it** (`brew install herdr` on macOS / Linux). What changes without it:
   - The whole question round trip (card → tap or type → answer back to the agent), notifications and files work **without** herdr.
   - Messages you send on your own initiative — an instruction, a photo, a voice note, a reply to an old card — are typed into the agent's terminal by herdr; without it they cannot be delivered, and you get a receipt card in the group saying so.
-  - The 🔔 *waiting for you* card (pushed when the agent is stuck on a prompt only you can answer) also needs herdr; so does the pane the agent opens for you in §4.2.
+  - The 🔔 *waiting for you* card (pushed when the agent is stuck on a prompt only you can answer, which you then answer from the phone by replying with a number) also needs herdr; so does the pane the agent opens for you in §4.2.
   - If the daemon was already running when you installed herdr, restart it once from a herdr pane (`away on` will print a warning on stderr until then, and the agent handles it — see §7). If herdr itself listens on a non-default socket path, the daemon has to be started from a herdr pane too, so it inherits that setting.
 
 ### 2.1 Two Feishu accounts on one Mac

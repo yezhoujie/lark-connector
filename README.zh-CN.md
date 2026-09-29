@@ -35,10 +35,10 @@ agent ──提问──▶ daemon ──▶ 飞书 ──▶ 你的手机：点
 - **平台**：macOS 在真机上端到端测过；Linux 与 Windows 只有 CI 单元测试（Windows 原生可跑，shell 示例请走 Git Bash / WSL）——欢迎带着真机报告提 PR。
 - Node.js 22 或更新。CLI 是一个自包含单文件（`dist/cli.mjs`）：不用 `npm install`，也不用构建。
 - 一个飞书 / Lark 账号——个人版就够——以及跑 daemon 的机器能出站访问飞书。
-- **[herdr](https://herdr.dev) 可选**（macOS / Linux 上 `brew install herdr`）。依赖它的只有三件：
+- **强烈推荐安装 [herdr](https://herdr.dev)**（macOS / Linux 上 `brew install herdr`）。不装时的区别：
   - 提问整条来回（卡片 → 点按钮或打字 → 答复回到 agent）、通知、文件，**不装** herdr 也能用。
   - 你主动发的消息——一句指令、一张图、一条语音、对旧卡片的回复——是由 herdr 打进 agent 终端的；不装就送不到，群里会收到一张回执卡说明。
-  - 🔔「等你输入」卡（agent 卡在只有你能回答的提示上时推）也要 herdr；§4.2 里 agent 替你开的那个窗格同样要。
+  - 🔔「等你输入」卡（agent 卡在只有你能回答的提示上时推，你在手机上回编号即可处理）也要 herdr；§4.2 里 agent 替你开的那个窗格同样要。
   - 装 herdr 之前 daemon 就已经在跑的话，从 herdr 窗格里重启它一次（重启前 `away on` 会在 stderr 打一条 warning，agent 会自己处理——见 §7）。herdr 本身配了非缺省的 socket 路径，daemon 同样要从 herdr 窗格里起，才能继承这个设置。
 
 ### 2.1 macOS 上两个飞书账号同时在线
