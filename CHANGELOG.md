@@ -11,7 +11,7 @@ Before 0.2.0 this repository was a section of the `agent-remote-communication-sk
 `agent-lark/vX.Y.Z` there; the entries below for those versions are unchanged, and the same versions are
 tagged plain `vX.Y.Z` here.
 
-### [Unreleased]
+### [0.4.0][lark-connector-0.4.0] - 2026-09-29
 
 #### Added
 
@@ -339,6 +339,7 @@ Feishu custom app of your own instead of a public notification service.
 - `node --test` suite (cards, validation, IPC, daemon with a fake Feishu channel, the CLI against a fake daemon)
   on ubuntu / windows / macos × Node 22 / 24.
 
+[lark-connector-0.4.0]: https://github.com/yezhoujie/lark-connector/compare/v0.3.1...v0.4.0
 [lark-connector-0.3.1]: https://github.com/yezhoujie/lark-connector/compare/v0.3.0...v0.3.1
 [lark-connector-0.3.0]: https://github.com/yezhoujie/lark-connector/compare/v0.2.0...v0.3.0
 [lark-connector-0.2.0]: https://github.com/yezhoujie/lark-connector/compare/v0.1.4...v0.2.0
