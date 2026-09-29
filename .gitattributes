@@ -1,0 +1,3 @@
+# Screen fixtures are compared byte for byte by tests that edit them with LF-based strings;
+# keep them LF on every platform, whatever core.autocrlf the checkout uses.
+tests/fixtures/screens/*.txt text eol=lf
