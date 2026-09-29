@@ -233,7 +233,7 @@ When it cannot be delivered, the human gets an orange **`⚠️ [<dir>] Not deli
 | why | wording on the card (`en`) |
 |---|---|
 | no pane on record and none found | `No herdr pane is recorded for this project, so there is nowhere to deliver the message.` |
-| herdr answered `agent_blocked` (your session sits on a prompt only a human can answer) | `The agent in the terminal is stuck on a prompt only you can answer and cannot take new input. Deal with it when you are back at the computer.` |
+| herdr answered `agent_blocked` (your session sits on a prompt only a human can answer) | `The agent in the terminal is stuck on a prompt only you can answer and cannot take new input. Deal with it when you are back at the computer.` (when no `🔔` record is open, e.g. an agent other than Claude Code / Kimi CLI; with a record open see the receipts under "Answering by number") |
 | herdr answered `agent_not_found` / `pane_not_found` | `The recorded herdr pane is gone. Run lark-connector away on (or any lark-connector command) inside the project to record the pane again.` |
 | `herdr` is not installed or not running | `This machine has no herdr, or herdr is not running; messages from the phone have nowhere to go.` |
 | any other herdr error | `herdr refused the injection: <code> <message>` |
@@ -286,10 +286,64 @@ the daemon looks for the moment claude read the entry:
   and forgets all of them on restart; a reaction on a forgotten message does nothing.
 
 **The stuck alert.** Every 5 s the daemon runs `herdr agent list` for the bindings that have `away: true`
-and a pane. When a session's status changes *to* `blocked` (a permission prompt, a choice dialog — herdr's
-own judgement) and no question of that project is pending, it sends an orange **`🔔 [<dir>] waiting for
-you`** card with the pane's terminal title and pane id, at most once per 60 s per project. Idle and
-finished sessions never trigger anything. Outside herdr `paneId` is never recorded, so nothing is polled.
+and a pane, and skips any project with a question pending (it is looked at again once the question is
+answered). Only a session in `blocked` (a permission prompt, a choice dialog — herdr's own judgement) triggers
+anything; idle and finished sessions never do. Outside herdr `paneId` is never recorded, so nothing is polled.
+
+- A pane whose agent is neither `claude` nor `kimi` gets the plain orange **`🔔 [<dir>] waiting for you`**
+  card (terminal title and pane id) and nothing more, when its status changes *to* `blocked` from a status
+  seen on an earlier poll. A pane already blocked when first seen (or when remote mode is switched on) gets
+  none.
+- A `claude` or `kimi` pane (source: `src/blocks.ts`, `src/screen.ts`) that is `blocked` with no open card
+  for the prompt it shows gets one — including a pane first seen already blocked (Claude Code's start-up
+  trust prompt) and a pane already blocked when remote mode is switched on, which gets exactly one card.
+  The daemon reads the screen (`herdr agent read <pane> --source visible`; herdr does not let a blocked pane
+  be read beyond what is visible) and classifies it, as below. While a card is open the screen is read again
+  on every poll (5 s): a different prompt pushes its own card (or is redirected, if it is a question) and
+  only then turns the old one into `Expired · the prompt changed, see the new card`; a screen that cannot
+  be read or made out changes nothing that round.
+
+- *A question* (`AskUserQuestion` / Kimi's question form): no card. The daemon presses Esc, looks at the pane
+  once a second for up to 20 s until it leaves `blocked`, then injects the redirect line through the usual
+  channel (`[lark-connector remote] Remote mode is on and the human is away, so your question prompt was
+  cancelled. Ask the same question again with the agent-lark skill's ask command so it reaches their
+  phone.`), so the question arrives as an `ask` card. If the pane is still blocked after 20 s (or Esc is
+  refused), the prompt is pushed as a card after all, and it cannot be answered by number; later polls that
+  still find the same question leave that card as it is (no second Esc).
+- *Any other prompt* (permission, trust check, or one that cannot be told apart): the daemon pushes the
+  `🔔` card with the prompt text and opens **one record per project** (in memory; a project never has two
+  cards open, which replaces the old 60 s cool-down). A prompt whose options are numbered on screen is
+  shown as is; otherwise the card adds a numbered list. A screen the daemon cannot parse shows its last
+  lines and says to go back to the computer; numbers are then not pressed. A card that could not be sent
+  is retried by the next poll.
+
+**Answering by number.** While a record is open, a group message that is just digits is a key press;
+this comes after "an `ask` is pending, the message is its answer" and before injection, so with an `ask`
+pending nothing changes. Before any key the daemon reads the screen again: if the prompt changed, no key
+is sent, the old card turns `Expired` and a card for the new screen is pushed; if the screen cannot be
+read, no key is sent and the card stays (receipt below). A numbered prompt gets the digit key; an unnumbered
+one gets arrow keys from the current cursor position plus Enter. Then the pane is checked at 1, 2.5 and 5 s
+(a look that finds an empty herdr list or a screen it cannot make out proves nothing and waits for the
+next one): back to `idle` / `working` / `done` ⇒ the message gets a `DONE` reaction and the card turns
+green `Resolved · you picked N on the phone`; a different prompt ⇒ the new card is pushed first, and only
+if that succeeds the old one becomes `… next step is on a new card`; unchanged after 5 s ⇒ the
+receipt below. A digit sent when the prompt was already dealt with at the terminal presses nothing,
+injects nothing, gets a `SILENT` reaction and the card becomes `Resolved · handled in the terminal`. A
+prompt dealt with at the computer while no message arrives is noticed by the poll and its card turns the
+same way. `away off`, `unbind` and a group switch discard the record and turn the card into
+`Closed · remote mode is off` — also a card that was still on its way to Feishu at that moment.
+
+Receipts (the same kind of receipt card as above, sent to the group), wording in `en`:
+
+| when | wording |
+|---|---|
+| a non-number while a record is open, the prompt readable | `The terminal is sitting on a prompt; reply with a number to choose.` |
+| the prompt's options cannot be made out | `The options of this prompt cannot be made out; deal with it at the computer.` |
+| a number while the previous choice is still being handled | `The previous choice is still being handled; please wait.` |
+| a number the prompt does not have | `There is no option <n>.` |
+| the keys were pressed but the prompt did not change within 5 s | `The keys had no effect; deal with it at the computer.` |
+| herdr refused the keys | `The keys were refused: <why>` |
+| the screen cannot be read right now | `Could not read the terminal screen just now; reply with the number again in a moment.` |
 
 ## 6. Attachments, the media directory and the daily sweep
 

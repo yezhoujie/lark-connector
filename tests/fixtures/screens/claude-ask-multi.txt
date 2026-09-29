@@ -1,0 +1,26 @@
+
+⏺ User declined to answer questions
+  ⎿  · Which color do you prefer? (Red / Green / Blue)
+
+✻ Churned for 2s · done 10:54
+
+❯ Use the AskUserQuestion tool ONCE with multiSelect true: which fruits I like: apple, banana, cherry. Nothing else.
+
+  Thought for 1s
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+←  ☐ Fruits  ✔ Submit  →
+
+Which fruits do you like?
+
+❯ 1. [ ] Apple
+         Apple
+  2. [ ] Banana
+         Banana
+  3. [ ] Cherry
+         Cherry
+  4. [ ] Type something
+     Submit
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  5. Chat about this
+
+Enter to select · ↑/↓ to navigate · Esc to cancel

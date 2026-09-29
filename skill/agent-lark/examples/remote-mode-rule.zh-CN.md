@@ -34,7 +34,7 @@
 - **`$AL notify`（单向通知：stdin JSON `{title, body}`，不阻塞、无按钮，提问挂着时也能发）只在两种情况下用**：① 用户从手机问了只要回话的问题（「进展如何」）——回答放 body；② **重大事项、必须让用户知道而不需要他拍板**：任务完成 / 发生异常错误 / 任务无法继续（含 `ask` 退 3、4 后停下等人）。其余进展、中间结果、顺带一提**一律不发**——每张卡都会响手机。要拍板的事永远走 `ask`，不用 notify 代替。
 - **`$AL send-file <路径> --caption "…"` 用来省一次往返**：用户要看版式、看 diff、看产物时，直接把文件发过去（截图、渲染出的页面、构建产物），不要先描述再等他来要。只能发项目内、daemon 媒体目录、临时目录里的文件。
 - 需要用户验证某个改动（版式 / 文案）时不单发验证卡——塞进下一张本来就要发的真问题卡（「这张卡顺便看 X」），或直接 `send-file` 那个东西。
-- **🔔「等你输入」卡是自动的**（herdr 内、远程模式开着时）：herdr 报你的会话卡在只有人能答的提示上，daemon 自己推。不要手发，也不要用 `notify` 说自己卡住了——还能跑命令就不算卡住。
+- **🔔「等你输入」卡是自动的**（herdr 内、远程模式开着时）：herdr 报你的会话卡在只有人能答的提示上，daemon 自己推。不要手发，也不要用 `notify` 说自己卡住了——还能跑命令就不算卡住。Claude Code 与 Kimi CLI 上这张卡会带提示原文，用户可以在手机上回编号选择（daemon 替你按键）。远程模式下不要用自带的提问工具（`AskUserQuestion` 之类）：daemon 会把它取消并注入 `[lark-connector remote] Remote mode is on and the human is away, so your question prompt was cancelled. Ask the same question again …`——看到这句就用 `$AL ask` 把同一个问题重问一遍。
 - 远程模式只换通道，**不降标准**：不可逆动作仍要明确批准，超时不算批准。
 - 用户在终端直接回话（没有 `[lark-connector remote] ` 前缀）而手机上还挂着一张 `ask` ⇒ 先停掉那个后台任务（Claude Code 里是 TaskStop；卡片会变「Cancelled」），再按终端回话办；不要两边都等。
 - **任务换了**（同一项目里用户交了别的活）⇒ `$AL rename "<新任务名>"`，让手机上的群名说得清这是在做什么。

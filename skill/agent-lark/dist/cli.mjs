@@ -121462,12 +121462,12 @@ var require_lib2 = __commonJS({
           return Promise.resolve(false);
         }
         return new Promise((resolve4) => {
-          let settled = false;
+          let settled2 = false;
           let timer;
           const settleOnce = (ok) => {
-            if (settled)
+            if (settled2)
               return;
-            settled = true;
+            settled2 = true;
             if (timer)
               clearTimeout(timer);
             resolve4(ok);
@@ -122249,7 +122249,7 @@ var require_lib2 = __commonJS({
         let domainSwitched = false;
         let pollTimer = null;
         let expireTimer = null;
-        let settled = false;
+        let settled2 = false;
         const cleanup = () => {
           var _a2;
           if (pollTimer !== null) {
@@ -122263,23 +122263,23 @@ var require_lib2 = __commonJS({
           (_a2 = ctx2.signal) === null || _a2 === void 0 ? void 0 : _a2.removeEventListener("abort", onAbort);
         };
         const succeed = (result) => {
-          if (settled) {
+          if (settled2) {
             return;
           }
-          settled = true;
+          settled2 = true;
           cleanup();
           resolve4(result);
         };
         const fail = (err) => {
-          if (settled) {
+          if (settled2) {
             return;
           }
-          settled = true;
+          settled2 = true;
           cleanup();
           reject(err);
         };
         const scheduleNextPoll = () => {
-          if (settled) {
+          if (settled2) {
             return;
           }
           pollTimer = setTimeout(poll, interval);
@@ -122296,7 +122296,7 @@ var require_lib2 = __commonJS({
         }, ctx2.expireIn);
         const poll = () => __awaiter(this, void 0, void 0, function* () {
           var _c, _d, _e, _f, _g, _h;
-          if (settled) {
+          if (settled2) {
             return;
           }
           try {
@@ -122304,7 +122304,7 @@ var require_lib2 = __commonJS({
               action: "poll",
               device_code: ctx2.deviceCode
             });
-            if (settled) {
+            if (settled2) {
               return;
             }
             if (((_c = pollRes.user_info) === null || _c === void 0 ? void 0 : _c.tenant_brand) === "lark" && !domainSwitched) {
@@ -125192,11 +125192,11 @@ ${lines.join("\n")}
       connectWebSocket(timeoutMs) {
         return new Promise((resolve4, reject) => {
           var _a;
-          let settled = false;
+          let settled2 = false;
           const timer = setTimeout(() => {
-            if (settled)
+            if (settled2)
               return;
-            settled = true;
+            settled2 = true;
             reject(new LarkChannelError2("not_connected", `WebSocket handshake did not complete within ${timeoutMs}ms`));
           }, timeoutMs);
           this.rawWsClient = new WSClient2({
@@ -125213,16 +125213,16 @@ ${lines.join("\n")}
             wsConfig: this.opts.wsConfig,
             handshakeTimeoutMs: this.opts.handshakeTimeoutMs,
             onReady: () => {
-              if (settled)
+              if (settled2)
                 return;
-              settled = true;
+              settled2 = true;
               clearTimeout(timer);
               resolve4();
             },
             onError: (err) => {
-              if (settled)
+              if (settled2)
                 return;
-              settled = true;
+              settled2 = true;
               clearTimeout(timer);
               reject(new LarkChannelError2("not_connected", `WebSocket connect failed: ${err.message}`, { cause: err }));
             },
@@ -130910,11 +130910,11 @@ ${lines.join("\n")}
       */
       connectWebSocket(timeoutMs) {
         return new Promise((resolve4, reject) => {
-          let settled = false;
+          let settled2 = false;
           let attemptClient;
           const timer = setTimeout(() => {
-            if (settled) return;
-            settled = true;
+            if (settled2) return;
+            settled2 = true;
             try {
               attemptClient?.close({ force: true });
             } catch {
@@ -130935,14 +130935,14 @@ ${lines.join("\n")}
             wsConfig: this.opts.wsConfig,
             handshakeTimeoutMs: this.opts.handshakeTimeoutMs,
             onReady: () => {
-              if (settled) return;
-              settled = true;
+              if (settled2) return;
+              settled2 = true;
               clearTimeout(timer);
               resolve4();
             },
             onError: (err) => {
-              if (settled) return;
-              settled = true;
+              if (settled2) return;
+              settled2 = true;
               clearTimeout(timer);
               reject(new LarkChannelError("not_connected", `WebSocket connect failed: ${err.message}`, { cause: err }));
             },
@@ -136336,6 +136336,23 @@ var init_texts = __esm({
       // "stuck" status card
       statusBlocked: "\u7B49\u4F60\u8F93\u5165",
       statusPane: "\u7A97\u683C {pane}",
+      statusHintReply: "\u56DE\u590D\u7F16\u53F7\u5373\u53EF\u9009\u62E9\uFF0C\u4F8B\u5982 1",
+      statusHintUnknown: "\u8BA4\u4E0D\u51FA\u9009\u9879\uFF0C\u8BF7\u56DE\u7535\u8111\u5904\u7406",
+      statusNumbering: "\u6309\u7F16\u53F7\u56DE\u590D\uFF1A",
+      statusOmitted: "\u2026 \u7701\u7565 {n} \u884C\uFF0C\u5B8C\u6574\u5185\u5BB9\u56DE\u7535\u8111\u770B \u2026",
+      statusChosen: "\u5DF2\u89E3\u9664 \xB7 \u624B\u673A\u4E0A\u9009\u4E86 {n}",
+      statusChosenNext: "\u5DF2\u89E3\u9664 \xB7 \u624B\u673A\u4E0A\u9009\u4E86 {n}\uFF0C\u4E0B\u4E00\u6B65\u89C1\u65B0\u5361",
+      statusTerminal: "\u5DF2\u89E3\u9664 \xB7 \u5DF2\u5728\u7EC8\u7AEF\u5904\u7406",
+      statusStale: "\u5DF2\u8FC7\u671F \xB7 \u63D0\u793A\u5DF2\u53D8\u5316\uFF0C\u89C1\u65B0\u5361",
+      statusClosed: "\u5DF2\u5173\u95ED \xB7 \u8FDC\u7A0B\u6A21\u5F0F\u5DF2\u5173\u95ED",
+      // replies to a phone message while the terminal sits on a prompt
+      promptReplyNumber: "\u7EC8\u7AEF\u6B63\u505C\u5728\u63D0\u793A\u4E0A\uFF0C\u56DE\u590D\u7F16\u53F7\u5373\u53EF\u9009\u62E9\u3002",
+      promptUnreadable: "\u8FD9\u4E2A\u63D0\u793A\u8BA4\u4E0D\u51FA\u9009\u9879\uFF0C\u8BF7\u56DE\u7535\u8111\u5904\u7406\u3002",
+      promptBusy: "\u4E0A\u4E00\u4E2A\u9009\u62E9\u8FD8\u5728\u5904\u7406\uFF0C\u8BF7\u7A0D\u5019\u3002",
+      promptNoSuchOption: "\u6CA1\u6709\u7F16\u53F7 {n}\u3002",
+      promptKeysIgnored: "\u6309\u952E\u6CA1\u6709\u751F\u6548\uFF0C\u8BF7\u56DE\u7535\u8111\u5904\u7406\u3002",
+      promptKeysRefused: "\u6309\u952E\u88AB\u62D2\uFF1A{why}",
+      promptScreenUnreadable: "\u6682\u65F6\u8BFB\u4E0D\u5230\u7EC8\u7AEF\u5C4F\u5E55\uFF0C\u8BF7\u7A0D\u540E\u518D\u56DE\u4E00\u6B21\u7F16\u53F7\u3002",
       // remote mode on/off card
       awayOnTitle: "\u8FDC\u7A0B\u6A21\u5F0F\u5DF2\u5F00\u542F",
       awayOffTitle: "\u8FDC\u7A0B\u6A21\u5F0F\u5373\u5C06\u5173\u95ED",
@@ -136423,6 +136440,22 @@ var init_texts = __esm({
       promptHerdrMissing: `The daemon cannot find the herdr executable (it was probably started before herdr was installed). Restart it from a herdr pane: ${CLI} daemon --stop, then ${CLI} away on`,
       statusBlocked: "waiting for you",
       statusPane: "pane {pane}",
+      statusHintReply: "Reply with a number to choose, e.g. 1",
+      statusHintUnknown: "Cannot make out the options; deal with it at the computer",
+      statusNumbering: "Reply with the number:",
+      statusOmitted: "\u2026 {n} lines omitted; see the computer for the full text \u2026",
+      statusChosen: "Resolved \xB7 you picked {n} on the phone",
+      statusChosenNext: "Resolved \xB7 you picked {n} on the phone; next step is on a new card",
+      statusTerminal: "Resolved \xB7 handled in the terminal",
+      statusStale: "Expired \xB7 the prompt changed, see the new card",
+      statusClosed: "Closed \xB7 remote mode is off",
+      promptReplyNumber: "The terminal is sitting on a prompt; reply with a number to choose.",
+      promptUnreadable: "The options of this prompt cannot be made out; deal with it at the computer.",
+      promptBusy: "The previous choice is still being handled; please wait.",
+      promptNoSuchOption: "There is no option {n}.",
+      promptKeysIgnored: "The keys had no effect; deal with it at the computer.",
+      promptKeysRefused: "The keys were refused: {why}",
+      promptScreenUnreadable: "Could not read the terminal screen just now; reply with the number again in a moment.",
       awayOnTitle: "Remote mode is on",
       awayOffTitle: "Remote mode is about to turn off",
       awayOnFull: "Messages you send in this group are delivered into the terminal; decisions that need you arrive here as cards.",
@@ -136668,6 +136701,7 @@ If this is a permission problem the app lacks the im:chat (create group) scope: 
       latePick: "(follow-up) I pick {labels}",
       urgentNotSent: "the urgent flag was not delivered ({error}); the question itself was sent and is waiting as usual",
       urgentNoOwner: `the app owner is not recorded, so there is nobody to flag; rerun ${CLI} setup --update to record it`,
+      promptRedirect: "Remote mode is on and the human is away, so your question prompt was cancelled. Ask the same question again with the agent-lark skill's ask command so it reaches their phone.",
       urgentRefused: "Feishu error {code} {msg}",
       // validation
       vTitleRequired: "title: required and non-empty",
@@ -136976,8 +137010,18 @@ function outcomeOf(r) {
 async function promptPane(paneId, text, run = (args) => runHerdr(args, 2e4)) {
   return outcomeOf(await run(["agent", "prompt", paneId, text]));
 }
-async function sendKeys(paneId, key, run = runHerdr) {
-  return outcomeOf(await run(["agent", "send-keys", paneId, key]));
+async function sendKeys(paneId, keys, run = runHerdr) {
+  return outcomeOf(await run(["agent", "send-keys", paneId, ...Array.isArray(keys) ? keys : [keys]]));
+}
+async function readScreen(paneId, run = runHerdr) {
+  const r = await run(["agent", "read", paneId, "--source", "visible"]);
+  if (!r.ok) return null;
+  for (const stream of [r.stdout, r.stderr ?? ""]) {
+    if (!stream.trim().startsWith("{")) continue;
+    const err = parse(stream).error;
+    if (err && err.code !== "bad_output") return null;
+  }
+  return r.stdout;
 }
 function findPaneForProject(agents, root) {
   const inProject = agents.filter((a) => a.cwd === root || a.foreground_cwd === root);
@@ -137344,10 +137388,10 @@ async function isDaemonListening(timeoutMs = 1e3, opts = {}) {
 }
 function request(req, opts = {}) {
   return new Promise((resolve4) => {
-    let settled = false;
+    let settled2 = false;
     const done = (r) => {
-      if (settled) return;
-      settled = true;
+      if (settled2) return;
+      settled2 = true;
       try {
         sock.end();
       } catch {
@@ -137839,9 +137883,61 @@ function receiptCard(projectLabel2, why, lang = "en", uncertain = false) {
     md(uncertain ? why : fill(T.notDeliveredBody, { why }))
   ]);
 }
-function statusCard(projectLabel2, detail, lang = "en") {
+function clipLine(line) {
+  const chars = [...line];
+  return chars.length <= MAX_LINE ? line : `${chars.slice(0, MAX_LINE - 1).join("")}\u2026`;
+}
+function clipBlock(lines, T) {
+  const clipped = lines.map(clipLine);
+  if (clipped.length <= MAX_LINES) return clipped;
+  const tail = MAX_LINES - HEAD_LINES - 1;
+  const omitted = clipped.length - HEAD_LINES - tail;
+  return [...clipped.slice(0, HEAD_LINES), fill(T.statusOmitted, { n: omitted }), ...clipped.slice(-tail)];
+}
+function codeBlock(lines) {
+  const body = lines.join("\n").replace(/`(?=``)/g, "`\u200B");
+  return md("```\n" + body + "\n```");
+}
+function statusCard(projectLabel2, detail, lang = "en", view) {
   const T = t(lang);
-  return card({ icon: "\u{1F514}", title: `[${projectLabel2}] ${T.statusBlocked}`, template: "orange" }, [md(detail)]);
+  const elements = [md(detail)];
+  if (!view) return card({ icon: "\u{1F514}", title: `[${projectLabel2}] ${T.statusBlocked}`, template: "orange" }, elements);
+  const { screen } = view;
+  const state = view.state ?? "open";
+  const lines = screen.kind === "unknown" ? trimBlank((view.raw ?? "").split("\n")).slice(-UNKNOWN_TAIL) : screen.block;
+  if (lines.length) elements.push(codeBlock(clipBlock(lines, T)));
+  if (state === "open") {
+    if (screen.kind === "unknown") {
+      elements.push(note(T.statusHintUnknown));
+    } else {
+      if (!screen.numbered) {
+        elements.push(md(`**${T.statusNumbering}**
+
+${screen.options.map((o) => `${o.n}. ${o.label}`).join("\n")}`));
+      }
+      elements.push(note(T.statusHintReply));
+    }
+    return card({ icon: "\u{1F514}", title: `[${projectLabel2}] ${T.statusBlocked}`, template: "orange" }, elements);
+  }
+  if ((state === "chosen" || state === "chosenNext") && !(Number.isInteger(view.choice) && view.choice > 0))
+    throw new Error(`statusCard: state ${state} needs the picked number (choice), got ${String(view.choice)}`);
+  const n = view.choice ?? 0;
+  const resolved = {
+    chosen: { icon: "\u2705", template: "green", word: fill(T.statusChosen, { n }) },
+    chosenNext: { icon: "\u27A1\uFE0F", template: "grey", word: fill(T.statusChosenNext, { n }) },
+    terminal: { icon: "\u{1F4BB}", template: "grey", word: T.statusTerminal },
+    stale: { icon: "\u231B", template: "grey", word: T.statusStale },
+    closed: { icon: "\u{1F319}", template: "grey", word: T.statusClosed }
+  };
+  const r = resolved[state];
+  return card({ icon: r.icon, title: `[${projectLabel2}] ${T.statusBlocked} \xB7 ${r.word}`, template: r.template }, elements);
+}
+function trimBlank(lines) {
+  let a = 0;
+  let b = lines.length;
+  while (a < b && !lines[a].trim()) a++;
+  while (b > a && !lines[b - 1].trim()) b--;
+  return lines.slice(a, b);
 }
 function awayCard(projectLabel2, on, detail, lang, title) {
   const T = t(lang);
@@ -137850,7 +137946,7 @@ function awayCard(projectLabel2, on, detail, lang, title) {
     [md(detail)]
   );
 }
-var md, hr, note, HEADER, checkerName, optionIdOf;
+var md, hr, note, HEADER, checkerName, optionIdOf, MAX_LINE, MAX_LINES, HEAD_LINES, UNKNOWN_TAIL;
 var init_cards = __esm({
   "src/cards.ts"() {
     "use strict";
@@ -137870,6 +137966,452 @@ var init_cards = __esm({
     };
     checkerName = (optionId) => `opt:${optionId}`;
     optionIdOf = (checkerName2) => checkerName2.startsWith("opt:") ? checkerName2.slice(4) : null;
+    MAX_LINE = 160;
+    MAX_LINES = 40;
+    HEAD_LINES = 8;
+    UNKNOWN_TAIL = 20;
+  }
+});
+
+// src/screen.ts
+function parseScreen(text, cli) {
+  const lines = text.split("\n").map((l) => l.trimEnd());
+  let anchor = -1;
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const l = lines[i];
+    if (NUMBERED.test(l) || CURSOR_ONLY.test(l)) {
+      anchor = i;
+      break;
+    }
+  }
+  if (anchor < 0) return unknown();
+  const numbered = NUMBERED.test(lines[anchor]);
+  let group = [anchor, anchor];
+  if (!numbered) {
+    const ind = indentOf(lines[anchor]) + 2;
+    let j = anchor;
+    while (j > 0 && lines[j - 1].trim() !== "" && indentOf(lines[j - 1]) === ind) j--;
+    let k = anchor;
+    while (k + 1 < lines.length && lines[k + 1].trim() !== "" && indentOf(lines[k + 1]) === ind && !FOOTER.test(lines[k + 1])) {
+      k++;
+    }
+    group = [j, k];
+  }
+  let end = group[1];
+  let footer = false;
+  for (let i = group[1] + 1; i <= Math.min(group[1] + 3, lines.length - 1); i++) {
+    if (FOOTER.test(lines[i])) {
+      end = i;
+      footer = true;
+      break;
+    }
+  }
+  const rules = [];
+  for (let i = 0; i < group[0]; i++) if (RULE.test(lines[i])) rules.push(i);
+  let r = rules.length - 1;
+  const firstBelow = (at) => lines.slice(at + 1, end + 1).find((l) => l.trim() !== "" && !RULE.test(l)) ?? "";
+  while (r >= 0) {
+    const below = firstBelow(rules[r]);
+    if (!NUMBERED.test(below) && !CURSOR_ONLY.test(below)) break;
+    r--;
+  }
+  const clipped = r < 0;
+  if (clipped && !(numbered && footer)) return unknown();
+  const start = clipped ? lines.findIndex((l) => l.trim() !== "") - 1 : rules[r];
+  const block = lines.slice(start + 1, end + 1).filter((l) => !RULE.test(l));
+  while (block.length > 0 && block[0].trim() === "") block.shift();
+  while (block.length > 0 && block[block.length - 1].trim() === "") block.pop();
+  if (block.length === 0) return unknown();
+  const options = [];
+  if (numbered) {
+    let want = 0;
+    for (let i = anchor; i > start; i--) {
+      const m = NUMBERED.exec(lines[i]);
+      if (!m?.groups) continue;
+      const n = Number(m.groups.n ?? m.groups.m);
+      if (options.length > 0 && n !== want) break;
+      options.unshift({ n, label: m.groups.label, cursor: Boolean(m.groups.cur) });
+      want = n - 1;
+      if (n <= 1) break;
+    }
+  } else {
+    for (let i = group[0]; i <= group[1]; i++) {
+      options.push({
+        n: i - group[0] + 1,
+        label: lines[i].replace(CURSOR_MARK, "").trim(),
+        cursor: i === anchor
+      });
+    }
+  }
+  if (options.length < 2) return unknown();
+  if (clipped && options[0]?.n !== 1) return unknown();
+  const isQuestion = cli === "claude" ? options.some((o) => o.label.trim() === "Chat about this") || block.some((l) => l.trim() === "Ready to submit your answers?") : block[0].trim() === "question";
+  const fingerprint = block.map((l) => l.replace(CURSOR_MARK, "").replace(/\s+/g, " ").trim()).filter((l) => l !== "").join("\n");
+  return { kind: isQuestion ? "question" : "choice", block, options, numbered, fingerprint };
+}
+var RULE, FOOTER, NUMBERED, CURSOR_ONLY, CURSOR_MARK, indentOf, unknown;
+var init_screen = __esm({
+  "src/screen.ts"() {
+    "use strict";
+    RULE = /^\s*─{20,}\s*$/;
+    FOOTER = /esc to cancel|esc cancel|↵ confirm|enter to confirm|enter to select/i;
+    NUMBERED = /^\s*(?<cur>[❯▶→])?\s*(?:(?<n>\d+)\.|\[(?<m>\d+)\])\s+(?<label>.+?)\s*$/;
+    CURSOR_ONLY = /^\s*❯\s+\S/;
+    CURSOR_MARK = /^\s*[❯▶→]\s*/;
+    indentOf = (l) => l.length - l.trimStart().length;
+    unknown = () => ({ kind: "unknown", block: [], options: [], numbered: false, fingerprint: "" });
+  }
+});
+
+// src/blocks.ts
+function isRelayed(agent) {
+  return agent.agent === "claude" || agent.agent === "kimi";
+}
+function statusDetail(agent, lang) {
+  return (agent.terminal_title_stripped ? `**${agent.terminal_title_stripped}**
+` : "") + fill(t(lang).statusPane, { pane: agent.pane_id });
+}
+function createBlockRelay(deps) {
+  const timing = { ...BLOCK_TIMING, ...deps.timing };
+  const { herdr, channel, log: log2 } = deps;
+  const records = /* @__PURE__ */ new Map();
+  const redirecting = /* @__PURE__ */ new Map();
+  const polling = /* @__PURE__ */ new Set();
+  const epochs = /* @__PURE__ */ new Map();
+  const flows = /* @__PURE__ */ new Set();
+  const sleeps = /* @__PURE__ */ new Set();
+  let stopped = false;
+  const epochOf = (root) => epochs.get(root) ?? 0;
+  const alive = (root, epoch, chatId) => {
+    if (stopped || epochOf(root) !== epoch) return void 0;
+    const b = deps.binding(root);
+    return b && b.away && b.chatId === chatId ? b : void 0;
+  };
+  const sleep2 = (ms) => new Promise((resolve4) => {
+    if (stopped) return resolve4();
+    const entry = {
+      timer: setTimeout(() => {
+        sleeps.delete(entry);
+        resolve4();
+      }, Math.max(0, ms)),
+      wake: resolve4
+    };
+    sleeps.add(entry);
+  });
+  const background = (name, fn) => {
+    const p = fn().catch((err) => log2(`${name}.failed`, { err: String(err).slice(0, 200) })).finally(() => flows.delete(p));
+    flows.add(p);
+  };
+  const paneState = async (paneId) => (await herdr.agentList()).find((a) => a.pane_id === paneId);
+  const react = async (messageId, emoji) => {
+    try {
+      await channel.addReaction(messageId, emoji);
+    } catch (err) {
+      log2("reaction.failed", { messageId, err: String(err).slice(0, 200) });
+    }
+  };
+  const rewrite = async (b, rec, outcome) => {
+    const base = { screen: rec.screen, raw: rec.raw };
+    const view = outcome.how === "chosen" || outcome.how === "chosenNext" ? { ...base, state: outcome.how, choice: outcome.choice } : { ...base, state: outcome.how };
+    const how = outcome.how;
+    let ok = true;
+    try {
+      await channel.updateCard(rec.cardId, statusCard(b.label, rec.detail, deps.langOf(b), view));
+    } catch (err) {
+      ok = false;
+      log2("status.failed", { root: rec.root, cardId: rec.cardId, err: String(err).slice(0, 200) });
+    }
+    log2("block.closed", { root: rec.root, paneId: rec.paneId, cardId: rec.cardId, how, ok });
+  };
+  const close = async (b, rec, outcome) => {
+    if (records.get(rec.root) === rec) records.delete(rec.root);
+    await rewrite(b, rec, outcome);
+  };
+  const pushCard = async (b, epoch, agent, raw, screen, replyable) => {
+    const lang = deps.langOf(b);
+    const detail = statusDetail(agent, lang);
+    let cardId;
+    try {
+      const sent = await channel.send(b.chatId, { card: statusCard(b.label, detail, lang, { screen, raw }) });
+      cardId = sent.messageId;
+    } catch (err) {
+      log2("status.failed", { root: b.root, err: String(err).slice(0, 200) });
+      return false;
+    }
+    deps.onCardSent(cardId, t(lang).statusBlocked);
+    const rec = { root: b.root, chatId: b.chatId, paneId: agent.pane_id, cli: agent.agent, cardId, detail, screen, raw, replyable, busy: false };
+    if (!alive(b.root, epoch, b.chatId)) {
+      log2("block.opened", { root: b.root, paneId: agent.pane_id, cardId, dropped: true });
+      await rewrite(b, rec, { how: "closed" });
+      return false;
+    }
+    records.set(b.root, rec);
+    log2("block.opened", { root: b.root, paneId: agent.pane_id, cli: agent.agent, kind: screen.kind, numbered: screen.numbered, options: screen.options.length, cardId, replyable });
+    if (screen.kind === "unknown") {
+      const tail = raw.split("\n").map((l) => l.trimEnd()).filter((l) => l.trim() !== "").slice(-UNKNOWN_LOG_LINES).map((l) => [...l].slice(0, UNKNOWN_LOG_WIDTH).join(""));
+      log2("block.unknown", { root: b.root, paneId: agent.pane_id, cli: agent.agent, readable: raw !== "", tail });
+    }
+    return true;
+  };
+  const present = async (b, epoch, agent, raw, screen) => {
+    if (screen.kind === "question") {
+      startRedirect(b, agent);
+      return true;
+    }
+    return pushCard(b, epoch, agent, raw, screen, screen.kind === "choice");
+  };
+  const replace = async (b, epoch, rec, agent, seen, old) => {
+    rec.busy = true;
+    let ok = false;
+    try {
+      ok = await present(b, epoch, agent, seen.raw, seen.screen);
+    } finally {
+      if (records.get(rec.root) === rec) records.delete(rec.root);
+      rec.busy = false;
+    }
+    if (ok && alive(b.root, epoch, b.chatId)) await rewrite(b, rec, old);
+  };
+  const look = async (paneId, cli) => {
+    const text = await herdr.readScreen(paneId);
+    return { raw: text ?? "", screen: parseScreen(text ?? "", cli), readable: text !== null };
+  };
+  const startRedirect = (b, agent) => {
+    const { root, chatId } = b;
+    const epoch = epochOf(root);
+    const token = {};
+    redirecting.set(root, token);
+    const redirectIfSettled = async () => {
+      const a = await paneState(agent.pane_id);
+      if (!a || !settled(a.agent_status)) return false;
+      const live = alive(root, epoch, chatId);
+      if (!live) return true;
+      log2("block.redirected", { root, paneId: agent.pane_id, cli: agent.agent, outcome: "asked", status: a.agent_status });
+      await deps.inject(live, msg.promptRedirect);
+      return true;
+    };
+    background("block.redirect", async () => {
+      try {
+        const esc = await herdr.sendKeys(agent.pane_id, ["esc"]);
+        log2("block.keys", { root, paneId: agent.pane_id, keys: ["esc"], ok: esc.ok, code: esc.code });
+        if (esc.ok) {
+          const deadline = Date.now() + timing.escWaitMs;
+          while (Date.now() < deadline) {
+            await sleep2(Math.min(timing.escPollMs, Math.max(0, deadline - Date.now())));
+            if (!alive(root, epoch, chatId)) return;
+            if (await redirectIfSettled()) return;
+          }
+        }
+        if (!alive(root, epoch, chatId)) return;
+        if (esc.ok && await redirectIfSettled()) return;
+        const live = alive(root, epoch, chatId);
+        if (!live) return;
+        const now = await paneState(agent.pane_id) ?? agent;
+        const seen = await look(agent.pane_id, agent.agent);
+        if (!alive(root, epoch, chatId)) return;
+        log2("block.redirected", { root, paneId: agent.pane_id, cli: agent.agent, outcome: esc.ok ? "esc-ignored" : "esc-refused" });
+        const screen = seen.screen.kind === "question" ? { ...seen.screen, kind: "unknown" } : seen.screen;
+        await pushCard(live, epoch, { ...now, agent: agent.agent }, seen.raw, screen, screen.kind === "choice");
+      } finally {
+        if (redirecting.get(root) === token) redirecting.delete(root);
+      }
+    });
+  };
+  const keysFor = (screen, n) => {
+    if (screen.numbered) return [String(n)];
+    const at = screen.options.find((o) => o.cursor)?.n ?? 1;
+    const d = n - at;
+    return [...Array(Math.abs(d)).fill(d > 0 ? "down" : "up"), "enter"];
+  };
+  const verify = async (rec, n, messageId, epoch) => {
+    const { root, chatId, paneId } = rec;
+    const start = Date.now();
+    const last = timing.verifyAtMs.length - 1;
+    for (const [i, at] of timing.verifyAtMs.entries()) {
+      await sleep2(start + at - Date.now());
+      if (!alive(root, epoch, chatId) || records.get(root) !== rec) return;
+      const listed = await herdr.agentList();
+      if (listed.length === 0) continue;
+      const a = listed.find((x) => x.pane_id === paneId);
+      if (!a || settled(a.agent_status)) {
+        const live3 = alive(root, epoch, chatId);
+        if (!live3 || records.get(root) !== rec) return;
+        log2("block.verify", { root, paneId, at, outcome: "resolved", status: a?.agent_status ?? "gone" });
+        records.delete(root);
+        await react(messageId, CHOSEN_EMOJI);
+        await rewrite(live3, rec, { how: "chosen", choice: n });
+        return;
+      }
+      if (a.agent_status !== "blocked") continue;
+      const seen = await look(paneId, rec.cli);
+      if (!seen.readable) continue;
+      if (seen.screen.fingerprint === rec.screen.fingerprint) continue;
+      if (seen.screen.kind === "unknown" && i < last) continue;
+      const live2 = alive(root, epoch, chatId);
+      if (!live2 || records.get(root) !== rec) return;
+      log2("block.verify", { root, paneId, at, outcome: "next", kind: seen.screen.kind });
+      await react(messageId, CHOSEN_EMOJI);
+      await replace(live2, epoch, rec, { ...a, agent: rec.cli }, seen, { how: "chosenNext", choice: n });
+      return;
+    }
+    const live = alive(root, epoch, chatId);
+    if (!live || records.get(root) !== rec) return;
+    log2("block.verify", { root, paneId, outcome: "no-effect" });
+    rec.busy = false;
+    await deps.receipt(live, t(deps.langOf(live)).promptKeysIgnored);
+  };
+  const recordFor = (b) => {
+    const rec = records.get(b.root);
+    if (rec && rec.chatId !== b.chatId) {
+      records.delete(b.root);
+      return void 0;
+    }
+    return rec;
+  };
+  const onPoll = async (b, agent) => {
+    if (stopped || !isRelayed(agent)) return;
+    const { root } = b;
+    if (redirecting.has(root) || polling.has(root)) return;
+    polling.add(root);
+    try {
+      let rec = recordFor(b);
+      if (rec?.busy) return;
+      const epoch = epochOf(root);
+      if (rec && rec.paneId === agent.pane_id && settled(agent.agent_status)) {
+        await close(b, rec, { how: "terminal" });
+        return;
+      }
+      if (agent.agent_status !== "blocked") return;
+      const seen = await look(agent.pane_id, agent.agent);
+      if (!alive(root, epoch, b.chatId) || redirecting.has(root)) return;
+      rec = recordFor(b);
+      if (rec?.busy) return;
+      if (rec && rec.paneId === agent.pane_id) {
+        if (!seen.readable || seen.screen.kind === "unknown") return;
+        if (seen.screen.fingerprint === rec.screen.fingerprint) return;
+        log2("block.verify", { root, paneId: rec.paneId, outcome: "changed-unanswered", kind: seen.screen.kind });
+        await replace(b, epoch, rec, agent, seen, { how: "stale" });
+        return;
+      }
+      if (rec) await close(b, rec, { how: "terminal" });
+      await present(b, epoch, agent, seen.raw, seen.screen);
+    } finally {
+      polling.delete(root);
+    }
+  };
+  const onMessage = async (b, text, messageId) => {
+    if (stopped) return false;
+    const rec = recordFor(b);
+    if (!rec) return false;
+    const T = t(deps.langOf(b));
+    const trimmed = text.trim();
+    const isNumber = /^\d+$/.test(trimmed);
+    if (rec.busy) {
+      if (!isNumber) return false;
+      await deps.receipt(b, T.promptBusy);
+      return true;
+    }
+    const epoch = epochOf(b.root);
+    rec.busy = true;
+    let checking = false;
+    try {
+      const a = await paneState(rec.paneId);
+      if (stopped) return true;
+      if (!alive(b.root, epoch, b.chatId) || records.get(b.root) !== rec) {
+        if (!isNumber) return false;
+        await react(messageId, IGNORED_EMOJI);
+        return true;
+      }
+      if (!a) return false;
+      if (settled(a.agent_status)) {
+        await close(b, rec, { how: "terminal" });
+        if (!isNumber) return false;
+        await react(messageId, IGNORED_EMOJI);
+        return true;
+      }
+      if (!rec.replyable) {
+        await deps.receipt(b, T.promptUnreadable);
+        return true;
+      }
+      if (!isNumber) {
+        await deps.receipt(b, T.promptReplyNumber);
+        return true;
+      }
+      const n = Number(trimmed);
+      const seen = await look(rec.paneId, rec.cli);
+      if (stopped) return true;
+      if (!alive(b.root, epoch, b.chatId) || records.get(b.root) !== rec) {
+        await react(messageId, IGNORED_EMOJI);
+        return true;
+      }
+      if (!seen.readable) {
+        log2("block.verify", { root: b.root, paneId: rec.paneId, outcome: "unreadable-before-keys" });
+        await deps.receipt(b, T.promptScreenUnreadable);
+        return true;
+      }
+      if (seen.screen.fingerprint !== rec.screen.fingerprint) {
+        log2("block.verify", { root: b.root, paneId: rec.paneId, outcome: "stale-before-keys", kind: seen.screen.kind });
+        await react(messageId, IGNORED_EMOJI);
+        await replace(b, epoch, rec, { ...a, agent: rec.cli }, seen, { how: "stale" });
+        return true;
+      }
+      if (!seen.screen.options.some((o) => o.n === n)) {
+        await deps.receipt(b, fill(T.promptNoSuchOption, { n }));
+        return true;
+      }
+      const keys = keysFor(seen.screen, n);
+      const r = await herdr.sendKeys(rec.paneId, keys);
+      log2("block.keys", { root: b.root, paneId: rec.paneId, n, keys, ok: r.ok, code: r.code });
+      if (!r.ok) {
+        await deps.receipt(b, fill(T.promptKeysRefused, { why: [r.code, r.message].filter(Boolean).join(" ") || "?" }));
+        return true;
+      }
+      checking = true;
+      background("block.verify", () => verify(rec, n, messageId, epoch).finally(() => rec.busy = false));
+      return true;
+    } finally {
+      if (!checking) rec.busy = false;
+    }
+  };
+  const drop = async (b) => {
+    epochs.set(b.root, epochOf(b.root) + 1);
+    redirecting.delete(b.root);
+    const rec = records.get(b.root);
+    if (!rec) return;
+    records.delete(b.root);
+    if (rec.chatId !== b.chatId) return;
+    await rewrite(b, rec, { how: "closed" });
+  };
+  return {
+    onPoll,
+    onMessage,
+    drop,
+    has: (root) => records.has(root),
+    stop: () => {
+      stopped = true;
+      for (const s of sleeps) {
+        clearTimeout(s.timer);
+        s.wake();
+      }
+      sleeps.clear();
+    },
+    idle: async () => {
+      while (flows.size) await Promise.all([...flows]);
+    }
+  };
+}
+var CHOSEN_EMOJI, IGNORED_EMOJI, BLOCK_TIMING, UNKNOWN_LOG_LINES, UNKNOWN_LOG_WIDTH, settled;
+var init_blocks = __esm({
+  "src/blocks.ts"() {
+    "use strict";
+    init_cards();
+    init_screen();
+    init_texts();
+    CHOSEN_EMOJI = "DONE";
+    IGNORED_EMOJI = "SILENT";
+    BLOCK_TIMING = { verifyAtMs: [1e3, 2500, 5e3], escWaitMs: 2e4, escPollMs: 1e3 };
+    UNKNOWN_LOG_LINES = 5;
+    UNKNOWN_LOG_WIDTH = 120;
+    settled = (s) => s === "idle" || s === "working" || s === "done";
   }
 });
 
@@ -138003,7 +138545,7 @@ async function runDaemon(deps = {}) {
   if (!creds) throw new DaemonStartError(4, msg.daemonNoCreds);
   ensureHomeDir();
   if (await isDaemonListening(2e3)) throw new DaemonStartError(3, msg.daemonAlready);
-  const herdr = deps.herdr ?? { agentList, promptPane, sendKeys, findPaneForProject, view: herdrView };
+  const herdr = deps.herdr ?? { agentList, promptPane, sendKeys, readScreen, findPaneForProject, view: herdrView };
   const retryMs = deps.connectRetryMs ?? CONNECT_RETRY_MS;
   const ttl = mediaTtlDays();
   if (ttl.invalid !== void 0) {
@@ -138033,7 +138575,6 @@ async function runDaemon(deps = {}) {
     while (closed.size > CLOSED_KEEP) closed.delete(closed.keys().next().value);
   };
   const lastStatus = /* @__PURE__ */ new Map();
-  const lastStatusPush = /* @__PURE__ */ new Map();
   const startedAt = (/* @__PURE__ */ new Date()).toISOString();
   const channel = (deps.createChannel ?? createLarkChannel)({
     appId: creds.appId,
@@ -138314,6 +138855,17 @@ async function runDaemon(deps = {}) {
     queued.set(msgKey, q);
     await receipt(q.b, fill(t(langOf(q.b)).interruptFailed, { why: [r.code, r.message].filter(Boolean).join(" ") || "?" }), true);
   };
+  const relay = createBlockRelay({
+    herdr,
+    channel,
+    binding: (root) => bindings.active(root),
+    langOf,
+    receipt: (b, why) => receipt(b, why),
+    inject: (b, text) => inject(b, text),
+    onCardSent: (messageId, title) => rememberCard(messageId, "status", title),
+    log,
+    timing: deps.blockTiming
+  });
   const transcribe = async (audioPath) => {
     try {
       const b64 = readFileSync4(audioPath).toString("base64");
@@ -138400,6 +138952,7 @@ ${msg.injectFilesOnly}`;
       await answer(p, text, "text");
       return;
     }
+    if (await relay.onMessage(b, text, incoming.messageId)) return;
     const quoted = sentCards.get(incoming.replyToMessageId ?? incoming.rootId ?? "");
     if (quoted) text = `${fill(msg.replyTo, { title: quoted.title })}
 ${text}`;
@@ -138633,14 +139186,14 @@ ${msg.renamePermissionHint}` : text;
       if (!a) continue;
       const prev = lastStatus.get(b.root);
       lastStatus.set(b.root, a.agent_status);
-      const now = Date.now();
+      if (isRelayed(a)) {
+        await relay.onPoll(b, a);
+        continue;
+      }
       if (!prev || prev === a.agent_status) continue;
       if (a.agent_status !== "blocked") continue;
-      if (now - (lastStatusPush.get(b.root) ?? 0) < STATUS_COOLDOWN_MS) continue;
-      lastStatusPush.set(b.root, now);
       const lang = langOf(b);
-      const detail = (a.terminal_title_stripped ? `**${a.terminal_title_stripped}**
-` : "") + fill(t(lang).statusPane, { pane: a.pane_id });
+      const detail = statusDetail(a, lang);
       try {
         const sent = await channel.send(b.chatId, { card: statusCard(b.label, detail, lang) });
         rememberCard(sent.messageId, "status", t(lang).statusBlocked);
@@ -138736,6 +139289,7 @@ ${msg.renamePermissionHint}` : text;
     log("daemon.stopping", { why });
     for (const sig of signals) process.off(sig, onSignal[sig]);
     clearInterval(pollTimer);
+    relay.stop();
     clearInterval(sweepTimer);
     if (retryTimer) clearTimeout(retryTimer);
     wakeRetry?.();
@@ -138847,6 +139401,7 @@ ${msg.renamePermissionHint}` : text;
               const body = switchName ? fill(t(langOf(live)).switchFarewellBody, { name: switchName }) : t(langOf(live)).switchFarewellBodyNoName;
               farewellAnnounced = await announce(req.root, live.chatId, awayCard(live.label, false, body, langOf(live), t(langOf(live)).unbindFarewellTitle), false);
             }
+            if (switching && live !== void 0) await relay.drop(live);
             if (switching) bindings.release(req.root);
             const b = {
               root: req.root,
@@ -138991,6 +139546,7 @@ ${msg.renamePermissionHint}` : text;
               const card2 = awayCard(live.label, false, t(langOf(live)).unbindDissolveFarewellBody, langOf(live), t(langOf(live)).unbindDissolveFarewellTitle);
               announced2 = await announce(req.root, live.chatId, card2, false);
             }
+            await relay.drop(live);
             const r = await deleteChat(live.chatId, name);
             bindings.remove(live.chatId);
             refreshPolicy();
@@ -139006,6 +139562,7 @@ ${msg.renamePermissionHint}` : text;
             const card2 = awayCard(live.label, false, t(langOf(live)).unbindFarewellBody, langOf(live), t(langOf(live)).unbindFarewellTitle);
             announced = await announce(req.root, live.chatId, card2, false);
           }
+          await relay.drop(live);
           bindings.release(req.root);
           refreshPolicy();
           lastStatus.delete(req.root);
@@ -139034,6 +139591,7 @@ ${msg.renamePermissionHint}` : text;
               const card3 = awayCard(live.label, false, t(langOf(live)).awayOffBody, langOf(live));
               announced2 = await announce(req.root, live.chatId, card3, false);
             }
+            await relay.drop(live);
             bindings.touch(req.root, { away: false, paneId: req.paneId });
             lastStatus.delete(req.root);
             log("away", { root: req.root, away: false });
@@ -139170,13 +139728,14 @@ ${msg.renamePermissionHint}` : text;
   void connectLoop().catch((err) => log("connect-loop.failed", { err: String(err).slice(0, 200) }));
   return { stop: () => stop("stop()"), done };
 }
-var INJECT_PREFIX, POLL_MS, STATUS_COOLDOWN_MS, CONNECT_RETRY_MS, CONNECT_RETRY_MAX_MS, CLOSE_GRACE_MS, CANCEL_CARD_MS, MEDIA_TTL_DAYS, SWEEP_MS, CHAT_LIST_MAX_PAGES, MARKER_CLEARED, DAY_MS, DaemonStartError, MAX_IMAGE_BYTES, MAX_FILE_BYTES, CLOSED_KEEP, SENT_CARDS_KEEP, QUEUED_KEEP, QUEUED_MAX_AGE_MS, QUEUE_EMOJI, TRANSCRIPT_READ_MAX;
+var INJECT_PREFIX, POLL_MS, CONNECT_RETRY_MS, CONNECT_RETRY_MAX_MS, CLOSE_GRACE_MS, CANCEL_CARD_MS, MEDIA_TTL_DAYS, SWEEP_MS, CHAT_LIST_MAX_PAGES, MARKER_CLEARED, DAY_MS, DaemonStartError, MAX_IMAGE_BYTES, MAX_FILE_BYTES, CLOSED_KEEP, SENT_CARDS_KEEP, QUEUED_KEEP, QUEUED_MAX_AGE_MS, QUEUE_EMOJI, TRANSCRIPT_READ_MAX;
 var init_daemon = __esm({
   "src/daemon.ts"() {
     "use strict";
     init_dist4();
     init_bindings();
     init_cards();
+    init_blocks();
     init_creds();
     init_herdr();
     init_ipc();
@@ -139186,7 +139745,6 @@ var init_daemon = __esm({
     init_validate();
     INJECT_PREFIX = "[lark-connector remote] ";
     POLL_MS = 5e3;
-    STATUS_COOLDOWN_MS = 6e4;
     CONNECT_RETRY_MS = 5e3;
     CONNECT_RETRY_MAX_MS = 6e4;
     CLOSE_GRACE_MS = 2e3;

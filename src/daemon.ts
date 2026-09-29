@@ -6,8 +6,9 @@ import type { Server, Socket } from 'node:net';
 import { createLarkChannel, type CardActionEvent, type LarkChannel, type LarkChannelOptions, type NormalizedMessage, type ReactionEvent } from '@larksuite/channel';
 import { BindingStore, BindingsFileError, groupName, taskNameProblem, type Binding } from './bindings.js';
 import { askCard, awayCard, checkerName, notifyCard, optionIdOf, receiptCard, statusCard } from './cards.js';
+import { createBlockRelay, isRelayed, statusDetail, type BlockTiming } from './blocks.js';
 import { resolveCreds } from './creds.js';
-import { agentList, findPaneForProject, herdrView, promptPane, sendKeys, type AgentInfo, type HerdrView } from './herdr.js';
+import { agentList, findPaneForProject, herdrView, promptPane, readScreen, sendKeys, type AgentInfo, type AgentStatus, type HerdrView } from './herdr.js';
 import { isDaemonListening, serve, type Candidate, type Request, type Response } from './ipc.js';
 import { legacyGroupMarker } from './migrate.js';
 import { ensureHomeDir, homeDir, ipcEndpoint, logPath, mediaDir, pidPath, sockPath, sockPathProblem, writeProjectState } from './paths.js';
@@ -16,7 +17,6 @@ import { validateAsk, validateNotify, ValidationError, type AskPayload, type Lan
 
 const INJECT_PREFIX = '[lark-connector remote] ';
 const POLL_MS = 5_000;
-const STATUS_COOLDOWN_MS = 60_000;
 const CONNECT_RETRY_MS = 5_000;
 const CONNECT_RETRY_MAX_MS = 60_000;
 /** How long stop() lets open IPC connections drain before destroying them. */
@@ -144,6 +144,7 @@ export interface HerdrDeps {
   agentList: typeof agentList;
   promptPane: typeof promptPane;
   sendKeys: typeof sendKeys;
+  readScreen: typeof readScreen;
   findPaneForProject: typeof findPaneForProject;
   view: typeof herdrView;
 }
@@ -161,6 +162,8 @@ export interface DaemonDeps {
   claudeConfigDir?: string;
   /** How long a queued phone message is watched for a sign that claude read it before it is forgotten. */
   queuedMaxAgeMs?: number;
+  /** When a pane is looked at again after a key pressed from the phone, and how long Esc on a question is waited on. */
+  blockTiming?: Partial<BlockTiming>;
 }
 
 export interface DaemonHandle {
@@ -287,7 +290,7 @@ export async function runDaemon(deps: DaemonDeps = {}): Promise<DaemonHandle> {
   ensureHomeDir();
   // A live daemon must not be duplicated; a dead socket file is not a daemon.
   if (await isDaemonListening(2000)) throw new DaemonStartError(3, msg.daemonAlready);
-  const herdr: HerdrDeps = deps.herdr ?? { agentList, promptPane, sendKeys, findPaneForProject, view: herdrView };
+  const herdr: HerdrDeps = deps.herdr ?? { agentList, promptPane, sendKeys, readScreen, findPaneForProject, view: herdrView };
   const retryMs = deps.connectRetryMs ?? CONNECT_RETRY_MS;
   const ttl = mediaTtlDays();
   if (ttl.invalid !== undefined) {
@@ -318,8 +321,7 @@ export async function runDaemon(deps: DaemonDeps = {}): Promise<DaemonHandle> {
     closed.set(p.reqId, p.payload);
     while (closed.size > CLOSED_KEEP) closed.delete(closed.keys().next().value!);
   };
-  const lastStatus = new Map<string, string>();
-  const lastStatusPush = new Map<string, number>();
+  const lastStatus = new Map<string, AgentStatus>();
   const startedAt = new Date().toISOString();
 
   const channel: ChannelLike = (deps.createChannel ?? createLarkChannel)({
@@ -756,6 +758,20 @@ export async function runDaemon(deps: DaemonDeps = {}): Promise<DaemonHandle> {
     await receipt(q.b, fill(t(langOf(q.b)).interruptFailed, { why: [r.code, r.message].filter(Boolean).join(' ') || '?' }), true);
   };
 
+  // A pane of an away project stuck on a prompt: its card, numbers pressed
+  // from the phone, questions sent back to the agent to ask through `ask`.
+  const relay = createBlockRelay({
+    herdr,
+    channel,
+    binding: (root) => bindings.active(root),
+    langOf,
+    receipt: (b, why) => receipt(b, why),
+    inject: (b, text) => inject(b, text),
+    onCardSent: (messageId, title) => rememberCard(messageId, 'status', title),
+    log,
+    timing: deps.blockTiming,
+  });
+
   /**
    * Transcribe one voice message. Feishu's file_recognize takes base64 opus
    * and caps at 60 s. It needs the `speech_to_text:speech` scope, and a
@@ -870,6 +886,8 @@ export async function runDaemon(deps: DaemonDeps = {}): Promise<DaemonHandle> {
       await answer(p, text, 'text');
       return;
     }
+    // A number for the prompt the pane is stuck on, or a message that pane cannot take now.
+    if (await relay.onMessage(b, text, incoming.messageId)) return;
     // A message written as a reply to one of our cards: say which, so the
     // agent knows what "yes, do that" refers to.
     const quoted = sentCards.get(incoming.replyToMessageId ?? incoming.rootId ?? '');
@@ -1184,16 +1202,17 @@ export async function runDaemon(deps: DaemonDeps = {}): Promise<DaemonHandle> {
       if (!a) continue;
       const prev = lastStatus.get(b.root);
       lastStatus.set(b.root, a.agent_status);
-      const now = Date.now();
+      // An agent whose screen can be read gets the prompt on its card and can be answered from the phone.
+      if (isRelayed(a)) {
+        await relay.onPoll(b, a);
+        continue;
+      }
       if (!prev || prev === a.agent_status) continue;
       // Only "stuck on a prompt a human must answer" is worth a push; the end
       // of a turn fires constantly and is noise while the human is at the keyboard.
       if (a.agent_status !== 'blocked') continue;
-      if (now - (lastStatusPush.get(b.root) ?? 0) < STATUS_COOLDOWN_MS) continue;
-      lastStatusPush.set(b.root, now);
       const lang = langOf(b);
-      const detail =
-        (a.terminal_title_stripped ? `**${a.terminal_title_stripped}**\n` : '') + fill(t(lang).statusPane, { pane: a.pane_id });
+      const detail = statusDetail(a, lang);
       try {
         const sent = await channel.send(b.chatId, { card: statusCard(b.label, detail, lang) });
         rememberCard(sent.messageId, 'status', t(lang).statusBlocked);
@@ -1311,6 +1330,7 @@ export async function runDaemon(deps: DaemonDeps = {}): Promise<DaemonHandle> {
     log('daemon.stopping', { why });
     for (const sig of signals) process.off(sig, onSignal[sig]);
     clearInterval(pollTimer);
+    relay.stop();
     clearInterval(sweepTimer);
     if (retryTimer) clearTimeout(retryTimer);
     wakeRetry?.();
@@ -1459,6 +1479,7 @@ export async function runDaemon(deps: DaemonDeps = {}): Promise<DaemonHandle> {
               const body = switchName ? fill(t(langOf(live)).switchFarewellBody, { name: switchName }) : t(langOf(live)).switchFarewellBodyNoName;
               farewellAnnounced = await announce(req.root, live.chatId, awayCard(live.label, false, body, langOf(live), t(langOf(live)).unbindFarewellTitle), false);
             }
+            if (switching && live !== undefined) await relay.drop(live);
             if (switching) bindings.release(req.root);
             const b: Binding = {
               root: req.root,
@@ -1635,6 +1656,7 @@ export async function runDaemon(deps: DaemonDeps = {}): Promise<DaemonHandle> {
               const card = awayCard(live.label, false, t(langOf(live)).unbindDissolveFarewellBody, langOf(live), t(langOf(live)).unbindDissolveFarewellTitle);
               announced = await announce(req.root, live.chatId, card, false);
             }
+            await relay.drop(live);
             const r = await deleteChat(live.chatId, name);
             // Refused or not, the record goes: the human said the group is
             // not wanted, and a stale record would only be offered back.
@@ -1663,6 +1685,7 @@ export async function runDaemon(deps: DaemonDeps = {}): Promise<DaemonHandle> {
             const card = awayCard(live.label, false, t(langOf(live)).unbindFarewellBody, langOf(live), t(langOf(live)).unbindFarewellTitle);
             announced = await announce(req.root, live.chatId, card, false);
           }
+          await relay.drop(live);
           bindings.release(req.root);
           refreshPolicy();
           lastStatus.delete(req.root);
@@ -1700,6 +1723,7 @@ export async function runDaemon(deps: DaemonDeps = {}): Promise<DaemonHandle> {
               const card = awayCard(live.label, false, t(langOf(live)).awayOffBody, langOf(live));
               announced = await announce(req.root, live.chatId, card, false);
             }
+            await relay.drop(live);
             bindings.touch(req.root, { away: false, paneId: req.paneId });
             lastStatus.delete(req.root);
             log('away', { root: req.root, away: false });

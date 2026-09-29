@@ -269,7 +269,8 @@ after the marker is the user's, unchanged. It is the user speaking, not another 
 like input typed at the keyboard. You do nothing to receive it. Once it is in your terminal, the daemon
 puts a `Get` reaction on that message — the one sign on the phone that the terminal has it. If delivery
 is impossible (no herdr, pane gone, agent blocked on a prompt), the human gets an orange receipt card in
-the group, not you.
+the group, not you. A bare number sent while your session sits on a prompt is not delivered to you at all:
+the daemon presses it as that option (see the `🔔` card below).
 
 - **Images and files** are downloaded first, one line per attachment, `[saved: <absolute path>]`, followed
   by `(attachments saved locally)` (or `(I sent attachments; they are saved locally)` when there was no
@@ -352,9 +353,15 @@ node <skill dir>/dist/cli.mjs setup   # once per machine, on a terminal: menu �
   Relay the list; the human chooses; rerun with `--reuse oc_xxxxxxxx` or `--new`. This is the normal
   path for a project that had a group before, not an error.
 - **While remote mode is on and you are inside herdr**, the daemon also pushes a `🔔 [<dir>] waiting for
-  you` card (orange; `等你输入` in `zh`) when herdr reports your session `blocked` — a permission prompt, a choice
-  dialog, anything only the human can answer — at most once a minute per project, and never while a
-  question of yours is pending. Nothing is pushed for "finished" or "idle".
+  you` card (orange; `等你输入` in `zh`) when herdr reports your session `blocked` — a permission prompt, a trust
+  check, anything only the human can answer — and never while a question of yours is pending. For Claude Code
+  and Kimi CLI the card shows the prompt itself, and the human answers by sending its number in the group; the
+  daemon presses that option in your terminal, so you simply carry on. Nothing is pushed for "finished" or "idle".
+  **Do not use your own question tool** (`AskUserQuestion`, Kimi's question form) while remote mode is on: the
+  daemon cancels the prompt with Esc and injects `[lark-connector remote] Remote mode is on and the human is
+  away, so your question prompt was cancelled. Ask the same question again with the agent-lark skill's ask
+  command so it reaches their phone.` Do exactly that: ask the same question again with `ask`. Details:
+  `references/daemon.md` §5.
 - `rename "<task>"` renames the live group to `<task> [<dir>]` when the work changes; `unbind` lets the
   group go when the work is done (the group stays in Feishu; the next `away on` in the same directory
   offers it back), `unbind --dissolve` dissolves it in Feishu and forgets it — ask the human which they

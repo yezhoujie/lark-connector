@@ -146,9 +146,31 @@ export async function promptPane(paneId: string, text: string, run: HerdrRunner 
   return outcomeOf(await run(['agent', 'prompt', paneId, text]));
 }
 
-/** Press one logical key in a pane's agent (`ctrl+s`, `ctrl+enter`, `esc`, …); herdr validates the key name before writing anything. */
-export async function sendKeys(paneId: string, key: string, run: HerdrRunner = runHerdr): Promise<PromptOutcome> {
-  return outcomeOf(await run(['agent', 'send-keys', paneId, key]));
+/**
+ * Press logical keys in a pane's agent (`ctrl+s`, `ctrl+enter`, `esc`, …); herdr
+ * validates the key names before writing anything. Several keys go out in one
+ * herdr call, in the order given. Unlike a prompt, this is not refused while
+ * the agent is blocked, which is what makes it usable to answer a prompt.
+ */
+export async function sendKeys(paneId: string, keys: string | string[], run: HerdrRunner = runHerdr): Promise<PromptOutcome> {
+  return outcomeOf(await run(['agent', 'send-keys', paneId, ...(Array.isArray(keys) ? keys : [keys])]));
+}
+
+/**
+ * The text currently visible in a pane, exactly as herdr prints it (an empty
+ * string is a blank screen). Any failure — non-zero exit, a timeout, no binary,
+ * an error envelope on either stream — is null, so the caller cannot mistake
+ * "could not read" for "nothing on screen".
+ */
+export async function readScreen(paneId: string, run: HerdrRunner = runHerdr): Promise<string | null> {
+  const r = await run(['agent', 'read', paneId, '--source', 'visible']);
+  if (!r.ok) return null;
+  for (const stream of [r.stdout, r.stderr ?? '']) {
+    if (!stream.trim().startsWith('{')) continue;
+    const err = parse<unknown>(stream).error;
+    if (err && err.code !== 'bad_output') return null;
+  }
+  return r.stdout;
 }
 
 /** Best-effort: the pane currently running an agent in this project. */
