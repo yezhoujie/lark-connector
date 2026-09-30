@@ -11,6 +11,18 @@ Before 0.2.0 this repository was a section of the `agent-remote-communication-sk
 `agent-lark/vX.Y.Z` there; the entries below for those versions are unchanged, and the same versions are
 tagged plain `vX.Y.Z` here.
 
+### [0.4.1][lark-connector-0.4.1] - 2026-09-30
+
+#### Changed
+
+- The background (`description`) of an `ask` card now sits under its own label line instead of on the same
+  line, so a table, a code fence or a second paragraph in it starts at the beginning of a line and renders.
+  The other fields (`doing`, `blocker`, `reasoning`) keep the label and the text on one line.
+- The skill now lists the Markdown forms checked on a real card (bold, italic, strikethrough, inline code,
+  links, headings, blockquote, lists, rule, colour, code blocks, tables, emoji), says that task-list
+  checkboxes do not render, and tells the agent to pick the form that fits the content — a table for a
+  comparison across several dimensions, an ordered list for steps, a code block for commands and logs.
+
 ### [0.4.0][lark-connector-0.4.0] - 2026-09-29
 
 #### Added
@@ -339,6 +351,7 @@ Feishu custom app of your own instead of a public notification service.
 - `node --test` suite (cards, validation, IPC, daemon with a fake Feishu channel, the CLI against a fake daemon)
   on ubuntu / windows / macos × Node 22 / 24.
 
+[lark-connector-0.4.1]: https://github.com/yezhoujie/lark-connector/compare/v0.4.0...v0.4.1
 [lark-connector-0.4.0]: https://github.com/yezhoujie/lark-connector/compare/v0.3.1...v0.4.0
 [lark-connector-0.3.1]: https://github.com/yezhoujie/lark-connector/compare/v0.3.0...v0.3.1
 [lark-connector-0.3.0]: https://github.com/yezhoujie/lark-connector/compare/v0.2.0...v0.3.0
