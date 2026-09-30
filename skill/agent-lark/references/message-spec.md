@@ -36,14 +36,9 @@ Your own fields are in your working language. There is no `lang` field here: the
 labels, hints, button texts, the status word in the header, confirm dialogs) follows the project's
 language instead, set once by `away on` (see the skill's "Remote mode and the per-project state file").
 
-Your text is rendered by Feishu's Markdown card element: bold, lists, tables and fenced code blocks all
-render, on the phone as on the desktop. Keep it short anyway — the phone shows a card, not a page.
-
-Where a table works: `description` (it sits under its own label, so a table starts at the beginning of
-a line) and the `notify` body. The other `ask` fields put the label and the text on one line
-(`**Doing**　…`), and an option's `consequence` is one line of a numbered list — a table there would
-show as raw pipes. Reach for a table when the data is several items compared on several dimensions;
-prose and short lists stay prose and short lists.
+Your text is rendered by Feishu's Markdown card element. Which forms render, which do not, and which
+form to pick for which content: SKILL.md, "Pick the form that fits the content". Keep it short anyway —
+the phone shows a card, not a page.
 
 ## 2. Buttons, tick boxes, and what not to recommend
 

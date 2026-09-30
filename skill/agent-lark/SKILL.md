@@ -109,7 +109,7 @@ rc=$?
 |---|---|
 | `title` | One line. The phone's notification shade shows the card title, so put the hook here |
 | `doing` | One sentence: which task this is |
-| `description` | Background for someone who has seen none of the work: why you got here, what is involved, jargon explained on the spot. Rendered as full Markdown under its own label, so **use a table when the content is a comparison across several dimensions** (options × cost / time / risk), a list for steps, a code fence for commands |
+| `description` | Background for someone who has seen none of the work: why you got here, what is involved, jargon explained on the spot. Rendered as full Markdown under its own label: pick the form that fits the content (see "Pick the form that fits the content") |
 | `blocker` | Exactly what is blocked |
 | `options[]` | 2 to 5 items of `{id, label, consequence}`; `consequence` states the real outcome and its cost, not a code name |
 | `options[].danger` | Optional. Irreversible or high-cost: a red button behind a native confirm dialog. **The recommendation may never be a danger option** — validation refuses it |
@@ -165,6 +165,51 @@ sent and waits as usual.
 Field-by-field guidance, the caps, what the card looks like on the phone, and a worked bad/good pair:
 [references/message-spec.md](references/message-spec.md).
 
+## Pick the form that fits the content
+
+The `notify` body and the `ask` `description` are rendered as full Markdown. Choose the form by the
+shape of the content, the way you would in a terminal: a comparison is a table, not three sentences.
+
+**Checked on a real card** (desktop client; the phone was not compared side by side):
+
+| renders | notes |
+|---|---|
+| bold, italic, ~~strikethrough~~, `inline code`, links | |
+| headings `#` `##` `###` | all three render; `###` is smaller |
+| blockquote `>` | |
+| bullet lists, nested bullets, ordered lists | |
+| horizontal rule `---` | |
+| colour `<font color='red'>` (also `green`, `grey`) | only the font tag; no other HTML tested |
+| fenced code blocks | syntax-highlighted, with line numbers |
+| tables | column alignment (`:---` `:---:` `---:`) works; cells may hold bold, code and links |
+| emoji, as characters or `:SMILE:` shortcodes | |
+| a single newline | is a line break |
+
+**Does not render:** task-list checkboxes `- [ ]` / `- [x]` come out as plain bullets with the brackets
+showing; write ✅ / ⬜ instead. Not checked: images, @mentions, how a very long line wraps on a narrow phone.
+
+| the content is | use |
+|---|---|
+| several items compared on several dimensions (options × cost / time / risk) | a table |
+| steps in order | an ordered list |
+| parallel points with no order | a bullet list |
+| a command, path list, log excerpt, diff or JSON | a fenced code block, with the language |
+| an identifier, file name or flag inside a sentence | `inline code` |
+| the one thing to know first, or a risk | say it first in **bold**; ⚠️ / 🔴 or a red `<font>` for a risk |
+| a long notification with three or more parts | `##` headings |
+| words quoted from the user or a log | a blockquote |
+| a short account with no structure | plain sentences, no decoration |
+
+Rules of thumb: one form per chunk of content; decoration that carries no information (bold on every
+line, a heading over two sentences) is noise; keep tables to what fits a phone screen (a few columns,
+a handful of rows — split or move the rest to a file with `send-file`).
+
+**Where each form works.** `notify` body: everything above. `ask` `description`: everything above (it sits
+under its own label line, so a table or code fence starts at the beginning of a line). The other `ask`
+fields — `doing`, `blocker`, `reasoning`, `question` — put the label and the text on one line, and an
+option's `consequence` is one line of a numbered list: use inline forms there (bold, `code`, links), not
+tables, lists or code fences, which cannot start at the beginning of a line there and so do not parse.
+
 ## Notify and files
 
 `notify` pushes a card with a title and a Markdown body, no button, and returns as soon as Feishu has
@@ -183,7 +228,7 @@ node <skill dir>/dist/cli.mjs send-file ./shot.png --caption "Current layout"
 
 - `title` and `body` are required and non-empty; there is no `lang` field. The notification card has no
   fixed wording of its own (title and body only), so there is nothing for a language to control. The
-  body is Feishu Markdown: bold, lists, tables and fenced code blocks all render.
+  body is full Feishu Markdown; see "Pick the form that fits the content".
 - `notify` exit codes: **0** sent (stdout: `Notification sent (a reply from the phone is injected into
   this pane as an instruction)`) · **1** input rejected, nothing sent · **3** channel failure (daemon not
   running, not connected to Feishu, send failed) · **4** this project is not bound. No rc 2: nothing is
