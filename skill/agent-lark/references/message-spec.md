@@ -39,6 +39,12 @@ language instead, set once by `away on` (see the skill's "Remote mode and the pe
 Your text is rendered by Feishu's Markdown card element: bold, lists, tables and fenced code blocks all
 render, on the phone as on the desktop. Keep it short anyway — the phone shows a card, not a page.
 
+Where a table works: `description` (it sits under its own label, so a table starts at the beginning of
+a line) and the `notify` body. The other `ask` fields put the label and the text on one line
+(`**Doing**　…`), and an option's `consequence` is one line of a numbered list — a table there would
+show as raw pipes. Reach for a table when the data is several items compared on several dimensions;
+prose and short lists stay prose and short lists.
+
 ## 2. Buttons, tick boxes, and what not to recommend
 
 **Single choice** (the default): one button per option, in the order you gave them. The recommended
@@ -94,7 +100,9 @@ one card with a **blue** header (🤔; red when `--urgent`) and these elements, 
 🤔 [my-project] Keep or delete the scratch directory when no checkout exists
 
 **Doing**　Letting the requirements assistant run before the project code is checked out
-**Background**　Until now the assistant required a local code directory. That restriction is lifted, so we must decide where its temporary subprocess runs when there is no checkout.
+**Background**
+
+Until now the assistant required a local code directory. That restriction is lifted, so we must decide where its temporary subprocess runs when there is no checkout.
 **Blocker**　With no code directory there is no natural working directory for that subprocess.
 ────────────────────────────────
 **Options**

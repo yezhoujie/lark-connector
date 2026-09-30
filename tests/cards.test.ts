@@ -56,6 +56,14 @@ test('pending single-choice: blue header, one button per option (primary = recom
   assert.match(String(hint.content), /红色按钮会二次确认/);
 });
 
+test('the background sits under its label, so a table in it starts at the beginning of a line; the other fields keep label and value on one line', () => {
+  const table = '| a | b |\n|---|---|\n| 1 | 2 |';
+  const c = asCard(askCard({ payload: { ...single, description: table }, projectLabel: 'proj', reqId: 'r1', state: 'pending', lang: 'en' }));
+  assert.equal(c.body.elements[1]!.content, `**Background**\n\n${table}`);
+  assert.equal(c.body.elements[0]!.content, '**Doing**　wiring');
+  assert.equal(c.body.elements[2]!.content, '**Blocker**　blk');
+});
+
 test('pending multi-choice with a danger option: one form of checkers plus a submit button that asks for confirmation', () => {
   const c = asCard(askCard({ payload: multi, projectLabel: 'proj', reqId: 'r2', state: 'pending', lang: 'zh' }));
   assert.equal(c.header.template, 'blue');

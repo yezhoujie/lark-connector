@@ -123277,8 +123277,8 @@ var require_lib2 = __commonJS({
       const MARK = "___CB_";
       const codeBlocks = [];
       let r = text.replace(/(^|\n)(`{3,})([^\n]*)\n[\s\S]*?\n\2(?=\n|$)/g, (m, prefix = "") => {
-        const block = m.slice(String(prefix).length);
-        return `${prefix}${MARK}${codeBlocks.push(block) - 1}___`;
+        const block2 = m.slice(String(prefix).length);
+        return `${prefix}${MARK}${codeBlocks.push(block2) - 1}___`;
       });
       const hasH1toH3 = /^#{1,3} /m.test(text);
       if (hasH1toH3) {
@@ -123298,16 +123298,16 @@ var require_lib2 = __commonJS({
         r = r.replace(/^((?!#{4,5} )(?!\*\*).+)\n\n(<br>)\n\n(\|)/gm, "$1\n$2\n$3");
         r = r.replace(/^(\*\*.+)\n\n(<br>)\n\n(\|)/gm, "$1\n$2\n\n$3");
         r = r.replace(/(\|[^\n]*\n)\n(<br>\n)((?!#{4,5} )(?!\*\*))/gm, "$1$2$3");
-        codeBlocks.forEach((block, i) => {
+        codeBlocks.forEach((block2, i) => {
           r = r.replace(`${MARK}${i}___`, `
 <br>
-${block}
+${block2}
 <br>
 `);
         });
       } else {
-        codeBlocks.forEach((block, i) => {
-          r = r.replace(`${MARK}${i}___`, block);
+        codeBlocks.forEach((block2, i) => {
+          r = r.replace(`${MARK}${i}___`, block2);
         });
       }
       r = r.replace(/\n{3,}/g, "\n\n");
@@ -127129,8 +127129,8 @@ function _optimize(text, cardVersion) {
   const MARK = "___CB_";
   const codeBlocks = [];
   let r = text.replace(/(^|\n)(`{3,})([^\n]*)\n[\s\S]*?\n\2(?=\n|$)/g, (m, prefix = "") => {
-    const block = m.slice(String(prefix).length);
-    return `${prefix}${MARK}${codeBlocks.push(block) - 1}___`;
+    const block2 = m.slice(String(prefix).length);
+    return `${prefix}${MARK}${codeBlocks.push(block2) - 1}___`;
   });
   if (/^#{1,3} /m.test(text)) {
     r = r.replace(/^#{2,6} (.+)$/gm, "##### $1");
@@ -127148,15 +127148,15 @@ function _optimize(text, cardVersion) {
     r = r.replace(/^((?!#{4,5} )(?!\*\*).+)\n\n(<br>)\n\n(\|)/gm, "$1\n$2\n$3");
     r = r.replace(/^(\*\*.+)\n\n(<br>)\n\n(\|)/gm, "$1\n$2\n\n$3");
     r = r.replace(/(\|[^\n]*\n)\n(<br>\n)((?!#{4,5} )(?!\*\*))/gm, "$1$2$3");
-    codeBlocks.forEach((block, i) => {
+    codeBlocks.forEach((block2, i) => {
       r = r.replace(`${MARK}${i}___`, `
 <br>
-${block}
+${block2}
 <br>
 `);
     });
-  } else codeBlocks.forEach((block, i) => {
-    r = r.replace(`${MARK}${i}___`, block);
+  } else codeBlocks.forEach((block2, i) => {
+    r = r.replace(`${MARK}${i}___`, block2);
   });
   r = r.replace(/\n{3,}/g, "\n\n");
   return r;
@@ -137784,6 +137784,11 @@ function card(header, elements) {
 function field(label, value) {
   return `**${label}**\u3000${value}`;
 }
+function block(label, value) {
+  return `**${label}**
+
+${value}`;
+}
 function recommendedIds(p) {
   return Array.isArray(p.recommend) ? p.recommend : [p.recommend];
 }
@@ -137851,7 +137856,7 @@ function askCard(ctx2) {
   }
   elements.push(
     md(field(T.doing, p.doing)),
-    md(field(T.background, p.description)),
+    md(block(T.background, p.description)),
     md(field(T.blocker, p.blocker)),
     hr(),
     md(`**${T.options}**
@@ -138018,10 +138023,10 @@ function parseScreen(text, cli) {
   const clipped = r < 0;
   if (clipped && !(numbered && footer)) return unknown();
   const start = clipped ? lines.findIndex((l) => l.trim() !== "") - 1 : rules[r];
-  const block = lines.slice(start + 1, end + 1).filter((l) => !RULE.test(l));
-  while (block.length > 0 && block[0].trim() === "") block.shift();
-  while (block.length > 0 && block[block.length - 1].trim() === "") block.pop();
-  if (block.length === 0) return unknown();
+  const block2 = lines.slice(start + 1, end + 1).filter((l) => !RULE.test(l));
+  while (block2.length > 0 && block2[0].trim() === "") block2.shift();
+  while (block2.length > 0 && block2[block2.length - 1].trim() === "") block2.pop();
+  if (block2.length === 0) return unknown();
   const options = [];
   if (numbered) {
     let want = 0;
@@ -138045,9 +138050,9 @@ function parseScreen(text, cli) {
   }
   if (options.length < 2) return unknown();
   if (clipped && options[0]?.n !== 1) return unknown();
-  const isQuestion = cli === "claude" ? options.some((o) => o.label.trim() === "Chat about this") || block.some((l) => l.trim() === "Ready to submit your answers?") : block[0].trim() === "question";
-  const fingerprint = block.map((l) => l.replace(CURSOR_MARK, "").replace(/\s+/g, " ").trim()).filter((l) => l !== "").join("\n");
-  return { kind: isQuestion ? "question" : "choice", block, options, numbered, fingerprint };
+  const isQuestion = cli === "claude" ? options.some((o) => o.label.trim() === "Chat about this") || block2.some((l) => l.trim() === "Ready to submit your answers?") : block2[0].trim() === "question";
+  const fingerprint = block2.map((l) => l.replace(CURSOR_MARK, "").replace(/\s+/g, " ").trim()).filter((l) => l !== "").join("\n");
+  return { kind: isQuestion ? "question" : "choice", block: block2, options, numbered, fingerprint };
 }
 var RULE, FOOTER, NUMBERED, CURSOR_ONLY, CURSOR_MARK, indentOf, unknown;
 var init_screen = __esm({

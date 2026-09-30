@@ -109,7 +109,7 @@ rc=$?
 |---|---|
 | `title` | One line. The phone's notification shade shows the card title, so put the hook here |
 | `doing` | One sentence: which task this is |
-| `description` | Background for someone who has seen none of the work: why you got here, what is involved, jargon explained on the spot |
+| `description` | Background for someone who has seen none of the work: why you got here, what is involved, jargon explained on the spot. Rendered as full Markdown under its own label, so **use a table when the content is a comparison across several dimensions** (options × cost / time / risk), a list for steps, a code fence for commands |
 | `blocker` | Exactly what is blocked |
 | `options[]` | 2 to 5 items of `{id, label, consequence}`; `consequence` states the real outcome and its cost, not a code name |
 | `options[].danger` | Optional. Irreversible or high-cost: a red button behind a native confirm dialog. **The recommendation may never be a danger option** — validation refuses it |

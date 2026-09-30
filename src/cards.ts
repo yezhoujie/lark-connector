@@ -40,6 +40,15 @@ function field(label: string, value: string): string {
   return `**${label}**　${value}`;
 }
 
+/**
+ * Label on its own line, value below it. Used for the free-form background: a
+ * table, a code fence or a second paragraph only parses when it starts at the
+ * beginning of a line, which `field()` would break by putting the label first.
+ */
+function block(label: string, value: string): string {
+  return `**${label}**\n\n${value}`;
+}
+
 /** The ids the agent leans towards, whether one or several. */
 export function recommendedIds(p: AskPayload): string[] {
   return Array.isArray(p.recommend) ? p.recommend : [p.recommend];
@@ -166,7 +175,7 @@ export function askCard(ctx: AskCardContext): object {
 
   elements.push(
     md(field(T.doing, p.doing)),
-    md(field(T.background, p.description)),
+    md(block(T.background, p.description)),
     md(field(T.blocker, p.blocker)),
     hr(),
     md(`**${T.options}**\n\n${optionLines(p.options, recommended, lang)}`),
