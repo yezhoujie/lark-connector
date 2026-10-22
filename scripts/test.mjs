@@ -77,9 +77,12 @@ if (files.length === 0) {
 
 // A test that never settles must not hang the run, and a daemon or timer a
 // failed test leaves behind must not keep the process alive after the last
-// result: cap each test, and exit once all are done. Anything after
-// `npm test --` (e.g. --test-name-pattern=x, or another --test-timeout) goes
-// to node --test after these, so it wins.
+// result: cap each test, and exit once all are done. The cap applies to each
+// test file as a whole too (a file runs as one test whose tests inherit it),
+// so it is sized for the slowest file on the slowest runner — a Windows
+// runner has taken over 30 s for one file — not for a single test. Anything
+// after `npm test --` (e.g. --test-name-pattern=x, or another --test-timeout)
+// goes to node --test after these, so it wins.
 //
 // --test-force-exit only from Node 23 on. On Node 22 it makes the run drop
 // the last tests of a file from both the report and the totals — measured
@@ -90,7 +93,7 @@ if (files.length === 0) {
 // every test that starts a daemon stops it itself.
 const major = Number(process.versions.node.split('.')[0]);
 const forceExit = major >= 23 ? ['--test-force-exit'] : [];
-const run = spawnSync(process.execPath, ['--test', '--test-timeout=30000', ...forceExit, ...process.argv.slice(2), ...files], {
+const run = spawnSync(process.execPath, ['--test', '--test-timeout=120000', ...forceExit, ...process.argv.slice(2), ...files], {
   cwd: root,
   stdio: 'inherit',
 });
