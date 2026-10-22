@@ -128,7 +128,8 @@ Start it as described in [daemon.md](daemon.md) §2, then call again. A differen
 lark-connector: socket path /very/deep/…/.lark-connector/daemon.sock is 112 bytes, over this platform's limit of 104; set LARK_CONNECTOR_HOME to a shorter directory
 ```
 
-No daemon can listen there, so starting one does not help: the user has to point `LARK_CONNECTOR_HOME` (or
+lark-connector will not use that path (a Node with an older libuv cannot bind it), so starting a daemon does
+not help: the user has to point `LARK_CONNECTOR_HOME` (or
 `--home`) at a shorter directory (macOS and the BSDs allow 104 bytes for the socket path, Linux 108;
 Windows has no limit). `daemon` / `daemon --detach` / `away on` exit 4 with the same sentence (§5); `daemon --status`
 exits 1 with it; `status` prints `daemon: cannot run here (<the sentence>)` (rc 0); `away off` still switches the local state off (rc 0, `daemon is not running; local state cleared`).
