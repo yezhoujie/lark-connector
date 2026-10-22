@@ -301,7 +301,9 @@ anything; idle and finished sessions never do. Outside herdr `paneId` is never r
   be read beyond what is visible) and classifies it, as below. While a card is open the screen is read again
   on every poll (5 s): a different prompt pushes its own card (or is redirected, if it is a question) and
   only then turns the old one into `Expired · the prompt changed, see the new card`; a screen that cannot
-  be read or made out changes nothing that round.
+  be read or made out changes nothing that round. Claude Code's unattended-session countdown
+  (`⚠ Claude Code will automatically deny this request in 1:22, …`, redrawn every second) does not make a
+  prompt different: the time left is not compared, so the card stays open while it counts down.
 
 - *A question* (`AskUserQuestion` / Kimi's question form): no card. The daemon presses Esc, looks at the pane
   once a second for up to 20 s until it leaves `blocked`, then injects the redirect line through the usual
