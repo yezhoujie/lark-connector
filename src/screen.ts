@@ -30,7 +30,8 @@ export interface ParsedScreen {
    *  When false, `n` was counted here and number keys will not work. */
   numbered: boolean;
   /** The block with cursor markers dropped and whitespace collapsed. Moving
-   *  the cursor does not change it; any change to the prompt text does. */
+   *  the cursor does not change it, nor does the time left on Claude Code's
+   *  auto-deny countdown; any other change to the prompt text does. */
   fingerprint: string;
 }
 
@@ -39,6 +40,14 @@ const FOOTER = /esc to cancel|esc cancel|↵ confirm|enter to confirm|enter to s
 const NUMBERED = /^\s*(?<cur>[❯▶→])?\s*(?:(?<n>\d+)\.|\[(?<m>\d+)\])\s+(?<label>.+?)\s*$/;
 const CURSOR_ONLY = /^\s*❯\s+\S/;
 const CURSOR_MARK = /^\s*[❯▶→]\s*/;
+// Claude Code's notice that an unattended prompt will be denied, redrawn every
+// second (`in 1:22`; `in about 2 minutes` for screen readers). Matched in the
+// fingerprint, where words are split by a space or by the line break of a
+// narrow pane, which may fold it elsewhere as the time gets shorter. It must
+// start a line with its warning sign, so a command quoting it is left alone.
+const AUTO_DENY =
+  /^[⚠‼]\uFE0F?[ \n]Claude[ \n]Code[ \n]will[ \n]automatically[ \n]deny[ \n]this[ \n]request[ \n]in[ \n](?:\d+:\d{2}|about[ \n]\d+[ \n](?:minute|second)s?)(?![\d:])(?:,[ \n]to[ \n]avoid[ \n]blocking[ \n]progress[ \n]on[ \n]an[ \n]unattended[ \n]session)?/gm;
+const AUTO_DENY_LEFT = /\d+:\d{2}|about \d+ (?:minute|second)s?/;
 
 const indentOf = (l: string): number => l.length - l.trimStart().length;
 
@@ -158,7 +167,8 @@ export function parseScreen(text: string, cli: ScreenCli): ParsedScreen {
   const fingerprint = block
     .map((l) => l.replace(CURSOR_MARK, '').replace(/\s+/g, ' ').trim())
     .filter((l) => l !== '')
-    .join('\n');
+    .join('\n')
+    .replace(AUTO_DENY, (notice) => notice.replace(/\n/g, ' ').replace(AUTO_DENY_LEFT, '<left>'));
 
   return { kind: isQuestion ? 'question' : 'choice', block, options, numbered, fingerprint };
 }
