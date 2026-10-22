@@ -11,6 +11,18 @@ Before 0.2.0 this repository was a section of the `agent-remote-communication-sk
 `agent-lark/vX.Y.Z` there; the entries below for those versions are unchanged, and the same versions are
 tagged plain `vX.Y.Z` here.
 
+### [0.4.3][lark-connector-0.4.3] - 2026-10-22
+
+#### Changed
+
+- The docs now say how a Claude Code prompt that counts down to an automatic deny is handled: the countdown does
+  not count as a change of prompt (`references/daemon.md`), and the time on the 🔔 card is the time left when the
+  card went out — the terminal keeps counting, and when it runs out Claude Code denies the request and the card
+  says `handled in the terminal` (README).
+- `references/failures.md`: a state directory too deep for a Unix socket is refused by lark-connector itself. A
+  Node whose libuv is 1.53 or newer can bind a longer path on macOS, but one with an older libuv cannot, so the
+  limit stays.
+
 ### [0.4.2][lark-connector-0.4.2] - 2026-10-22
 
 #### Fixed
@@ -361,6 +373,7 @@ Feishu custom app of your own instead of a public notification service.
 - `node --test` suite (cards, validation, IPC, daemon with a fake Feishu channel, the CLI against a fake daemon)
   on ubuntu / windows / macos × Node 22 / 24.
 
+[lark-connector-0.4.3]: https://github.com/yezhoujie/lark-connector/compare/v0.4.2...v0.4.3
 [lark-connector-0.4.2]: https://github.com/yezhoujie/lark-connector/compare/v0.4.1...v0.4.2
 [lark-connector-0.4.1]: https://github.com/yezhoujie/lark-connector/compare/v0.4.0...v0.4.1
 [lark-connector-0.4.0]: https://github.com/yezhoujie/lark-connector/compare/v0.3.1...v0.4.0
