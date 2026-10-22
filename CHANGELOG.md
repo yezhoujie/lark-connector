@@ -11,6 +11,16 @@ Before 0.2.0 this repository was a section of the `agent-remote-communication-sk
 `agent-lark/vX.Y.Z` there; the entries below for those versions are unchanged, and the same versions are
 tagged plain `vX.Y.Z` here.
 
+### [0.4.2][lark-connector-0.4.2] - 2026-10-22
+
+#### Fixed
+
+- A Claude Code permission prompt that carries the unattended-session countdown (`⚠ Claude Code will
+  automatically deny this request in 1:22, to avoid blocking progress on an unattended session`, redrawn every
+  second) is now taken for the same prompt while it counts down. Before, every redraw looked like a new prompt:
+  the 🔔 *waiting for you* card was replaced on every poll and the old one marked expired, and a number sent
+  from the phone was never pressed, because the prompt had "changed" since its card went out.
+
 ### [0.4.1][lark-connector-0.4.1] - 2026-09-30
 
 #### Changed
@@ -351,6 +361,7 @@ Feishu custom app of your own instead of a public notification service.
 - `node --test` suite (cards, validation, IPC, daemon with a fake Feishu channel, the CLI against a fake daemon)
   on ubuntu / windows / macos × Node 22 / 24.
 
+[lark-connector-0.4.2]: https://github.com/yezhoujie/lark-connector/compare/v0.4.1...v0.4.2
 [lark-connector-0.4.1]: https://github.com/yezhoujie/lark-connector/compare/v0.4.0...v0.4.1
 [lark-connector-0.4.0]: https://github.com/yezhoujie/lark-connector/compare/v0.3.1...v0.4.0
 [lark-connector-0.3.1]: https://github.com/yezhoujie/lark-connector/compare/v0.3.0...v0.3.1
