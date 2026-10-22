@@ -24,9 +24,11 @@ export function ensureHomeDir(): string {
 export const sockPath = (): string => join(homeDir(), 'daemon.sock');
 
 /**
- * Longest Unix socket path the platform binds: `sizeof(sun_path)`, every byte
- * usable (libuv copies the name without a terminating NUL). A deeper state
- * directory makes every bind and connect fail with EINVAL.
+ * Longest Unix socket path every supported Node can bind: `sizeof(sun_path)`,
+ * every byte usable (libuv copies the name without a terminating NUL). Past
+ * it, Node 23+ with an older libuv fails with EINVAL and Node 22 binds a
+ * truncated name. libuv 1.53 binds longer paths on macOS, but the CLI and the
+ * daemon may run on different Node versions, so the limit stays here.
  */
 export const SOCK_PATH_LIMIT = ['darwin', 'freebsd', 'openbsd', 'netbsd'].includes(platform()) ? 104 : 108;
 

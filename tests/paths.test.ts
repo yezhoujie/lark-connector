@@ -127,14 +127,25 @@ test('sockPathProblem: a socket path over the limit names the path, its length, 
   assert.equal(problem, `socket path ${join(home, 'daemon.sock')} is ${SOCK_PATH_LIMIT + 40} bytes, over this platform's limit of ${SOCK_PATH_LIMIT}; set LARK_CONNECTOR_HOME to a shorter directory`);
 });
 
-test('the limit is real: a socket path of exactly the limit listens and connects; one byte more is EINVAL or silently truncated — and sockPathProblem agrees on both', { skip: platform() === 'win32' ? 'named pipes have no sun_path' : false }, async () => {
+test('the limit is real: a socket path of exactly the limit listens and connects; one byte more is EINVAL or silently truncated (bound in full on macOS from libuv 1.53) — and sockPathProblem flags it', { skip: platform() === 'win32' ? 'named pipes have no sun_path' : false }, async () => {
   const atLimit = homeOfSockBytes(SOCK_PATH_LIMIT);
   assert.equal(withHome(atLimit, () => sockPathProblem()), null);
   assert.deepEqual(await listenAt(withHome(atLimit, () => sockPath())), { code: null, bound: true }, `${SOCK_PATH_LIMIT} bytes did not listen at its own path`);
   const overLimit = homeOfSockBytes(SOCK_PATH_LIMIT + 1);
   assert.match(withHome(overLimit, () => sockPathProblem()) ?? '', /over this platform's limit/);
-  // Node 23+ refuses (EINVAL); Node 22 binds a truncated name instead, so the
-  // requested path never exists — either way the constant is the real edge.
   const over = await listenAt(withHome(overLimit, () => sockPath()));
+  // libuv 1.53 sizes the path by SOCK_MAXADDRLEN where the platform defines
+  // it (FreeBSD excepted), so on macOS a path of up to 253 bytes binds and
+  // connects in full. The constant stays the smaller edge there all the same:
+  // the CLI and the daemon may run on different Node versions, and one with an
+  // older libuv cannot use that path.
+  const [uvMajor = 0, uvMinor = 0] = process.versions.uv.split('.').map(Number);
+  if (platform() === 'darwin' && (uvMajor > 1 || (uvMajor === 1 && uvMinor >= 53))) {
+    assert.deepEqual(over, { code: null, bound: true }, `${SOCK_PATH_LIMIT + 1} bytes should bind in full with libuv ${process.versions.uv}, got ${JSON.stringify(over)}`);
+    return;
+  }
+  // With an older libuv, Node 23+ refuses (EINVAL); Node 22 binds a truncated
+  // name instead, so the requested path never exists — either way the
+  // constant is the real edge.
   assert.ok(over.code === 'EINVAL' || (over.code === null && !over.bound), `${SOCK_PATH_LIMIT + 1} bytes should be refused or truncated, got ${JSON.stringify(over)}`);
 });
