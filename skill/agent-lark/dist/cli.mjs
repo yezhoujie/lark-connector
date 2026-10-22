@@ -138051,10 +138051,10 @@ function parseScreen(text, cli) {
   if (options.length < 2) return unknown();
   if (clipped && options[0]?.n !== 1) return unknown();
   const isQuestion = cli === "claude" ? options.some((o) => o.label.trim() === "Chat about this") || block2.some((l) => l.trim() === "Ready to submit your answers?") : block2[0].trim() === "question";
-  const fingerprint = block2.map((l) => l.replace(CURSOR_MARK, "").replace(/\s+/g, " ").trim()).filter((l) => l !== "").join("\n");
+  const fingerprint = block2.map((l) => l.replace(CURSOR_MARK, "").replace(/\s+/g, " ").trim()).filter((l) => l !== "").join("\n").replace(AUTO_DENY, (notice) => notice.replace(/\n/g, " ").replace(AUTO_DENY_LEFT, "<left>"));
   return { kind: isQuestion ? "question" : "choice", block: block2, options, numbered, fingerprint };
 }
-var RULE, FOOTER, NUMBERED, CURSOR_ONLY, CURSOR_MARK, indentOf, unknown;
+var RULE, FOOTER, NUMBERED, CURSOR_ONLY, CURSOR_MARK, AUTO_DENY, AUTO_DENY_LEFT, indentOf, unknown;
 var init_screen = __esm({
   "src/screen.ts"() {
     "use strict";
@@ -138063,6 +138063,8 @@ var init_screen = __esm({
     NUMBERED = /^\s*(?<cur>[❯▶→])?\s*(?:(?<n>\d+)\.|\[(?<m>\d+)\])\s+(?<label>.+?)\s*$/;
     CURSOR_ONLY = /^\s*❯\s+\S/;
     CURSOR_MARK = /^\s*[❯▶→]\s*/;
+    AUTO_DENY = /^[⚠‼]\uFE0F?[ \n]Claude[ \n]Code[ \n]will[ \n]automatically[ \n]deny[ \n]this[ \n]request[ \n]in[ \n](?:\d+:\d{2}|about[ \n]\d+[ \n](?:minute|second)s?)(?![\d:])(?:,[ \n]to[ \n]avoid[ \n]blocking[ \n]progress[ \n]on[ \n]an[ \n]unattended[ \n]session)?/gm;
+    AUTO_DENY_LEFT = /\d+:\d{2}|about \d+ (?:minute|second)s?/;
     indentOf = (l) => l.length - l.trimStart().length;
     unknown = () => ({ kind: "unknown", block: [], options: [], numbered: false, fingerprint: "" });
   }
