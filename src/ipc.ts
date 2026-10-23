@@ -6,7 +6,12 @@ import { ensureHomeDir, ipcEndpoint, sockPath, sockPathProblem } from './paths.j
 import { fill, msg } from './texts.js';
 import type { Lang } from './validate.js';
 
-/** Every request a thin client can make of the daemon. */
+/**
+ * Every request a thin client can make of the daemon. `claudeConfigDir`, on the
+ * calls that carry `paneId`, is the caller's CLAUDE_CONFIG_DIR made absolute:
+ * where a claude in that pane keeps its transcripts. Absent when the caller has
+ * none, or no pane to go with it.
+ */
 export type Request =
   | { type: 'ping' }
   | { type: 'stop' }
@@ -16,16 +21,16 @@ export type Request =
    * one is picked among the candidates: `mode` says which (`reuse` with
    * `reuseChatId`, or `new`); without it, candidates are reported back.
    */
-  | { type: 'bind'; root: string; label: string; paneId: string | null; chatId?: string; name?: string; mode?: 'reuse' | 'new'; reuseChatId?: string }
+  | { type: 'bind'; root: string; label: string; paneId: string | null; claudeConfigDir?: string; chatId?: string; name?: string; mode?: 'reuse' | 'new'; reuseChatId?: string }
   /** `dissolve`: also dissolve the group in Feishu and forget the record, instead of keeping it to offer back. */
   | { type: 'unbind'; root: string; dissolve?: boolean }
-  | { type: 'rename'; root: string; paneId: string | null; name: string }
+  | { type: 'rename'; root: string; paneId: string | null; claudeConfigDir?: string; name: string }
   /** `lang`, when given, is recorded on the binding before the on/off card is built: an explicit switch of the project's remembered language. */
-  | { type: 'setAway'; root: string; away: boolean; paneId: string | null; lang?: Lang }
-  | { type: 'ask'; root: string; label: string; paneId: string | null; payload: unknown; timeoutMs: number; urgent?: boolean }
-  | { type: 'notify'; root: string; label: string; paneId: string | null; payload: unknown }
+  | { type: 'setAway'; root: string; away: boolean; paneId: string | null; claudeConfigDir?: string; lang?: Lang }
+  | { type: 'ask'; root: string; label: string; paneId: string | null; claudeConfigDir?: string; payload: unknown; timeoutMs: number; urgent?: boolean }
+  | { type: 'notify'; root: string; label: string; paneId: string | null; claudeConfigDir?: string; payload: unknown }
   /** `path` is absolute: the CLI resolves it against the caller's directory, the daemon has its own. */
-  | { type: 'sendFile'; root: string; label: string; paneId: string | null; path: string; caption?: string };
+  | { type: 'sendFile'; root: string; label: string; paneId: string | null; claudeConfigDir?: string; path: string; caption?: string };
 
 export interface DaemonStatus {
   pid: number;

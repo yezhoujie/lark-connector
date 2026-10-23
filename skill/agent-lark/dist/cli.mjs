@@ -137223,6 +137223,7 @@ function normalize2(raw) {
     chatId: r.chatId,
     name: str(r.name),
     paneId: str(r.paneId),
+    claudeConfigDir: str(r.claudeConfigDir),
     away: r.away === true,
     lang,
     boundAt: str(r.boundAt) ?? "",
@@ -137350,6 +137351,7 @@ var init_bindings = __esm({
         const b = this.active(root);
         if (!b) return void 0;
         if (patch.paneId !== void 0 && patch.paneId !== null) b.paneId = patch.paneId;
+        if (patch.claudeConfigDir !== void 0 && patch.claudeConfigDir !== null) b.claudeConfigDir = patch.claudeConfigDir;
         if (patch.away !== void 0) b.away = patch.away;
         if (patch.label) b.label = patch.label;
         if (patch.lang) b.lang = patch.lang;
@@ -138682,7 +138684,8 @@ async function runDaemon(deps = {}) {
   const claudeDir = deps.claudeConfigDir ?? process.env.CLAUDE_CONFIG_DIR ?? join5(homedir4(), ".claude");
   const queuedMaxAgeMs = deps.queuedMaxAgeMs ?? QUEUED_MAX_AGE_MS;
   const transcriptMissingLogged = /* @__PURE__ */ new Set();
-  const transcriptFor = (sessionId) => {
+  const claudeDirsFor = (b) => [.../* @__PURE__ */ new Set([b.claudeConfigDir, claudeDir, join5(homedir4(), ".claude")])].filter((d) => !!d);
+  const transcriptFor = (sessionId, dirs) => {
     if (!/^[A-Za-z0-9-]+$/.test(sessionId)) {
       if (!transcriptMissingLogged.has(sessionId)) {
         transcriptMissingLogged.add(sessionId);
@@ -138690,23 +138693,25 @@ async function runDaemon(deps = {}) {
       }
       return null;
     }
-    try {
-      for (const dir of readdirSync(join5(claudeDir, "projects"))) {
-        const path2 = join5(claudeDir, "projects", dir, `${sessionId}.jsonl`);
-        if (existsSync4(path2)) return path2;
+    for (const config of dirs) {
+      try {
+        for (const dir of readdirSync(join5(config, "projects"))) {
+          const path2 = join5(config, "projects", dir, `${sessionId}.jsonl`);
+          if (existsSync4(path2)) return path2;
+        }
+      } catch {
       }
-    } catch {
     }
     if (!transcriptMissingLogged.has(sessionId)) {
       transcriptMissingLogged.add(sessionId);
-      log("transcript.missing", { session: sessionId });
+      log("transcript.missing", { session: sessionId, dirs });
     }
     return null;
   };
-  const transcriptToWatch = (agent) => {
+  const transcriptToWatch = (b, agent) => {
     const sessionId = agent?.agent === "claude" && agent.agent_status === "working" ? agent.agent_session?.value : void 0;
     if (!sessionId) return void 0;
-    const path2 = transcriptFor(sessionId);
+    const path2 = transcriptFor(sessionId, claudeDirsFor(b));
     if (!path2) return void 0;
     try {
       return { path: path2, offset: statSync3(path2).size };
@@ -138811,7 +138816,7 @@ async function runDaemon(deps = {}) {
       }
       const line = `${INJECT_PREFIX}${text}`;
       const agent = live.find((a) => a.pane_id === paneId);
-      const transcript = transcriptToWatch(agent);
+      const transcript = transcriptToWatch(b, agent);
       const outcome = await herdr.promptPane(paneId, line);
       log("inject", { root: b.root, paneId, ok: outcome.ok, code: outcome.code });
       if (!outcome.ok) {
@@ -139416,6 +139421,7 @@ ${msg.renamePermissionHint}` : text;
               chatId: req.chatId,
               name: name2,
               paneId: req.paneId ?? holder?.paneId ?? live?.paneId ?? null,
+              claudeConfigDir: req.claudeConfigDir ?? holder?.claudeConfigDir ?? live?.claudeConfigDir ?? null,
               away: wasAway,
               lang: holder?.lang ?? live?.lang ?? null,
               boundAt: now,
@@ -139440,7 +139446,7 @@ ${msg.renamePermissionHint}` : text;
             return announced === void 0 ? { ok: true, kind: "bind", chatId: req.chatId, how: "chat", name: current?.name ?? req.chatId } : { ok: true, kind: "bind", chatId: req.chatId, how: "chat", name: current?.name ?? req.chatId, announced };
           }
           if (live) {
-            bindings.touch(req.root, { paneId: req.paneId, label: req.label });
+            bindings.touch(req.root, { paneId: req.paneId, claudeConfigDir: req.claudeConfigDir, label: req.label });
             if (req.mode !== void 0) ctx2.note(msg.bindModeIgnored);
             let name2 = live.name ?? live.chatId;
             if (req.name !== void 0) {
@@ -139491,6 +139497,7 @@ ${msg.renamePermissionHint}` : text;
               chatId: pick.chatId,
               name: pick.name,
               paneId: req.paneId ?? earlier?.paneId ?? null,
+              claudeConfigDir: req.claudeConfigDir ?? earlier?.claudeConfigDir ?? null,
               away: false,
               lang: earlier?.lang ?? null,
               boundAt: now,
@@ -139523,6 +139530,7 @@ ${msg.renamePermissionHint}` : text;
               chatId,
               name,
               paneId: req.paneId,
+              claudeConfigDir: req.claudeConfigDir ?? null,
               away: false,
               lang: null,
               boundAt: now,
@@ -139585,7 +139593,7 @@ ${msg.renamePermissionHint}` : text;
           const wanted = groupName(req.name, live.label);
           const r = await updateChat(live.chatId, { name: wanted });
           if (!r.ok) return { ok: false, code: 3, message: r.error };
-          bindings.touch(req.root, { paneId: req.paneId, name: wanted });
+          bindings.touch(req.root, { paneId: req.paneId, claudeConfigDir: req.claudeConfigDir, name: wanted });
           log("rename", { root: req.root, chatId: live.chatId });
           return { ok: true, kind: "rename", name: wanted };
         }
@@ -139599,12 +139607,12 @@ ${msg.renamePermissionHint}` : text;
               announced2 = await announce(req.root, live.chatId, card3, false);
             }
             await relay.drop(live);
-            bindings.touch(req.root, { away: false, paneId: req.paneId });
+            bindings.touch(req.root, { away: false, paneId: req.paneId, claudeConfigDir: req.claudeConfigDir });
             lastStatus.delete(req.root);
             log("away", { root: req.root, away: false });
             return announced2 === void 0 ? { ok: true, kind: "ack" } : { ok: true, kind: "ack", announced: announced2 };
           }
-          const patch = { away: true, paneId: req.paneId };
+          const patch = { away: true, paneId: req.paneId, claudeConfigDir: req.claudeConfigDir };
           if (req.lang) patch.lang = req.lang;
           const b = bindings.touch(req.root, patch);
           if (!b) return { ok: false, code: 4, message: msg.notBound };
@@ -139616,7 +139624,7 @@ ${msg.renamePermissionHint}` : text;
           return { ok: true, kind: "ack", herdr: view, announced };
         }
         case "notify": {
-          const b = bindings.touch(req.root, { paneId: req.paneId, label: req.label });
+          const b = bindings.touch(req.root, { paneId: req.paneId, claudeConfigDir: req.claudeConfigDir, label: req.label });
           if (!b) return { ok: false, code: 4, message: msg.notBound };
           if (!connected) return notConnected();
           let payload;
@@ -139636,7 +139644,7 @@ ${msg.renamePermissionHint}` : text;
           }
         }
         case "sendFile": {
-          const b = bindings.touch(req.root, { paneId: req.paneId, label: req.label });
+          const b = bindings.touch(req.root, { paneId: req.paneId, claudeConfigDir: req.claudeConfigDir, label: req.label });
           if (!b) return { ok: false, code: 4, message: msg.notBound };
           if (!connected) return notConnected();
           const checked = resolveSendable(req.path, b.root);
@@ -139657,7 +139665,7 @@ ${msg.renamePermissionHint}` : text;
           }
         }
         case "ask": {
-          const b = bindings.touch(req.root, { paneId: req.paneId, label: req.label });
+          const b = bindings.touch(req.root, { paneId: req.paneId, claudeConfigDir: req.claudeConfigDir, label: req.label });
           if (!b) return { ok: false, code: 4, message: msg.notBound };
           if (pendingFor(req.root)) return { ok: false, code: 4, message: msg.askPending };
           if (!connected) return notConnected();
@@ -139979,10 +139987,15 @@ async function readStdin() {
   for await (const chunk of process.stdin) chunks.push(chunk);
   return Buffer.concat(chunks).toString("utf8");
 }
+function callerClaudeConfigDir() {
+  const dir = process.env.CLAUDE_CONFIG_DIR;
+  return dir ? resolve3(dir) : void 0;
+}
 function ctx() {
   const root = projectRoot();
   migrateProjectState(root);
-  return { root, label: projectLabel(root), paneId: currentPaneId() };
+  const paneId = currentPaneId();
+  return { root, label: projectLabel(root), paneId, claudeConfigDir: paneId ? callerClaudeConfigDir() : void 0 };
 }
 function finish(res, onOk) {
   if (res.ok) {
@@ -140376,10 +140389,10 @@ function dieBind(res) {
   die(res.code, res.message);
 }
 async function cmdBind(args) {
-  const { root, label, paneId } = ctx();
+  const { root, label, paneId, claudeConfigDir } = ctx();
   const a = argv("bind", args);
   const res = await request(
-    { type: "bind", root, label, paneId, chatId: a.opt("chat"), ...bindArgs(a) },
+    { type: "bind", root, label, paneId, claudeConfigDir, chatId: a.opt("chat"), ...bindArgs(a) },
     { onNote: (text) => process.stderr.write(`note: ${text}
 `) }
   );
@@ -140422,13 +140435,13 @@ async function cmdRename(args) {
   if (!name?.trim()) die(1, msg.renameUsage);
   const problem = taskNameProblem(name);
   if (problem) die(1, problem);
-  const { root, paneId } = ctx();
-  const res = await request({ type: "rename", root, paneId, name });
+  const { root, paneId, claudeConfigDir } = ctx();
+  const res = await request({ type: "rename", root, paneId, claudeConfigDir, name });
   finish(res, (r) => process.stdout.write(`${fill(msg.renamed, { name: r.kind === "rename" ? r.name : name })}
 `));
 }
 async function cmdAsk(args) {
-  const { root, label, paneId } = ctx();
+  const { root, label, paneId, claudeConfigDir } = ctx();
   const raw = await readStdin();
   let payload;
   try {
@@ -140448,7 +140461,7 @@ async function cmdAsk(args) {
   const seconds = Number(a.opt("timeout") ?? 43200);
   if (!Number.isFinite(seconds) || seconds <= 0) die(1, msg.timeoutArg);
   const res = await request(
-    { type: "ask", root, label, paneId, payload, timeoutMs: seconds * 1e3, urgent: a.flag("urgent") },
+    { type: "ask", root, label, paneId, claudeConfigDir, payload, timeoutMs: seconds * 1e3, urgent: a.flag("urgent") },
     { onNote: (text) => process.stderr.write(`note: ${text}
 `) }
   );
@@ -140458,7 +140471,7 @@ async function cmdAsk(args) {
   });
 }
 async function cmdNotify() {
-  const { root, label, paneId } = ctx();
+  const { root, label, paneId, claudeConfigDir } = ctx();
   const raw = await readStdin();
   let payload;
   try {
@@ -140474,17 +140487,17 @@ async function cmdNotify() {
   ${err.problems.join("\n  ")}`);
     throw err;
   }
-  const res = await request({ type: "notify", root, label, paneId, payload });
+  const res = await request({ type: "notify", root, label, paneId, claudeConfigDir, payload });
   finish(res, () => process.stdout.write(`${msg.notifySent}
 `));
 }
 async function cmdSendFile(args) {
-  const { root, label, paneId } = ctx();
+  const { root, label, paneId, claudeConfigDir } = ctx();
   const a = argv("send-file", args);
   const given = a.positional();
   if (!given) die(1, msg.sendFileUsage);
   const path2 = resolve3(given);
-  const res = await request({ type: "sendFile", root, label, paneId, path: path2, caption: a.opt("caption") });
+  const res = await request({ type: "sendFile", root, label, paneId, claudeConfigDir, path: path2, caption: a.opt("caption") });
   finish(res, () => process.stdout.write(`${msg.fileSent}
 `));
 }
@@ -140505,7 +140518,7 @@ async function waitConnected(ping, deadlineMs, pollMs = 250) {
 async function cmdAway(args) {
   const sub = argv("away", args).positional() ?? "status";
   const a = argv(`away ${sub}`, args);
-  const { root, label, paneId } = ctx();
+  const { root, label, paneId, claudeConfigDir } = ctx();
   if (sub === "status") {
     const state = readProjectState(root);
     if (a.flag("json")) {
@@ -140536,7 +140549,7 @@ async function cmdAway(args) {
 `);
     const link = await waitConnected(() => request({ type: "ping" }, { timeoutMs: 2e3 }), CONNECT_WAIT_MS);
     if (!link.connected) die(3, fill(msg.awayNotConnected, { error: link.error }));
-    const bindRes = await request({ type: "bind", root, label, paneId, ...choice }, { onNote: (text) => process.stderr.write(`note: ${text}
+    const bindRes = await request({ type: "bind", root, label, paneId, claudeConfigDir, ...choice }, { onNote: (text) => process.stderr.write(`note: ${text}
 `) });
     if (!bindRes.ok) dieBind(bindRes);
     if (bindRes.kind === "bind") {
@@ -140546,7 +140559,7 @@ async function cmdAway(args) {
 `);
     }
   }
-  const res = await request({ type: "setAway", root, away, paneId, lang: cliLang });
+  const res = await request({ type: "setAway", root, away, paneId, claudeConfigDir, lang: cliLang });
   if (!away && !res.ok && (res.reason === "down" || res.reason === "path")) {
     const state = writeProjectState(root, { away: false });
     if (!state) process.stdout.write(`${msg.awayNeverUsed}

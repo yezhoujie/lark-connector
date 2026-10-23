@@ -922,6 +922,59 @@ test('bind --chat: a reply with announced: false adds a neutral note, distinct f
   }
 });
 
+// ---- the Claude config dir the caller runs under ----------------------------
+// The daemon outlives any one session and has its own environment; the CLI,
+// run by the agent, is the one that knows where that session's transcripts are.
+
+test('a call from a herdr pane carries the caller\'s CLAUDE_CONFIG_DIR as an absolute path resolved from where it ran; nothing without one, or without a pane', async () => {
+  const home = tmp('lark-connector-cfgdir-');
+  const project = realpathSync(tmp('lark-connector-cfgdir-proj-'));
+  const prev = process.env.LARK_CONNECTOR_HOME;
+  process.env.LARK_CONNECTOR_HOME = home;
+  const seen: Array<Record<string, unknown>> = [];
+  const server = await serve({
+    handle: async (req) => {
+      seen.push(req as unknown as Record<string, unknown>);
+      return { ok: true, kind: 'ack' };
+    },
+  });
+  const notify = (claudeConfigDir: string | undefined, paneId: string | undefined) =>
+    new Promise<{ status: number | null; stderr: string }>((resolve, reject) => {
+      const env: NodeJS.ProcessEnv = { ...isolatedEnv(), LARK_CONNECTOR_HOME: home };
+      delete env.CLAUDE_CONFIG_DIR;
+      delete env.HERDR_PANE_ID;
+      if (claudeConfigDir !== undefined) env.CLAUDE_CONFIG_DIR = claudeConfigDir;
+      if (paneId !== undefined) env.HERDR_PANE_ID = paneId;
+      const child = spawn(process.execPath, [cli, 'notify'], { env, cwd: project, stdio: ['pipe', 'ignore', 'pipe'] });
+      let stderr = '';
+      child.stderr.on('data', (d: Buffer) => (stderr += d.toString()));
+      child.on('error', reject);
+      child.on('close', (status) => resolve({ status, stderr }));
+      child.stdin.end(JSON.stringify({ title: 't', body: 'b' }));
+    });
+  try {
+    const relative = await notify(join('cfg', 'claude'), 'w9:p9');
+    assert.equal(relative.status, 0, relative.stderr);
+    assert.equal(seen.at(-1)?.type, 'notify');
+    assert.equal(seen.at(-1)?.paneId, 'w9:p9');
+    assert.equal(seen.at(-1)?.claudeConfigDir, join(project, 'cfg', 'claude'));
+    const unset = await notify(undefined, 'w9:p9');
+    assert.equal(unset.status, 0, unset.stderr);
+    assert.equal(seen.at(-1)?.type, 'notify');
+    assert.equal('claudeConfigDir' in seen.at(-1)!, false, 'no CLAUDE_CONFIG_DIR');
+    // Outside herdr the pane on record is left alone, so the dir is too: the two stay one session's.
+    const paneless = await notify(join('cfg', 'claude'), undefined);
+    assert.equal(paneless.status, 0, paneless.stderr);
+    assert.equal(seen.at(-1)?.type, 'notify');
+    assert.equal(seen.at(-1)?.paneId, null);
+    assert.equal('claudeConfigDir' in seen.at(-1)!, false, 'no pane');
+  } finally {
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+    if (prev === undefined) delete process.env.LARK_CONNECTOR_HOME;
+    else process.env.LARK_CONNECTOR_HOME = prev;
+  }
+});
+
 // ---- reading a command line, in-process --------------------------------------
 // One rule for flags, option values and the positional: an option the command
 // takes a value for owns the next token, whatever it looks like.

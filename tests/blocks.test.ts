@@ -35,7 +35,7 @@ function setup(opts: { cli?: 'claude' | 'kimi'; timing?: Partial<BlockTiming> } 
       if (sendFails.on) throw new Error('feishu down');
     },
   });
-  const b: Binding = { root: '/p', label: 'p', chatId: 'oc_x', name: null, paneId: PANE, away: true, lang: 'en', boundAt: '', releasedAt: null };
+  const b: Binding = { root: '/p', label: 'p', chatId: 'oc_x', name: null, paneId: PANE, claudeConfigDir: null, away: true, lang: 'en', boundAt: '', releasedAt: null };
   const receipts: string[] = [];
   const injects: string[] = [];
   const logs: Array<{ event: string; detail: Record<string, unknown> }> = [];

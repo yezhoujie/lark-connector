@@ -23,6 +23,7 @@ const entry = (over: Partial<Binding> & { root: string; chatId: string }): Bindi
   label: 'p',
   name: null,
   paneId: null,
+  claudeConfigDir: null,
   away: false,
   lang: null,
   boundAt: '2026-01-01T00:00:00.000Z',
@@ -50,6 +51,7 @@ test('a bindings.json from before releases (keyed by root, no name/lang/released
     chatId: 'oc_a',
     name: null,
     paneId: 'w1:p1',
+    claudeConfigDir: null,
     away: true,
     lang: null,
     boundAt: '2025-12-01T00:00:00.000Z',
@@ -92,6 +94,19 @@ test('a second live entry for a root is refused before anything is written', () 
   // re-setting the same live entry is fine
   store.set(entry({ root: '/p', chatId: 'oc_1', name: 'renamed [p]' }));
   assert.equal(store.active('/p')?.name, 'renamed [p]');
+});
+
+test('touch records the Claude config dir a call reported, keeps it across calls that report none, and writes it to disk', () => {
+  const home = freshHome();
+  const store = new BindingStore();
+  store.set(entry({ root: '/p', chatId: 'oc_live' }));
+  assert.equal(store.touch('/p', { claudeConfigDir: '/cfg/a' })?.claudeConfigDir, '/cfg/a');
+  assert.equal(store.touch('/p', { paneId: 'w1:p1' })?.claudeConfigDir, '/cfg/a');
+  assert.equal(store.touch('/p', { claudeConfigDir: null })?.claudeConfigDir, '/cfg/a');
+  assert.equal(store.touch('/p', { claudeConfigDir: '/cfg/b' })?.claudeConfigDir, '/cfg/b');
+  const written = JSON.parse(readFileSync(join(home, 'bindings.json'), 'utf8')) as { bindings: Binding[] };
+  assert.equal(written.bindings[0]?.claudeConfigDir, '/cfg/b');
+  assert.equal(new BindingStore().active('/p')?.claudeConfigDir, '/cfg/b', 'read back by a fresh store');
 });
 
 test('touch only reaches the live entry; released ones keep their pane, away and label', () => {
