@@ -11,6 +11,20 @@ Before 0.2.0 this repository was a section of the `agent-remote-communication-sk
 `agent-lark/vX.Y.Z` there; the entries below for those versions are unchanged, and the same versions are
 tagged plain `vX.Y.Z` here.
 
+### [0.4.4][lark-connector-0.4.4] - 2026-10-23
+
+#### Fixed
+
+- A phone message queued to a busy claude is again swapped from ✈️ to `Get` within seconds of being read when
+  that claude runs with a `CLAUDE_CONFIG_DIR` other than the daemon's. The daemon looked for session transcripts
+  only under its own `CLAUDE_CONFIG_DIR` (or `~/.claude`), but one daemon serves every session: a session
+  started with another config dir was never found (`transcript.missing` in the log), and ✈️ stayed until the
+  agent went idle, or for good once the 30-minute watch ran out. Every command run in a herdr pane now reports
+  the caller's `CLAUDE_CONFIG_DIR` along with the pane; the daemon keeps it on the binding and looks there first,
+  then under its own, then under `~/.claude` (`references/daemon.md`). `transcript.missing` lists the dirs it
+  searched. It takes effect once the daemon runs this version and the project's agent has made one call with it
+  (`away on`, `ask`, `notify` …).
+
 ### [0.4.3][lark-connector-0.4.3] - 2026-10-22
 
 #### Changed
@@ -373,6 +387,7 @@ Feishu custom app of your own instead of a public notification service.
 - `node --test` suite (cards, validation, IPC, daemon with a fake Feishu channel, the CLI against a fake daemon)
   on ubuntu / windows / macos × Node 22 / 24.
 
+[lark-connector-0.4.4]: https://github.com/yezhoujie/lark-connector/compare/v0.4.3...v0.4.4
 [lark-connector-0.4.3]: https://github.com/yezhoujie/lark-connector/compare/v0.4.2...v0.4.3
 [lark-connector-0.4.2]: https://github.com/yezhoujie/lark-connector/compare/v0.4.1...v0.4.2
 [lark-connector-0.4.1]: https://github.com/yezhoujie/lark-connector/compare/v0.4.0...v0.4.1
