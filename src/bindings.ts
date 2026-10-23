@@ -16,6 +16,13 @@ export interface Binding {
   name: string | null;
   /** herdr pane that phone messages are injected into; refreshed on every call. */
   paneId: string | null;
+  /**
+   * The CLAUDE_CONFIG_DIR of the session in that pane, where a claude there keeps
+   * its transcripts; reported only along with the pane, refreshed by every call
+   * that reports one, null until one does. The daemon's own environment cannot
+   * say: it is one process for every session, started from whichever came first.
+   */
+  claudeConfigDir: string | null;
   away: boolean;
   /** Language of the last ask / notify payload from this project; cards sent on the daemon's own initiative follow it. */
   lang: Lang | null;
@@ -52,6 +59,7 @@ function normalize(raw: unknown): Binding | null {
     chatId: r.chatId,
     name: str(r.name),
     paneId: str(r.paneId),
+    claudeConfigDir: str(r.claudeConfigDir),
     away: r.away === true,
     lang,
     boundAt: str(r.boundAt) ?? '',
@@ -197,10 +205,11 @@ export class BindingStore {
   }
 
   /** Refresh the fields a live call carries on the project's live group, without disturbing the binding. */
-  touch(root: string, patch: Partial<Pick<Binding, 'paneId' | 'away' | 'label' | 'lang' | 'name'>>): Binding | undefined {
+  touch(root: string, patch: Partial<Pick<Binding, 'paneId' | 'claudeConfigDir' | 'away' | 'label' | 'lang' | 'name'>>): Binding | undefined {
     const b = this.active(root);
     if (!b) return undefined;
     if (patch.paneId !== undefined && patch.paneId !== null) b.paneId = patch.paneId;
+    if (patch.claudeConfigDir !== undefined && patch.claudeConfigDir !== null) b.claudeConfigDir = patch.claudeConfigDir;
     if (patch.away !== undefined) b.away = patch.away;
     if (patch.label) b.label = patch.label;
     if (patch.lang) b.lang = patch.lang;

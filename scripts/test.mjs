@@ -38,6 +38,10 @@ process.env.HOME = fakeHome;
 process.env.USERPROFILE = fakeHome;
 process.env.LARK_CONNECTOR_STORE = 'file';
 process.env.LARK_CONNECTOR_KEYCHAIN = 'lark-connector-test-never-stored';
+// The same goes for the developer's Claude Code config dir: a spawned CLI would
+// report it to the daemon, and the daemon would read the transcripts under it
+// before the (throwaway) home's .claude.
+delete process.env.CLAUDE_CONFIG_DIR;
 
 // Run tsc through the current Node binary rather than `npx`/`tsc` so no shell
 // lookup (or `.cmd` shim on Windows) is involved.

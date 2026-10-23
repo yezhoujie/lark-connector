@@ -190,10 +190,27 @@ async function readStdin(): Promise<string> {
   return Buffer.concat(chunks).toString('utf8');
 }
 
-function ctx(): { root: string; label: string; paneId: string | null } {
+/**
+ * The caller's CLAUDE_CONFIG_DIR, absolute, or undefined when it has none. The
+ * session that runs this CLI keeps its transcripts there, and only the caller
+ * can say so: the daemon's environment is that of whichever session started it.
+ * Resolved here, against the caller's directory, as a send-file path is.
+ */
+function callerClaudeConfigDir(): string | undefined {
+  const dir = process.env.CLAUDE_CONFIG_DIR;
+  return dir ? resolve(dir) : undefined;
+}
+
+/**
+ * Who is calling, for the daemon's record of the project. The config dir goes
+ * only with a pane: the daemon keeps the pane it has when a call reports none,
+ * and the dir it keeps must be that same session's.
+ */
+function ctx(): { root: string; label: string; paneId: string | null; claudeConfigDir: string | undefined } {
   const root = projectRoot();
   migrateProjectState(root);
-  return { root, label: projectLabel(root), paneId: currentPaneId() };
+  const paneId = currentPaneId();
+  return { root, label: projectLabel(root), paneId, claudeConfigDir: paneId ? callerClaudeConfigDir() : undefined };
 }
 
 /** Turn a daemon response into this process's exit. */
@@ -706,10 +723,10 @@ function dieBind(res: Extract<Response, { ok: false }>): never {
 }
 
 async function cmdBind(args: string[]): Promise<void> {
-  const { root, label, paneId } = ctx();
+  const { root, label, paneId, claudeConfigDir } = ctx();
   const a = argv('bind', args);
   const res = await request(
-    { type: 'bind', root, label, paneId, chatId: a.opt('chat'), ...bindArgs(a) },
+    { type: 'bind', root, label, paneId, claudeConfigDir, chatId: a.opt('chat'), ...bindArgs(a) },
     { onNote: (text) => process.stderr.write(`note: ${text}\n`) },
   );
   if (!res.ok) dieBind(res);
@@ -759,15 +776,15 @@ async function cmdRename(args: string[]): Promise<void> {
   if (!name?.trim()) die(1, msg.renameUsage);
   const problem = taskNameProblem(name);
   if (problem) die(1, problem);
-  const { root, paneId } = ctx();
-  const res = await request({ type: 'rename', root, paneId, name });
+  const { root, paneId, claudeConfigDir } = ctx();
+  const res = await request({ type: 'rename', root, paneId, claudeConfigDir, name });
   finish(res, (r) => process.stdout.write(`${fill(msg.renamed, { name: r.kind === 'rename' ? r.name : name })}\n`));
 }
 
 // ---------------------------------------------------------------- ask / notify
 
 async function cmdAsk(args: string[]): Promise<void> {
-  const { root, label, paneId } = ctx();
+  const { root, label, paneId, claudeConfigDir } = ctx();
   const raw = await readStdin();
   let payload: unknown;
   try {
@@ -788,7 +805,7 @@ async function cmdAsk(args: string[]): Promise<void> {
   const seconds = Number(a.opt('timeout') ?? 43_200);
   if (!Number.isFinite(seconds) || seconds <= 0) die(1, msg.timeoutArg);
   const res = await request(
-    { type: 'ask', root, label, paneId, payload, timeoutMs: seconds * 1000, urgent: a.flag('urgent') },
+    { type: 'ask', root, label, paneId, claudeConfigDir, payload, timeoutMs: seconds * 1000, urgent: a.flag('urgent') },
     { onNote: (text) => process.stderr.write(`note: ${text}\n`) },
   );
   finish(res, (r) => {
@@ -797,7 +814,7 @@ async function cmdAsk(args: string[]): Promise<void> {
 }
 
 async function cmdNotify(): Promise<void> {
-  const { root, label, paneId } = ctx();
+  const { root, label, paneId, claudeConfigDir } = ctx();
   const raw = await readStdin();
   let payload: unknown;
   try {
@@ -812,19 +829,19 @@ async function cmdNotify(): Promise<void> {
       die(1, `${fill(msg.notifyProblems, { n: err.problems.length })}\n  ${err.problems.join('\n  ')}`);
     throw err;
   }
-  const res = await request({ type: 'notify', root, label, paneId, payload });
+  const res = await request({ type: 'notify', root, label, paneId, claudeConfigDir, payload });
   finish(res, () => process.stdout.write(`${msg.notifySent}\n`));
 }
 
 async function cmdSendFile(args: string[]): Promise<void> {
-  const { root, label, paneId } = ctx();
+  const { root, label, paneId, claudeConfigDir } = ctx();
   const a = argv('send-file', args);
   const given = a.positional();
   if (!given) die(1, msg.sendFileUsage);
   // The daemon checks the path from its own working directory, so a relative
   // one must be resolved here, where the caller meant it.
   const path = resolve(given);
-  const res = await request({ type: 'sendFile', root, label, paneId, path, caption: a.opt('caption') });
+  const res = await request({ type: 'sendFile', root, label, paneId, claudeConfigDir, path, caption: a.opt('caption') });
   finish(res, () => process.stdout.write(`${msg.fileSent}\n`));
 }
 
@@ -859,7 +876,7 @@ export async function waitConnected(
 async function cmdAway(args: string[]): Promise<void> {
   const sub = argv('away', args).positional() ?? 'status';
   const a = argv(`away ${sub}`, args);
-  const { root, label, paneId } = ctx();
+  const { root, label, paneId, claudeConfigDir } = ctx();
   if (sub === 'status') {
     const state = readProjectState(root);
     if (a.flag('json')) {
@@ -892,7 +909,7 @@ async function cmdAway(args: string[]): Promise<void> {
     process.stdout.write(`${d.message}\n`);
     const link = await waitConnected(() => request({ type: 'ping' }, { timeoutMs: 2000 }), CONNECT_WAIT_MS);
     if (!link.connected) die(3, fill(msg.awayNotConnected, { error: link.error }));
-    const bindRes = await request({ type: 'bind', root, label, paneId, ...choice }, { onNote: (text) => process.stderr.write(`note: ${text}\n`) });
+    const bindRes = await request({ type: 'bind', root, label, paneId, claudeConfigDir, ...choice }, { onNote: (text) => process.stderr.write(`note: ${text}\n`) });
     if (!bindRes.ok) dieBind(bindRes);
     if (bindRes.kind === 'bind') {
       chatId = bindRes.chatId;
@@ -907,7 +924,7 @@ async function cmdAway(args: string[]): Promise<void> {
       process.stdout.write(`${line}\n`);
     }
   }
-  const res = await request({ type: 'setAway', root, away, paneId, lang: cliLang });
+  const res = await request({ type: 'setAway', root, away, paneId, claudeConfigDir, lang: cliLang });
   if (!away && !res.ok && (res.reason === 'down' || res.reason === 'path')) {
     // Switching off must not need the daemon: the file is what the agent's
     // rule reads, and the daemon's own copy is realigned by the next away on / off.

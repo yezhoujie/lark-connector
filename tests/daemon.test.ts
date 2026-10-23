@@ -2,7 +2,7 @@
 import { after, test, type TestContext } from 'node:test';
 import assert from 'node:assert/strict';
 import { appendFileSync, existsSync, lstatSync, lutimesSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, truncateSync, utimesSync, writeFileSync } from 'node:fs';
-import { platform, tmpdir } from 'node:os';
+import { homedir, platform, tmpdir } from 'node:os';
 import { dirname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -371,7 +371,7 @@ test('bind --reuse brings the released entry back live and renames it; a chat id
   const bad = await request({ type: 'bind', root: '/p', label: 'p', paneId: null, mode: 'reuse', reuseChatId: 'oc_other' });
   assert.equal(bad.ok, false);
   if (!bad.ok) assert.equal(bad.code, 1);
-  const res = await request({ type: 'bind', root: '/p', label: 'p', paneId: 'w1:p2', mode: 'reuse', reuseChatId: 'oc_old', name: 'second run' });
+  const res = await request({ type: 'bind', root: '/p', label: 'p', paneId: 'w1:p2', claudeConfigDir: '/cfg/reused', mode: 'reuse', reuseChatId: 'oc_old', name: 'second run' });
   assert.deepEqual(res, { ok: true, kind: 'bind', chatId: 'oc_old', how: 'reused', name: 'second run [p]' });
   // taking a group back also points its description at this project again
   assert.deepEqual(fake.renames.at(-1), { chatId: 'oc_old', name: 'second run [p]', description: MARKER });
@@ -379,6 +379,7 @@ test('bind --reuse brings the released entry back live and renames it; a chat id
   const live = (await bindings(home)).find((b) => b.chatId === 'oc_old');
   assert.equal(live?.releasedAt, null);
   assert.equal(live?.paneId, 'w1:p2');
+  assert.equal(live?.claudeConfigDir, '/cfg/reused');
   assert.equal(live?.name, 'second run [p]');
   await daemon.stop();
 });
@@ -421,13 +422,14 @@ test('a group whose description carries the marker of the earlier name is offere
 });
 
 test('bind --new creates a group carrying the marker even though candidates exist', PER_TEST, async () => {
-  const { daemon, fake, created } = await seedReleasedAndRemote(undefined, 'ou_owner');
+  const { daemon, fake, created, home } = await seedReleasedAndRemote(undefined, 'ou_owner');
   const updatesBefore = fake.renames.length;
-  const res = await request({ type: 'bind', root: '/p', label: 'p', paneId: null, mode: 'new', name: 'fresh' });
+  const res = await request({ type: 'bind', root: '/p', label: 'p', paneId: null, claudeConfigDir: '/cfg/created', mode: 'new', name: 'fresh' });
   assert.deepEqual(res, { ok: true, kind: 'bind', chatId: 'oc_new', how: 'created', name: 'fresh [p]' });
   assert.deepEqual(created, [{ name: 'fresh [p]', description: MARKER, inviteUserIds: ['ou_owner'], userIdType: 'open_id' }]);
   assert.deepEqual(lastAllowlist(fake), ['oc_new']);
   assert.equal(fake.renames.length, updatesBefore, 'a freshly created group needs no update call');
+  assert.equal((await bindings(home)).find((b) => b.chatId === 'oc_new')?.claudeConfigDir, '/cfg/created');
   await daemon.stop();
 });
 
@@ -2532,13 +2534,18 @@ test('when herdr refuses the send-now key: the reactions stay as they are and a 
 // ---- swapping the queued reaction for Get without the human doing anything: the transcript says when claude read the entry; herdr going idle is the fallback ----
 
 const queueOp = (op: Record<string, unknown>) => JSON.stringify({ type: 'queue-operation', timestamp: new Date().toISOString(), sessionId: 'sess-1', ...op }) + '\n';
-async function startWithTranscript(channelOpts: FakeChannelOptions = {}): Promise<{ daemon: DaemonHandle; fake: FakeChannel; herdr: FakeHerdr; home: string; transcript: string }> {
+/** A Claude config dir holding session sess-1's transcript (one earlier record in it); `withTranscript: false` leaves `projects/` empty. */
+function claudeConfigDir(withTranscript = true): { configDir: string; transcript: string } {
   const configDir = mkdtempSync(join(tmpdir(), 'al-claude-'));
   homes.push(configDir);
   const projectDir = join(configDir, 'projects', '-Users-x-p');
   mkdirSync(projectDir, { recursive: true });
   const transcript = join(projectDir, 'sess-1.jsonl');
-  writeFileSync(transcript, queueOp({ operation: 'enqueue', content: 'earlier' }));
+  if (withTranscript) writeFileSync(transcript, queueOp({ operation: 'enqueue', content: 'earlier' }));
+  return { configDir, transcript };
+}
+async function startWithTranscript(channelOpts: FakeChannelOptions = {}): Promise<{ daemon: DaemonHandle; fake: FakeChannel; herdr: FakeHerdr; home: string; transcript: string }> {
+  const { configDir, transcript } = claudeConfigDir();
   const started = await start(channelOpts, 50, { pollMs: 40, claudeConfigDir: configDir });
   return { ...started, transcript };
 }
@@ -2713,6 +2720,74 @@ test('transcript: a record written before the prompt does not count; a missing t
   assert.equal(swapped(fake, 'om_human_2'), false);
   assert.equal((readFileSync(join(home, 'daemon.log'), 'utf8').match(/transcript\.missing/g) ?? []).length, 1, 'logged once, not every poll');
   await daemon.stop();
+});
+
+// ---- which Claude config dir holds the transcript: the session's, as the project's own calls report it, then the daemon's ----
+
+test('transcript: the Claude config dir a call reports for the project is searched before the daemon\'s own, so a session started with another CLAUDE_CONFIG_DIR is still followed', PER_TEST, async () => {
+  const session = claudeConfigDir();
+  const daemonOwn = claudeConfigDir(false);
+  const { daemon, fake, herdr } = await start({}, 50, { pollMs: 40, claudeConfigDir: daemonOwn.configDir });
+  await connected();
+  await request({ type: 'bind', root: '/p', label: 'p', paneId: 'w1:p1', chatId: 'oc_x', claudeConfigDir: session.configDir });
+  herdr.agents = [claudeWorking()];
+  await fake.message({ chatId: 'oc_x', content: 'hello there', messageId: 'om_human_1' });
+  await waitFor(() => emojisOn(fake, 'om_human_1').length === 1, 'the queued reaction');
+  appendFileSync(session.transcript, queueOp({ operation: 'remove', reason: 'absorbed_mid_turn', content: '[lark-connector remote] hello there' }));
+  await waitFor(() => swapped(fake, 'om_human_1'), 'the swap');
+  await daemon.stop();
+});
+
+test('transcript: a reported config dir without the session in it still falls back to the daemon\'s own; the missing line names every dir searched', PER_TEST, async () => {
+  const { daemon, fake, herdr, home, transcript } = await startWithTranscript();
+  const elsewhere = claudeConfigDir(false);
+  await connected();
+  await request({ type: 'bind', root: '/p', label: 'p', paneId: 'w1:p1', chatId: 'oc_x', claudeConfigDir: elsewhere.configDir });
+  herdr.agents = [claudeWorking()];
+  await fake.message({ chatId: 'oc_x', content: 'hello there', messageId: 'om_human_1' });
+  await waitFor(() => emojisOn(fake, 'om_human_1').length === 1, 'the queued reaction');
+  appendFileSync(transcript, queueOp({ operation: 'remove', reason: 'absorbed_mid_turn', content: '[lark-connector remote] hello there' }));
+  await waitFor(() => swapped(fake, 'om_human_1'), 'the swap from the daemon\'s own dir');
+  herdr.agents = [claudeWorking('w1:p1', 'sess-nowhere')];
+  await fake.message({ chatId: 'oc_x', content: 'again', messageId: 'om_human_2' });
+  const line = await waitFor(() => readFileSync(join(home, 'daemon.log'), 'utf8').split('\n').find((l) => / transcript\.missing /.test(l)), 'the missing-transcript log line');
+  const logged = JSON.parse(line.slice(line.indexOf('{'))) as { session: string; dirs: string[] };
+  assert.equal(logged.session, 'sess-nowhere');
+  assert.deepEqual(logged.dirs, [elsewhere.configDir, dirname(dirname(dirname(transcript))), join(homedir(), '.claude')], 'the reported dir, then the daemon\'s own, then the default');
+  await daemon.stop();
+});
+
+test('the config dir a call reports is kept on the project\'s binding by every call that refreshes the pane; a call that reports none keeps the one on record', PER_TEST, async () => {
+  const { daemon, fake, home } = await start({ chatUpdate: async () => ({ code: 0 }) });
+  await connected();
+  const project = realpathSync(mkdtempSync(join(tmpdir(), 'al-cfg-')));
+  homes.push(project);
+  writeFileSync(join(project, 'note.txt'), 'hello');
+  const recorded = async () => (await bindings(home)).find((b) => b.root === project && b.releasedAt === null)?.claudeConfigDir;
+  await request({ type: 'bind', root: project, label: 'p', paneId: null, chatId: 'oc_x', claudeConfigDir: '/cfg/bind-chat' });
+  assert.equal(await recorded(), '/cfg/bind-chat', 'bind --chat');
+  const calls: Array<[string, (dir: string) => Promise<unknown>]> = [
+    ['bind (live group kept)', (dir) => request({ type: 'bind', root: project, label: 'p', paneId: null, claudeConfigDir: dir })],
+    ['rename', (dir) => request({ type: 'rename', root: project, paneId: null, claudeConfigDir: dir, name: 'x' })],
+    ['away on', (dir) => request({ type: 'setAway', root: project, away: true, paneId: null, claudeConfigDir: dir })],
+    ['away off', (dir) => request({ type: 'setAway', root: project, away: false, paneId: null, claudeConfigDir: dir })],
+    ['notify', (dir) => request({ type: 'notify', root: project, label: 'p', paneId: null, claudeConfigDir: dir, payload: { title: 't', body: 'b' } })],
+    ['send-file', (dir) => request({ type: 'sendFile', root: project, label: 'p', paneId: null, claudeConfigDir: dir, path: join(project, 'note.txt') })],
+  ];
+  for (const [what, call] of calls) {
+    const res = await call(`/cfg/${what}`);
+    assert.equal((res as { ok: boolean }).ok, true, `${what}: ${JSON.stringify(res)}`);
+    assert.equal(await recorded(), `/cfg/${what}`, what);
+  }
+  // An older CLI, or a caller with no CLAUDE_CONFIG_DIR, sends no field: the dir on record stays.
+  await request({ type: 'notify', root: project, label: 'p', paneId: null, payload: { title: 't', body: 'b' } });
+  assert.equal(await recorded(), '/cfg/send-file', 'a call that reports none');
+  const before = fake.sent.length;
+  const asking = request({ type: 'ask', root: project, label: 'p', paneId: null, claudeConfigDir: '/cfg/ask', payload: askPayload, timeoutMs: 60_000 });
+  await waitFor(() => fake.sent.length > before, 'the question card');
+  assert.equal(await recorded(), '/cfg/ask', 'ask');
+  await daemon.stop();
+  await asking;
 });
 
 test('fallback: herdr reporting the pane idle swaps the queued reaction for Get even without a transcript', PER_TEST, async () => {

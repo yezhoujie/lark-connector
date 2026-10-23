@@ -158,7 +158,7 @@ export interface DaemonDeps {
   pollMs?: number;
   /** How often the media directory and the bindings are swept (the first media sweep runs at start, the first bindings sweep on the first handshake). */
   sweepMs?: number;
-  /** Where Claude Code keeps its session transcripts (`<dir>/projects/<project>/<session id>.jsonl`); default `$CLAUDE_CONFIG_DIR`, else `~/.claude`. */
+  /** The daemon's own idea of where Claude Code keeps session transcripts (`<dir>/projects/<project>/<session id>.jsonl`), searched after the dir the project's calls reported; default `$CLAUDE_CONFIG_DIR`, else `~/.claude`. */
   claudeConfigDir?: string;
   /** How long a queued phone message is watched for a sign that claude read it before it is forgotten. */
   queuedMaxAgeMs?: number;
@@ -485,14 +485,23 @@ export async function runDaemon(deps: DaemonDeps = {}): Promise<DaemonHandle> {
   const transcriptMissingLogged = new Set<string>();
 
   /**
-   * The transcript Claude Code writes for a session: `<config>/projects/<encoded cwd>/<session id>.jsonl`.
-   * Found by file name under every project directory, so the cwd encoding
-   * need not be known. Its `queue-operation` records say when a queued
-   * message was read — an internal format, not a contract: when it is not
-   * there or changes shape, the queued reaction simply stays until herdr
-   * reports the agent idle.
+   * Where a claude bound to `b` keeps its transcripts, most likely first: the
+   * dir its own calls reported, then the daemon's, then the default. A session
+   * id names one file wherever it is, so looking in a wrong dir finds nothing
+   * rather than the wrong thing.
    */
-  const transcriptFor = (sessionId: string): string | null => {
+  const claudeDirsFor = (b: Binding): string[] =>
+    [...new Set([b.claudeConfigDir, claudeDir, join(homedir(), '.claude')])].filter((d): d is string => !!d);
+
+  /**
+   * The transcript Claude Code writes for a session: `<config>/projects/<encoded cwd>/<session id>.jsonl`.
+   * Found by file name under every project directory of each of `dirs` in
+   * turn, so the cwd encoding need not be known. Its `queue-operation` records
+   * say when a queued message was read — an internal format, not a contract:
+   * when it is not there or changes shape, the queued reaction simply stays
+   * until herdr reports the agent idle.
+   */
+  const transcriptFor = (sessionId: string, dirs: string[]): string | null => {
     if (!/^[A-Za-z0-9-]+$/.test(sessionId)) {
       // Not a file name we would build a path from; said once, without echoing the value.
       if (!transcriptMissingLogged.has(sessionId)) {
@@ -501,26 +510,28 @@ export async function runDaemon(deps: DaemonDeps = {}): Promise<DaemonHandle> {
       }
       return null;
     }
-    try {
-      for (const dir of readdirSync(join(claudeDir, 'projects'))) {
-        const path = join(claudeDir, 'projects', dir, `${sessionId}.jsonl`);
-        if (existsSync(path)) return path;
+    for (const config of dirs) {
+      try {
+        for (const dir of readdirSync(join(config, 'projects'))) {
+          const path = join(config, 'projects', dir, `${sessionId}.jsonl`);
+          if (existsSync(path)) return path;
+        }
+      } catch {
+        // no projects directory at all: same as no transcript there
       }
-    } catch {
-      // no projects directory at all: same as no transcript
     }
     if (!transcriptMissingLogged.has(sessionId)) {
       transcriptMissingLogged.add(sessionId);
-      log('transcript.missing', { session: sessionId });
+      log('transcript.missing', { session: sessionId, dirs });
     }
     return null;
   };
 
   /** The transcript to watch for a busy claude, positioned at its current end so only records written after the prompt count. */
-  const transcriptToWatch = (agent: AgentInfo | undefined): Queued['transcript'] | undefined => {
+  const transcriptToWatch = (b: Binding, agent: AgentInfo | undefined): Queued['transcript'] | undefined => {
     const sessionId = agent?.agent === 'claude' && agent.agent_status === 'working' ? agent.agent_session?.value : undefined;
     if (!sessionId) return undefined;
-    const path = transcriptFor(sessionId);
+    const path = transcriptFor(sessionId, claudeDirsFor(b));
     if (!path) return undefined;
     try {
       return { path, offset: statSync(path).size };
@@ -683,7 +694,7 @@ export async function runDaemon(deps: DaemonDeps = {}): Promise<DaemonHandle> {
       }
       const line = `${INJECT_PREFIX}${text}`;
       const agent = live.find((a) => a.pane_id === paneId);
-      const transcript = transcriptToWatch(agent);
+      const transcript = transcriptToWatch(b, agent);
       const outcome = await herdr.promptPane(paneId, line);
       log('inject', { root: b.root, paneId, ok: outcome.ok, code: outcome.code });
       if (!outcome.ok) {
@@ -1487,6 +1498,7 @@ export async function runDaemon(deps: DaemonDeps = {}): Promise<DaemonHandle> {
               chatId: req.chatId,
               name,
               paneId: req.paneId ?? holder?.paneId ?? live?.paneId ?? null,
+              claudeConfigDir: req.claudeConfigDir ?? holder?.claudeConfigDir ?? live?.claudeConfigDir ?? null,
               away: wasAway,
               lang: holder?.lang ?? live?.lang ?? null,
               boundAt: now,
@@ -1520,7 +1532,7 @@ export async function runDaemon(deps: DaemonDeps = {}): Promise<DaemonHandle> {
 
           // The live group stays; a task name given now is applied to it.
           if (live) {
-            bindings.touch(req.root, { paneId: req.paneId, label: req.label });
+            bindings.touch(req.root, { paneId: req.paneId, claudeConfigDir: req.claudeConfigDir, label: req.label });
             if (req.mode !== undefined) ctx.note(msg.bindModeIgnored);
             let name = live.name ?? live.chatId;
             if (req.name !== undefined) {
@@ -1584,6 +1596,7 @@ export async function runDaemon(deps: DaemonDeps = {}): Promise<DaemonHandle> {
               chatId: pick.chatId,
               name: pick.name,
               paneId: req.paneId ?? earlier?.paneId ?? null,
+              claudeConfigDir: req.claudeConfigDir ?? earlier?.claudeConfigDir ?? null,
               away: false,
               lang: earlier?.lang ?? null,
               boundAt: now,
@@ -1620,6 +1633,7 @@ export async function runDaemon(deps: DaemonDeps = {}): Promise<DaemonHandle> {
               chatId,
               name,
               paneId: req.paneId,
+              claudeConfigDir: req.claudeConfigDir ?? null,
               away: false,
               lang: null,
               boundAt: now,
@@ -1702,7 +1716,7 @@ export async function runDaemon(deps: DaemonDeps = {}): Promise<DaemonHandle> {
           const wanted = groupName(req.name, live.label);
           const r = await updateChat(live.chatId, { name: wanted });
           if (!r.ok) return { ok: false, code: 3, message: r.error };
-          bindings.touch(req.root, { paneId: req.paneId, name: wanted });
+          bindings.touch(req.root, { paneId: req.paneId, claudeConfigDir: req.claudeConfigDir, name: wanted });
           log('rename', { root: req.root, chatId: live.chatId });
           return { ok: true, kind: 'rename', name: wanted };
         }
@@ -1724,7 +1738,7 @@ export async function runDaemon(deps: DaemonDeps = {}): Promise<DaemonHandle> {
               announced = await announce(req.root, live.chatId, card, false);
             }
             await relay.drop(live);
-            bindings.touch(req.root, { away: false, paneId: req.paneId });
+            bindings.touch(req.root, { away: false, paneId: req.paneId, claudeConfigDir: req.claudeConfigDir });
             lastStatus.delete(req.root);
             log('away', { root: req.root, away: false });
             // `announced` is left off the reply entirely when there was
@@ -1734,7 +1748,7 @@ export async function runDaemon(deps: DaemonDeps = {}): Promise<DaemonHandle> {
             return announced === undefined ? { ok: true, kind: 'ack' } : { ok: true, kind: 'ack', announced };
           }
 
-          const patch: Partial<Pick<Binding, 'paneId' | 'away' | 'lang'>> = { away: true, paneId: req.paneId };
+          const patch: Partial<Pick<Binding, 'paneId' | 'claudeConfigDir' | 'away' | 'lang'>> = { away: true, paneId: req.paneId, claudeConfigDir: req.claudeConfigDir };
           if (req.lang) patch.lang = req.lang;
           const b = bindings.touch(req.root, patch);
           if (!b) return { ok: false, code: 4, message: msg.notBound };
@@ -1752,7 +1766,7 @@ export async function runDaemon(deps: DaemonDeps = {}): Promise<DaemonHandle> {
         }
 
         case 'notify': {
-          const b = bindings.touch(req.root, { paneId: req.paneId, label: req.label });
+          const b = bindings.touch(req.root, { paneId: req.paneId, claudeConfigDir: req.claudeConfigDir, label: req.label });
           if (!b) return { ok: false, code: 4, message: msg.notBound };
           if (!connected) return notConnected();
           let payload;
@@ -1773,7 +1787,7 @@ export async function runDaemon(deps: DaemonDeps = {}): Promise<DaemonHandle> {
         }
 
         case 'sendFile': {
-          const b = bindings.touch(req.root, { paneId: req.paneId, label: req.label });
+          const b = bindings.touch(req.root, { paneId: req.paneId, claudeConfigDir: req.claudeConfigDir, label: req.label });
           if (!b) return { ok: false, code: 4, message: msg.notBound };
           if (!connected) return notConnected();
           const checked = resolveSendable(req.path, b.root);
@@ -1799,7 +1813,7 @@ export async function runDaemon(deps: DaemonDeps = {}): Promise<DaemonHandle> {
         }
 
         case 'ask': {
-          const b = bindings.touch(req.root, { paneId: req.paneId, label: req.label });
+          const b = bindings.touch(req.root, { paneId: req.paneId, claudeConfigDir: req.claudeConfigDir, label: req.label });
           if (!b) return { ok: false, code: 4, message: msg.notBound };
           if (pendingFor(req.root)) return { ok: false, code: 4, message: msg.askPending };
           if (!connected) return notConnected();
