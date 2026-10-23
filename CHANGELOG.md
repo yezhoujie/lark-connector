@@ -11,6 +11,14 @@ Before 0.2.0 this repository was a section of the `agent-remote-communication-sk
 `agent-lark/vX.Y.Z` there; the entries below for those versions are unchanged, and the same versions are
 tagged plain `vX.Y.Z` here.
 
+### [0.4.5][lark-connector-0.4.5] - 2026-10-23
+
+#### Changed
+
+- `references/failures.md` says what to look at when the ✈️ on a queued phone message never turns into `Get`:
+  `transcript.missing` in the daemon log and the `dirs` it lists, and what to do after upgrading to 0.4.4 —
+  restart the daemon and have the agent run one command from its herdr pane.
+
 ### [0.4.4][lark-connector-0.4.4] - 2026-10-23
 
 #### Fixed
@@ -387,6 +395,7 @@ Feishu custom app of your own instead of a public notification service.
 - `node --test` suite (cards, validation, IPC, daemon with a fake Feishu channel, the CLI against a fake daemon)
   on ubuntu / windows / macos × Node 22 / 24.
 
+[lark-connector-0.4.5]: https://github.com/yezhoujie/lark-connector/compare/v0.4.4...v0.4.5
 [lark-connector-0.4.4]: https://github.com/yezhoujie/lark-connector/compare/v0.4.3...v0.4.4
 [lark-connector-0.4.3]: https://github.com/yezhoujie/lark-connector/compare/v0.4.2...v0.4.3
 [lark-connector-0.4.2]: https://github.com/yezhoujie/lark-connector/compare/v0.4.1...v0.4.2
