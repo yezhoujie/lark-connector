@@ -125,6 +125,7 @@ when the local records are gone. Task names are at most 60 characters (code poin
       "chatId": "oc_xxxxxxxx",
       "name": "payments refactor [my-project]",
       "paneId": "w1:p2",
+      "claudeConfigDir": "/Users/me/.claude",
       "away": true,
       "lang": "en",
       "boundAt": "2026-09-15T04:03:11.902Z",
@@ -140,6 +141,7 @@ when the local records are gone. Task names are at most 60 characters (code poin
 | `chatId` | the Feishu group; the key — one entry per group |
 | `name` | the group name as last set here; `null` when never set by us |
 | `paneId` | the herdr pane phone messages are injected into; refreshed by every command run with `HERDR_PANE_ID` set (`ask`, `notify`, `send-file`, `bind`, `rename`, `away on|off`) |
+| `claudeConfigDir` | the `CLAUDE_CONFIG_DIR` of the session in that pane, made absolute: where a claude there keeps its transcripts (§5). Refreshed together with `paneId` by those same commands when the caller has `CLAUDE_CONFIG_DIR` set; kept as it is otherwise; `null` until a command has reported one |
 | `away` | remote mode switch as the daemon knows it (the stuck alert only polls `away` bindings) |
 | `lang` | the project's language, set by `away on --lang` (or its fallback chain); every card the daemon renders for this project follows it (§9) |
 | `boundAt` / `releasedAt` | ISO times; `releasedAt: null` marks the live group, a time means `unbind` let it go (kept so it can be offered back, until the group is gone from Feishu — §6) |
@@ -264,20 +266,24 @@ the daemon looks for the moment claude read the entry:
   as `"type":"queue-operation"` records: `enqueue` (with `content`, the injected line), `remove` with
   `"reason":"absorbed_mid_turn"` (with `content`; the entry was passed to the model after a tool call) and
   `dequeue` (no content; the whole queue went out as a turn — also what a `ctrl+enter` does). The daemon
-  takes the session id from `herdr agent list` (`agent_session.value`), finds the file by that name under
-  `projects/`, notes its size just before the prompt and reads only what is appended after it; a matching
-  `remove` settles that message, a `dequeue` settles every watched message of that session. Other records
+  takes the session id from `herdr agent list` (`agent_session.value`) and finds the file by that name under
+  `projects/` of, in turn: the `CLAUDE_CONFIG_DIR` the project's own calls reported (every `away on|off`, `ask`,
+  `notify`, `send-file`, `bind` and `rename` run in a herdr pane carries the caller's, made absolute, and the
+  binding keeps the last one along with the pane), the daemon's own `CLAUDE_CONFIG_DIR`, and `~/.claude`. It notes the file's size just before the prompt
+  and reads only what is appended after it; a matching `remove` settles that message, a `dequeue` settles every
+  watched message of that session. Other records
   change nothing — a `remove` without a reason or a `popAll` (the human took the queue back into the input
   box), a `remove` quoting another line. Since Claude Code 2.1.278, a pasted line's `content` arrives
   wrapped in `<pasted_content id="…">…</pasted_content id="…">` (a fresh id each time); the daemon strips
   that wrapper before comparing. **This is Claude Code's internal format, not a contract**: when
-  the file is missing (`transcript.missing` in the log, once per session) or its records change shape,
-  ✈️ simply stays until the fallback below — injection and the send-now reaction are not affected. An
+  the file is missing (`transcript.missing` in the log, once per session, with the `dirs` it searched) or its
+  records change shape, ✈️ simply stays until the fallback below — injection and the send-now reaction are not
+  affected. An
   `absorbed_mid_turn` record that, once unwrapped, quotes no pending message at all (not just a sibling's
   line) is logged once per message as `queued.unmatched` — never the text itself — the signal that the
   format has drifted again. To check it still holds on a machine:
-  `grep -h '"queue-operation"' ~/.claude/projects/*/*.jsonl | tail -3` should show `enqueue` / `remove` /
-  `dequeue` records like the above.
+  `grep -h '"queue-operation"' "${CLAUDE_CONFIG_DIR:-$HOME/.claude}"/projects/*/*.jsonl | tail -3` (run in the
+  agent's session) should show `enqueue` / `remove` / `dequeue` records like the above.
 - *Fallback.* herdr reporting the pane as no longer `working` (`idle`, `done`): the queue is empty by
   then, so every watched message of that pane is settled.
 - *Expiry.* A message with neither signal for 30 minutes (the pane is gone, or the transcript no longer
@@ -401,7 +407,7 @@ between two daily sweeps (§4). `daemon --status` does not report the bindings s
 | `LARK_CONNECTOR_MEDIA_TTL_DAYS` | `7` | retention of `<home>/media/`; `0` = keep everything (§6) |
 | `LARK_CONNECTOR_OFFLINE` | – | testing / offline only: `1` makes `setup` refuse to contact Feishu (rc 3 `offline: refusing to contact Feishu (LARK_CONNECTOR_OFFLINE=1 is set)`) before the QR registration or the credential probe; the test runner sets it so no test can register an app by accident. Not for normal use |
 | `XDG_CONFIG_HOME` | `~/.config` (`%AppData%` on Windows) | `<config>` above is `$XDG_CONFIG_HOME/lark-connector` |
-| `CLAUDE_CONFIG_DIR` | `~/.claude` | where the daemon looks for Claude Code session transcripts (`projects/*/<session id>.jsonl`, §5), read from the **daemon's** environment: a claude started with another `CLAUDE_CONFIG_DIR` is not found, and its ✈️ is swapped for `Get` only on the idle fallback |
+| `CLAUDE_CONFIG_DIR` | `~/.claude` | where Claude Code keeps session transcripts (`projects/*/<session id>.jsonl`, §5). Read from the **caller's** environment by every command run with `HERDR_PANE_ID` set, and kept on the binding with the pane; the daemon searches that dir first, then the one in its own environment, then `~/.claude`. Until the project's agent has made a call, a claude started with another `CLAUDE_CONFIG_DIR` than the daemon's is not found, and its ✈️ is swapped for `Get` only on the idle fallback |
 | `HERDR_ENV`, `HERDR_PANE_ID` | set by herdr | detected, not configured: `HERDR_PANE_ID` is recorded on the binding as the injection target and is the pane a handed-off `setup --reuse` reports back to; `HERDR_ENV=1` is what `status`, `away on` and `setup --reuse` mean by "inside herdr" |
 
 Credentials are resolved in this order, highest first; `status` shows which layer won and marks every
