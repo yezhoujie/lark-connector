@@ -379,3 +379,9 @@ its own exit code stands; the human sees the outcome on that pane.
   when a question is answered — grey for timed out / cancelled — and a **`Get` reaction** appears on a
   message the human sent once it reached the terminal. A `notify` card (light blue) has no state and
   never changes, replying to it or not.
+- **✈️ that never turns into `Get`.** The daemon swaps it once the Claude Code session transcript records the
+  message as read ([daemon.md](daemon.md) §5); while it cannot find that transcript it waits for the agent to
+  go idle instead, and after 30 minutes leaves ✈️ as it is. `transcript.missing` in `<home>/daemon.log` says
+  the file was not found, and its `dirs` lists where the daemon looked. The first of those is the
+  `CLAUDE_CONFIG_DIR` the agent's own commands reported from its herdr pane (0.4.4 on): after an upgrade,
+  restart the daemon and have the agent run one command there (`away on`, `notify` …).
