@@ -384,4 +384,8 @@ its own exit code stands; the human sees the outcome on that pane.
   go idle instead, and after 30 minutes leaves ✈️ as it is. `transcript.missing` in `<home>/daemon.log` says
   the file was not found, and its `dirs` lists where the daemon looked. The first of those is the
   `CLAUDE_CONFIG_DIR` the agent's own commands reported from its herdr pane (0.4.4 on): after an upgrade,
-  restart the daemon and have the agent run one command there (`away on`, `notify` …).
+  restart the daemon and have the agent run one command there (`away on`, `notify` …). When the log shows
+  `queued.marked … "transcript":true` and then `queued.expired` for that message, and the agent was not stuck
+  on a prompt all that time, the transcript was found but most likely recorded the line in a form daemon.md §5
+  does not list: look at the records after the line's arrival in that transcript
+  (`grep -n -F '[lark-connector remote] <first words of the message>' <transcript>`).
