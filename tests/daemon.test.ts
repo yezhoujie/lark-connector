@@ -2695,6 +2695,122 @@ test('transcript: a "dequeue" record (the whole queue sent as a turn) swaps ever
   await daemon.stop();
 });
 
+// ---- herdr can report a claude as working while it takes input at once (its turn is over, a background agent is still running): the line then shows up as a plain prompt, never queued ----
+
+const userRecord = (content: unknown) =>
+  JSON.stringify({ type: 'user', timestamp: new Date().toISOString(), sessionId: 'sess-1', message: { role: 'user', content } }) + '\n';
+
+test('transcript: the injected line recorded as a plain prompt swaps the queued reaction for Get, logged as "submitted"', PER_TEST, async () => {
+  const { daemon, fake, herdr, home, transcript } = await startWithTranscript();
+  await connected();
+  await request({ type: 'bind', root: '/p', label: 'p', paneId: 'w1:p1', chatId: 'oc_x' });
+  herdr.agents = [claudeWorking()];
+  await fake.message({ chatId: 'oc_x', content: 'hello there', messageId: 'om_human_1' });
+  await waitFor(() => emojisOn(fake, 'om_human_1').length === 1, 'the queued reaction');
+  appendFileSync(transcript, userRecord('[lark-connector remote] hello there'));
+  await waitFor(() => swapped(fake, 'om_human_1'), 'the swap');
+  assert.deepEqual(emojisOn(fake, 'om_human_1'), [QUEUE, 'Get']);
+  assert.match(readFileSync(join(home, 'daemon.log'), 'utf8'), /queued\.read .*"msgKey":"om_human_1".*"why":"submitted"/);
+  await daemon.stop();
+});
+
+test('transcript: a multi-line prompt, pasted_content-wrapped with blank lines around the wrapper, also swaps the queued reaction for Get', PER_TEST, async () => {
+  const { daemon, fake, herdr, home, transcript } = await startWithTranscript();
+  await connected();
+  await request({ type: 'bind', root: '/p', label: 'p', paneId: 'w1:p1', chatId: 'oc_x' });
+  herdr.agents = [claudeWorking()];
+  const text = 'one more thing:\n1. the first point\n2. the second point';
+  await fake.message({ chatId: 'oc_x', content: text, messageId: 'om_human_1' });
+  await waitFor(() => emojisOn(fake, 'om_human_1').length === 1, 'the queued reaction');
+  appendFileSync(transcript, userRecord(`\n\n<pasted_content id="43a1">\n[lark-connector remote] ${text}\n</pasted_content id="43a1">\n`));
+  await waitFor(() => swapped(fake, 'om_human_1'), 'the swap');
+  assert.match(readFileSync(join(home, 'daemon.log'), 'utf8'), /queued\.read .*"msgKey":"om_human_1".*"why":"submitted"/);
+  await daemon.stop();
+});
+
+test('transcript: user records that are not the line taken as a prompt do not swap — another prompt, a tool result quoting it, the queued-command attachment', PER_TEST, async () => {
+  const { daemon, fake, herdr, home, transcript } = await startWithTranscript();
+  await connected();
+  await request({ type: 'bind', root: '/p', label: 'p', paneId: 'w1:p1', chatId: 'oc_x' });
+  herdr.agents = [claudeWorking()];
+  await fake.message({ chatId: 'oc_x', content: 'hello there', messageId: 'om_human_1' });
+  await waitFor(() => emojisOn(fake, 'om_human_1').length === 1, 'the queued reaction');
+  appendFileSync(transcript, userRecord('[lark-connector remote] something else'));
+  appendFileSync(transcript, userRecord([{ type: 'tool_result', tool_use_id: 'toolu_1', content: '[lark-connector remote] hello there' }]));
+  appendFileSync(
+    transcript,
+    JSON.stringify({ type: 'attachment', sessionId: 'sess-1', attachment: { type: 'queued_command', prompt: '[lark-connector remote] hello there', commandMode: 'prompt' } }) + '\n',
+  );
+  await sleep(120);
+  assert.equal(fake.removedReactions.length, 0, 'a still-queued entry must not be settled early');
+  assert.doesNotMatch(readFileSync(join(home, 'daemon.log'), 'utf8'), /queued\.unmatched/, 'other prompts are ordinary, not a sign of format drift');
+  appendFileSync(transcript, userRecord('[lark-connector remote] hello there'));
+  await waitFor(() => swapped(fake, 'om_human_1'), 'the swap once the line itself arrives');
+  await daemon.stop();
+});
+
+test('transcript: a prompt matching one of two queued lines settles only that one', PER_TEST, async () => {
+  const { daemon, fake, herdr, transcript } = await startWithTranscript();
+  await connected();
+  await request({ type: 'bind', root: '/p', label: 'p', paneId: 'w1:p1', chatId: 'oc_x' });
+  herdr.agents = [claudeWorking()];
+  await fake.message({ chatId: 'oc_x', content: 'one', messageId: 'om_human_1' });
+  await fake.message({ chatId: 'oc_x', content: 'two', messageId: 'om_human_2' });
+  await waitFor(() => fake.reactions.length === 2, 'two queued reactions');
+  appendFileSync(transcript, userRecord('[lark-connector remote] two'));
+  await waitFor(() => swapped(fake, 'om_human_2'), 'the second entry swaps');
+  await sleep(120);
+  assert.deepEqual(emojisOn(fake, 'om_human_1'), [QUEUE], 'the first entry is untouched');
+  await daemon.stop();
+});
+
+test('transcript: two queued messages with the same text — one prompt record or one absorbed_mid_turn record settles only the older one', PER_TEST, async () => {
+  const { daemon, fake, herdr, home, transcript } = await startWithTranscript();
+  await connected();
+  await request({ type: 'bind', root: '/p', label: 'p', paneId: 'w1:p1', chatId: 'oc_x' });
+  herdr.agents = [claudeWorking()];
+  await fake.message({ chatId: 'oc_x', content: 'ok', messageId: 'om_human_1' });
+  await fake.message({ chatId: 'oc_x', content: 'ok', messageId: 'om_human_2' });
+  await fake.message({ chatId: 'oc_x', content: 'ok', messageId: 'om_human_3' });
+  await waitFor(() => fake.reactions.length === 3, 'three queued reactions');
+  appendFileSync(transcript, userRecord('[lark-connector remote] ok'));
+  await waitFor(() => swapped(fake, 'om_human_1'), 'the oldest entry swaps');
+  await sleep(120);
+  assert.deepEqual(emojisOn(fake, 'om_human_2'), [QUEUE], 'one record, one entry');
+  assert.deepEqual(emojisOn(fake, 'om_human_3'), [QUEUE]);
+  appendFileSync(transcript, queueOp({ operation: 'remove', reason: 'absorbed_mid_turn', content: '[lark-connector remote] ok' }));
+  await waitFor(() => swapped(fake, 'om_human_2'), 'the next one swaps');
+  await sleep(120);
+  assert.deepEqual(emojisOn(fake, 'om_human_3'), [QUEUE], 'one record, one entry');
+  assert.doesNotMatch(readFileSync(join(home, 'daemon.log'), 'utf8'), /queued\.unmatched/, 'a record already taken by a sibling is not "matches nobody"');
+  await daemon.stop();
+});
+
+test('transcript: a record the younger same-text entry read first, while the older had already read past its end, does not settle the older one on the next poll', PER_TEST, async () => {
+  let path = '';
+  // While a poll swaps the "x" entry, the prompt record for "ok" lands: the older "ok" read the file before it, the younger after it.
+  const reactionDelete = async (req: { path: { message_id: string } }): Promise<{ code?: number }> => {
+    if (req.path.message_id === 'om_human_2') appendFileSync(path, userRecord('[lark-connector remote] ok'));
+    return { code: 0 };
+  };
+  const { daemon, fake, herdr, home, transcript } = await startWithTranscript({ reactionDelete });
+  path = transcript;
+  await connected();
+  await request({ type: 'bind', root: '/p', label: 'p', paneId: 'w1:p1', chatId: 'oc_x' });
+  herdr.agents = [claudeWorking()];
+  await fake.message({ chatId: 'oc_x', content: 'ok', messageId: 'om_human_1' });
+  await fake.message({ chatId: 'oc_x', content: 'x', messageId: 'om_human_2' });
+  await fake.message({ chatId: 'oc_x', content: 'ok', messageId: 'om_human_3' });
+  await waitFor(() => fake.reactions.length === 3, 'three queued reactions');
+  appendFileSync(transcript, queueOp({ operation: 'remove', reason: 'absorbed_mid_turn', content: '[lark-connector remote] x' }));
+  await waitFor(() => swapped(fake, 'om_human_2') && (swapped(fake, 'om_human_1') || swapped(fake, 'om_human_3')), 'x and one "ok" swap');
+  await sleep(200);
+  const settled = ['om_human_1', 'om_human_3'].filter((id) => swapped(fake, id));
+  assert.equal(settled.length, 1, `one prompt record settles one "ok" entry, got ${settled.join(', ')}`);
+  assert.equal((readFileSync(join(home, 'daemon.log'), 'utf8').match(/"why":"submitted"/g) ?? []).length, 1);
+  await daemon.stop();
+});
+
 test('transcript: a record written before the prompt does not count; a missing transcript is logged once; half a line is not a record', PER_TEST, async () => {
   const { daemon, fake, herdr, home, transcript } = await startWithTranscript();
   await connected();

@@ -468,7 +468,7 @@ export async function runDaemon(deps: DaemonDeps = {}): Promise<DaemonHandle> {
     paneId: string;
     /** The claude session whose transcript records when the queue entry is read; unknown when herdr did not report one. */
     sessionId?: string;
-    /** The injected line, prefix included: what the transcript's queue records quote. */
+    /** The injected line, prefix included: what the transcript's queue records quote, and a prompt record holds once unwrapped. */
     text: string;
     /** When the message was queued (epoch ms), for the expiry. */
     since: number;
@@ -480,6 +480,25 @@ export async function runDaemon(deps: DaemonDeps = {}): Promise<DaemonHandle> {
     unmatchedLogged?: boolean;
   }
   const queued = new Map<string, Queued>();
+  /**
+   * Records that already settled an entry, as `<offset>:<path>`. A prompt or an
+   * absorbed_mid_turn record stands for one entry, so of two queued messages
+   * with the same text one record settles one of them and the other waits for
+   * its own — across polls too, since each entry reads from its own offset.
+   */
+  const takenRecords = new Set<string>();
+  /**
+   * With no entry waiting, the next one reads only its own transcript from
+   * where it stood before the prompt: every other key is dropped. Not cleared
+   * outright — a record written between that offset and now may have just
+   * settled a same-text entry.
+   */
+  const forgetTakenRecords = (from: Queued['transcript']): void => {
+    for (const key of takenRecords) {
+      const cut = key.indexOf(':');
+      if (!from || key.slice(cut + 1) !== from.path || Number(key.slice(0, cut)) < from.offset) takenRecords.delete(key);
+    }
+  };
   const claudeDir = deps.claudeConfigDir ?? process.env.CLAUDE_CONFIG_DIR ?? join(homedir(), '.claude');
   const queuedMaxAgeMs = deps.queuedMaxAgeMs ?? QUEUED_MAX_AGE_MS;
   const transcriptMissingLogged = new Set<string>();
@@ -496,8 +515,9 @@ export async function runDaemon(deps: DaemonDeps = {}): Promise<DaemonHandle> {
   /**
    * The transcript Claude Code writes for a session: `<config>/projects/<encoded cwd>/<session id>.jsonl`.
    * Found by file name under every project directory of each of `dirs` in
-   * turn, so the cwd encoding need not be known. Its `queue-operation` records
-   * say when a queued message was read — an internal format, not a contract:
+   * turn, so the cwd encoding need not be known. Its `queue-operation` records,
+   * and the user message a line taken as a prompt becomes, say when a queued
+   * message was read — an internal format, not a contract:
    * when it is not there or changes shape, the queued reaction simply stays
    * until herdr reports the agent idle.
    */
@@ -541,12 +561,13 @@ export async function runDaemon(deps: DaemonDeps = {}): Promise<DaemonHandle> {
   };
 
   /**
-   * Complete lines appended to `path` after `offset`, and the offset just past
-   * the last of them. Byte offsets throughout (a half-written line, or an
-   * offset inside a multi-byte character, must not shift the next read); at
-   * most `TRANSCRIPT_READ_MAX` bytes per call, the rest on the next poll.
+   * Complete lines appended to `path` after `offset`, each with the offset it
+   * starts at, and the offset just past the last of them. Byte offsets
+   * throughout (a half-written line, or an offset inside a multi-byte
+   * character, must not shift the next read); at most `TRANSCRIPT_READ_MAX`
+   * bytes per call, the rest on the next poll.
    */
-  const readAppended = (path: string, offset: number): { lines: string[]; end: number } => {
+  const readAppended = (path: string, offset: number): { lines: { text: string; at: number }[]; end: number } => {
     const size = statSync(path).size;
     if (size <= offset) return { lines: [], end: offset };
     const fd = openSync(path, 'r');
@@ -556,7 +577,13 @@ export async function runDaemon(deps: DaemonDeps = {}): Promise<DaemonHandle> {
       const cut = buf.subarray(0, n).lastIndexOf(0x0a);
       // A full read window with no line break is one giant line: a queue record cannot be inside it, so skip it rather than re-read it every poll.
       if (cut < 0) return { lines: [], end: n === TRANSCRIPT_READ_MAX ? offset + n : offset };
-      return { lines: buf.subarray(0, cut).toString('utf8').split('\n'), end: offset + cut + 1 };
+      const lines: { text: string; at: number }[] = [];
+      for (let start = 0; start <= cut; ) {
+        const stop = buf.indexOf(0x0a, start);
+        lines.push({ text: buf.subarray(start, stop).toString('utf8'), at: offset + start });
+        start = stop + 1;
+      }
+      return { lines, end: offset + cut + 1 };
     } finally {
       closeSync(fd);
     }
@@ -590,7 +617,7 @@ export async function runDaemon(deps: DaemonDeps = {}): Promise<DaemonHandle> {
    * long with no sign either way ⇒ the entry is forgotten and the reaction is
    * left as it is: the daemon does not know the outcome and does not pretend to.
    */
-  const closeQueued = async (msgKey: string, q: Queued, why: 'absorbed' | 'dequeued' | 'idle' | 'expired'): Promise<void> => {
+  const closeQueued = async (msgKey: string, q: Queued, why: 'absorbed' | 'dequeued' | 'submitted' | 'idle' | 'expired'): Promise<void> => {
     // The poll works on a snapshot; a reaction (or an overlapping poll) may have closed this one meanwhile.
     if (!queued.delete(msgKey)) return;
     if (why === 'expired') {
@@ -604,7 +631,7 @@ export async function runDaemon(deps: DaemonDeps = {}): Promise<DaemonHandle> {
   /**
    * Claude Code 2.1.278 started wrapping pasted terminal text in
    * `<pasted_content id="…">…</pasted_content id="…">` before it reaches the transcript
-   * (a fresh id each time). Peeled off before the `absorbed_mid_turn` comparison below,
+   * (a fresh id each time). Peeled off before the `absorbed_mid_turn` and prompt comparisons below,
    * in the same spirit as `transcriptFor`'s comment above: an internal format, not a
    * contract. Only the wrapper's own leading and trailing newline are stripped, the
    * inner text compared as written; content with no wrapper (≤ 2.1.276) passes through.
@@ -613,17 +640,29 @@ export async function runDaemon(deps: DaemonDeps = {}): Promise<DaemonHandle> {
   const unwrapPastedContent = (content: string): string => PASTED_CONTENT_RE.exec(content)?.[1] ?? content;
 
   /**
+   * The text of a user message as typed: a line taken as a prompt is recorded
+   * as itself, or — when it spans several lines — in the wrapper above with
+   * blank lines around it (`\n\n<pasted_content …>…</pasted_content …>\n`).
+   * Same caveat: an internal format, not a contract.
+   */
+  const promptText = (content: string): string => unwrapPastedContent(content.replace(/^\n+|\n+$/g, ''));
+
+  /**
    * Settle the queue entries claude has read: by the transcript's
-   * records (`remove` with reason `absorbed_mid_turn` quoting the line, or
-   * `dequeue`, which empties the whole queue as a turn), else by herdr
-   * reporting the pane no longer working, when the queue is necessarily empty.
+   * records (`remove` with reason `absorbed_mid_turn` quoting the line,
+   * `dequeue`, which empties the whole queue as a turn, or the line itself
+   * recorded as a prompt), else by herdr reporting the pane no longer
+   * working, when the queue is necessarily empty.
    */
   const settleQueued = async (live: AgentInfo[]): Promise<void> => {
     // Frozen before any entry in this poll can close another: an entry closed
     // earlier in the same pass would otherwise vanish from `queued` and make a
     // record that was actually absorbed by it look unmatched to the next one.
     const pendingTexts = new Set([...queued.values()].map((p) => p.text));
-    for (const [msgKey, q] of [...queued]) {
+    // Oldest first, so the older of two same-text entries reading one record in
+    // the same poll takes it (an entry put back after a refused send-now key
+    // sits at the end of the map).
+    for (const [msgKey, q] of [...queued].sort(([, x], [, y]) => x.since - y.since)) {
       if (Date.now() - q.since >= queuedMaxAgeMs) {
         await closeQueued(msgKey, q, 'expired');
         continue;
@@ -634,19 +673,35 @@ export async function runDaemon(deps: DaemonDeps = {}): Promise<DaemonHandle> {
         continue;
       }
       if (!q.transcript) continue;
-      let appended: { lines: string[]; end: number };
+      const path = q.transcript.path;
+      let appended: ReturnType<typeof readAppended>;
       try {
-        appended = readAppended(q.transcript.path, q.transcript.offset);
+        appended = readAppended(path, q.transcript.offset);
       } catch (err) {
-        log('transcript.read-failed', { path: q.transcript.path, err: String(err).slice(0, 200) });
+        log('transcript.read-failed', { path, err: String(err).slice(0, 200) });
         continue;
       }
       q.transcript.offset = appended.end;
       for (const line of appended.lines) {
-        let rec: { type?: string; operation?: string; reason?: string; content?: string };
+        let rec: { type?: string; operation?: string; reason?: string; content?: string; message?: { content?: unknown } };
         try {
-          rec = JSON.parse(line) as typeof rec;
+          rec = JSON.parse(line.text) as typeof rec;
         } catch {
+          continue;
+        }
+        const recKey = `${line.at}:${path}`;
+        // herdr can report a claude as working while it takes input at once (its
+        // turn is over, a background agent is still running): the line then
+        // becomes a prompt with no queue records at all. A tool result quoting it
+        // has array content and the queued-command attachment is not a user
+        // record, so an entry still in the queue is not settled by either.
+        if (rec.type === 'user') {
+          const content = rec.message?.content;
+          if (typeof content === 'string' && !takenRecords.has(recKey) && promptText(content) === q.text) {
+            takenRecords.add(recKey);
+            await closeQueued(msgKey, q, 'submitted');
+            break;
+          }
           continue;
         }
         if (rec.type !== 'queue-operation') continue;
@@ -656,7 +711,8 @@ export async function runDaemon(deps: DaemonDeps = {}): Promise<DaemonHandle> {
         }
         if (rec.operation === 'remove' && rec.reason === 'absorbed_mid_turn') {
           const content = unwrapPastedContent(rec.content ?? '');
-          if (content === q.text) {
+          if (content === q.text && !takenRecords.has(recKey)) {
+            takenRecords.add(recKey);
             await closeQueued(msgKey, q, 'absorbed');
             break;
           }
@@ -736,6 +792,7 @@ export async function runDaemon(deps: DaemonDeps = {}): Promise<DaemonHandle> {
     if (agent?.agent !== 'claude' || agent.agent_status !== 'working' || !reactTo) return false;
     try {
       const reactionId = await channel.addReaction(reactTo, QUEUE_EMOJI);
+      if (!queued.size) forgetTakenRecords(transcript);
       queued.set(reactTo, { b, paneId, sessionId: agent.agent_session?.value, text: line, since: Date.now(), reactionId, transcript });
       while (queued.size > QUEUED_KEEP) {
         const oldest = queued.keys().next().value!;

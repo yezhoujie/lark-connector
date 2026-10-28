@@ -271,7 +271,13 @@ the daemon looks for the moment claude read the entry:
   `notify`, `send-file`, `bind` and `rename` run in a herdr pane carries the caller's, made absolute, and the
   binding keeps the last one along with the pane), the daemon's own `CLAUDE_CONFIG_DIR`, and `~/.claude`. It notes the file's size just before the prompt
   and reads only what is appended after it; a matching `remove` settles that message, a `dequeue` settles every
-  watched message of that session. Other records
+  watched message of that session. A claude whose turn is over while a background agent still runs ("Waiting
+  for N background agent(s) to finish") is reported `working` by herdr yet takes the line at once as a new
+  prompt, with no queue records at all: a `"type":"user"` record whose `message.content` is the line itself,
+  or, for several lines, `\n\n<pasted_content id="…">\n<line>\n</pasted_content id="…">\n`. That record settles
+  the message too (`queued.read … "why":"submitted"`); the tool result (array `content`) and the
+  `queued_command` attachment that quote a line absorbed from the queue do not. A prompt or `remove` record
+  settles one message: of two queued with the same text, the other waits for its own record. Other records
   change nothing — a `remove` without a reason or a `popAll` (the human took the queue back into the input
   box), a `remove` quoting another line. Since Claude Code 2.1.278, a pasted line's `content` arrives
   wrapped in `<pasted_content id="…">…</pasted_content id="…">` (a fresh id each time); the daemon strips
@@ -283,7 +289,9 @@ the daemon looks for the moment claude read the entry:
   line) is logged once per message as `queued.unmatched` — never the text itself — the signal that the
   format has drifted again. To check it still holds on a machine:
   `grep -h '"queue-operation"' "${CLAUDE_CONFIG_DIR:-$HOME/.claude}"/projects/*/*.jsonl | tail -3` (run in the
-  agent's session) should show `enqueue` / `remove` / `dequeue` records like the above.
+  agent's session) should show `enqueue` / `remove` / `dequeue` records like the above, and
+  `grep -h -F '"type":"user"' <transcript> | grep -F '"content":"[lark-connector remote] ' | tail -1` the last
+  single-line prompt record (a multi-line one starts `"content":"\n\n<pasted_content`).
 - *Fallback.* herdr reporting the pane as no longer `working` (`idle`, `done`): the queue is empty by
   then, so every watched message of that pane is settled.
 - *Expiry.* A message with neither signal for 30 minutes (the pane is gone, or the transcript no longer
