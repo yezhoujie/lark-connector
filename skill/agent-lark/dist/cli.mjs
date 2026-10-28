@@ -138681,6 +138681,13 @@ async function runDaemon(deps = {}) {
     }
   };
   const queued = /* @__PURE__ */ new Map();
+  const takenRecords = /* @__PURE__ */ new Set();
+  const forgetTakenRecords = (from) => {
+    for (const key of takenRecords) {
+      const cut = key.indexOf(":");
+      if (!from || key.slice(cut + 1) !== from.path || Number(key.slice(0, cut)) < from.offset) takenRecords.delete(key);
+    }
+  };
   const claudeDir = deps.claudeConfigDir ?? process.env.CLAUDE_CONFIG_DIR ?? join5(homedir4(), ".claude");
   const queuedMaxAgeMs = deps.queuedMaxAgeMs ?? QUEUED_MAX_AGE_MS;
   const transcriptMissingLogged = /* @__PURE__ */ new Set();
@@ -138728,7 +138735,13 @@ async function runDaemon(deps = {}) {
       const n = readSync(fd, buf, 0, buf.length, offset);
       const cut = buf.subarray(0, n).lastIndexOf(10);
       if (cut < 0) return { lines: [], end: n === TRANSCRIPT_READ_MAX ? offset + n : offset };
-      return { lines: buf.subarray(0, cut).toString("utf8").split("\n"), end: offset + cut + 1 };
+      const lines = [];
+      for (let start = 0; start <= cut; ) {
+        const stop2 = buf.indexOf(10, start);
+        lines.push({ text: buf.subarray(start, stop2).toString("utf8"), at: offset + start });
+        start = stop2 + 1;
+      }
+      return { lines, end: offset + cut + 1 };
     } finally {
       closeSync(fd);
     }
@@ -138758,9 +138771,10 @@ async function runDaemon(deps = {}) {
   };
   const PASTED_CONTENT_RE = /^<pasted_content id="[^"]*">\n([\s\S]*)\n<\/pasted_content id="[^"]*">$/;
   const unwrapPastedContent = (content) => PASTED_CONTENT_RE.exec(content)?.[1] ?? content;
+  const promptText = (content) => unwrapPastedContent(content.replace(/^\n+|\n+$/g, ""));
   const settleQueued = async (live) => {
     const pendingTexts = new Set([...queued.values()].map((p) => p.text));
-    for (const [msgKey, q] of [...queued]) {
+    for (const [msgKey, q] of [...queued].sort(([, x], [, y]) => x.since - y.since)) {
       if (Date.now() - q.since >= queuedMaxAgeMs) {
         await closeQueued(msgKey, q, "expired");
         continue;
@@ -138771,19 +138785,30 @@ async function runDaemon(deps = {}) {
         continue;
       }
       if (!q.transcript) continue;
+      const path2 = q.transcript.path;
       let appended;
       try {
-        appended = readAppended(q.transcript.path, q.transcript.offset);
+        appended = readAppended(path2, q.transcript.offset);
       } catch (err) {
-        log("transcript.read-failed", { path: q.transcript.path, err: String(err).slice(0, 200) });
+        log("transcript.read-failed", { path: path2, err: String(err).slice(0, 200) });
         continue;
       }
       q.transcript.offset = appended.end;
       for (const line of appended.lines) {
         let rec;
         try {
-          rec = JSON.parse(line);
+          rec = JSON.parse(line.text);
         } catch {
+          continue;
+        }
+        const recKey = `${line.at}:${path2}`;
+        if (rec.type === "user") {
+          const content = rec.message?.content;
+          if (typeof content === "string" && !takenRecords.has(recKey) && promptText(content) === q.text) {
+            takenRecords.add(recKey);
+            await closeQueued(msgKey, q, "submitted");
+            break;
+          }
           continue;
         }
         if (rec.type !== "queue-operation") continue;
@@ -138793,7 +138818,8 @@ async function runDaemon(deps = {}) {
         }
         if (rec.operation === "remove" && rec.reason === "absorbed_mid_turn") {
           const content = unwrapPastedContent(rec.content ?? "");
-          if (content === q.text) {
+          if (content === q.text && !takenRecords.has(recKey)) {
+            takenRecords.add(recKey);
             await closeQueued(msgKey, q, "absorbed");
             break;
           }
@@ -138844,6 +138870,7 @@ async function runDaemon(deps = {}) {
     if (agent?.agent !== "claude" || agent.agent_status !== "working" || !reactTo) return false;
     try {
       const reactionId = await channel.addReaction(reactTo, QUEUE_EMOJI);
+      if (!queued.size) forgetTakenRecords(transcript);
       queued.set(reactTo, { b, paneId, sessionId: agent.agent_session?.value, text: line, since: Date.now(), reactionId, transcript });
       while (queued.size > QUEUED_KEEP) {
         const oldest = queued.keys().next().value;
