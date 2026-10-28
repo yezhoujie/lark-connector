@@ -11,6 +11,24 @@ Before 0.2.0 this repository was a section of the `agent-remote-communication-sk
 `agent-lark/vX.Y.Z` there; the entries below for those versions are unchanged, and the same versions are
 tagged plain `vX.Y.Z` here.
 
+### [0.4.6][lark-connector-0.4.6] - 2026-10-28
+
+#### Fixed
+
+- A phone message sent while claude's turn is over but a background agent is still running ("Waiting for N
+  background agent(s) to finish") is now swapped from ✈️ to `Get` within seconds. herdr reports such a pane as
+  `working`, so the message was marked queued, yet claude took the line at once as a new prompt: the transcript
+  then holds a plain user message and no queue records, and ✈️ stayed for good once the 30-minute watch ran out.
+  The daemon now also settles a queued message when the transcript records the line itself as a prompt
+  (`queued.read … "why":"submitted"` in the log); a tool result or queued-command attachment quoting the line
+  does not count, so a message still waiting in the queue is not settled early (`references/daemon.md`).
+- One prompt or `absorbed_mid_turn` record settles one queued message: of two queued messages with the same
+  text, the other now waits for its own record instead of turning `Get` early.
+
+#### Changed
+
+- `references/failures.md` says what to look at when the transcript was found but ✈️ still expired.
+
 ### [0.4.5][lark-connector-0.4.5] - 2026-10-23
 
 #### Changed
@@ -395,6 +413,7 @@ Feishu custom app of your own instead of a public notification service.
 - `node --test` suite (cards, validation, IPC, daemon with a fake Feishu channel, the CLI against a fake daemon)
   on ubuntu / windows / macos × Node 22 / 24.
 
+[lark-connector-0.4.6]: https://github.com/yezhoujie/lark-connector/compare/v0.4.5...v0.4.6
 [lark-connector-0.4.5]: https://github.com/yezhoujie/lark-connector/compare/v0.4.4...v0.4.5
 [lark-connector-0.4.4]: https://github.com/yezhoujie/lark-connector/compare/v0.4.3...v0.4.4
 [lark-connector-0.4.3]: https://github.com/yezhoujie/lark-connector/compare/v0.4.2...v0.4.3
