@@ -31,7 +31,8 @@ export interface ParsedScreen {
   numbered: boolean;
   /** The block with cursor markers dropped and whitespace collapsed. Moving
    *  the cursor does not change it, nor does the time left on Claude Code's
-   *  auto-deny countdown; any other change to the prompt text does. */
+   *  auto-deny countdown or where a narrow pane folds that notice; any other
+   *  change to the prompt text does. */
   fingerprint: string;
 }
 
@@ -40,14 +41,43 @@ const FOOTER = /esc to cancel|esc cancel|↵ confirm|enter to confirm|enter to s
 const NUMBERED = /^\s*(?<cur>[❯▶→])?\s*(?:(?<n>\d+)\.|\[(?<m>\d+)\])\s+(?<label>.+?)\s*$/;
 const CURSOR_ONLY = /^\s*❯\s+\S/;
 const CURSOR_MARK = /^\s*[❯▶→]\s*/;
-// Claude Code's notice that an unattended prompt will be denied, redrawn every
-// second (`in 1:22`; `in about 2 minutes` for screen readers). Matched in the
-// fingerprint, where words are split by a space or by the line break of a
-// narrow pane, which may fold it elsewhere as the time gets shorter. It must
-// start a line with its warning sign, so a command quoting it is left alone.
+// Claude Code's notice that an unattended prompt will be refused, redrawn every
+// second (`in 1:22`; `in about 2 minutes` for screen readers). Its wording has
+// changed between releases: `deny this request in 1:22, to avoid blocking
+// progress on an unattended session` up to 2.1.312, `block this request in
+// 1:22, to avoid holding up an unattended session` from 2.1.316. Only its frame
+// is relied on: a warning sign starting a line (so a command quoting the words
+// is left alone), `Claude Code will automatically`, one word, `this request
+// in`, and the time; the words after the time are free. A narrow pane folds the
+// notice over several lines, at a place that moves as the time gets shorter,
+// and Claude Code leaves a blank line under it, so it is read from its first
+// line down to the next blank line.
+const AUTO_DENY_START = /^[⚠‼]\uFE0F? /;
 const AUTO_DENY =
-  /^[⚠‼]\uFE0F?[ \n]Claude[ \n]Code[ \n]will[ \n]automatically[ \n]deny[ \n]this[ \n]request[ \n]in[ \n](?:\d+:\d{2}|about[ \n]\d+[ \n](?:minute|second)s?)(?![\d:])(?:,[ \n]to[ \n]avoid[ \n]blocking[ \n]progress[ \n]on[ \n]an[ \n]unattended[ \n]session)?/gm;
-const AUTO_DENY_LEFT = /\d+:\d{2}|about \d+ (?:minute|second)s?/;
+  /^(?<frame>[⚠‼]\uFE0F? Claude Code will automatically \S+ this request in )(?:\d+:\d{2}|about \d+ (?:minute|second)s?)(?![\d:])/;
+
+/** `lines`, each with its whitespace collapsed and trimmed, with Claude Code's
+ *  auto-deny notice joined into one line and its time left out. */
+function settleCountdown(lines: string[]): string[] {
+  const out: string[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i] as string;
+    if (!AUTO_DENY_START.test(line)) {
+      out.push(line);
+      continue;
+    }
+    let end = i + 1;
+    while (end < lines.length && lines[end] !== '') end++;
+    const notice = lines.slice(i, end).join(' ');
+    if (!AUTO_DENY.test(notice)) {
+      out.push(line);
+      continue;
+    }
+    out.push(notice.replace(AUTO_DENY, '$<frame><left>'));
+    i = end - 1;
+  }
+  return out;
+}
 
 const indentOf = (l: string): number => l.length - l.trimStart().length;
 
@@ -164,11 +194,9 @@ export function parseScreen(text: string, cli: ScreenCli): ParsedScreen {
       ? options.some((o) => o.label.trim() === 'Chat about this') || block.some((l) => l.trim() === 'Ready to submit your answers?')
       : (block[0] as string).trim() === 'question';
 
-  const fingerprint = block
-    .map((l) => l.replace(CURSOR_MARK, '').replace(/\s+/g, ' ').trim())
+  const fingerprint = settleCountdown(block.map((l) => l.replace(CURSOR_MARK, '').replace(/\s+/g, ' ').trim()))
     .filter((l) => l !== '')
-    .join('\n')
-    .replace(AUTO_DENY, (notice) => notice.replace(/\n/g, ' ').replace(AUTO_DENY_LEFT, '<left>'));
+    .join('\n');
 
   return { kind: isQuestion ? 'question' : 'choice', block, options, numbered, fingerprint };
 }
