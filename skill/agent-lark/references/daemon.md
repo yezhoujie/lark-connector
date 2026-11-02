@@ -316,8 +316,11 @@ anything; idle and finished sessions never do. Outside herdr `paneId` is never r
   on every poll (5 s): a different prompt pushes its own card (or is redirected, if it is a question) and
   only then turns the old one into `Expired · the prompt changed, see the new card`; a screen that cannot
   be read or made out changes nothing that round. Claude Code's unattended-session countdown
-  (`⚠ Claude Code will automatically deny this request in 1:22, …`, redrawn every second) does not make a
-  prompt different: the time left is not compared, so the card stays open while it counts down.
+  (`⚠ Claude Code will automatically block this request in 1:22, …`, `deny` up to Claude Code 2.1.312;
+  redrawn every second) does not make a prompt different: the time left is not compared, so the card stays
+  open while it counts down. The line is recognised by its frame alone (a warning sign starting it, `Claude
+  Code will automatically`, one word, `this request in`, the time), so another verb or other words after the
+  time are covered as well, wherever a narrow pane folds it.
 
 - *A question* (`AskUserQuestion` / Kimi's question form): no card. The daemon presses Esc, looks at the pane
   once a second for up to 20 s until it leaves `blocked`, then injects the redirect line through the usual
