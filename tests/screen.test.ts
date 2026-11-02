@@ -379,7 +379,7 @@ for (const w of WORDINGS) {
   });
 
   test(`[${w.release}] the countdown is recognised behind each warning sign Claude Code draws for it`, () => {
-    for (const sign of ['‼', '⚠️']) {
+    for (const sign of ['‼', '⚠\uFE0F']) {
       const signed = text.replace('⚠ Claude Code will', `${sign} Claude Code will`);
       assert.notEqual(signed, text, sign);
       assert.equal(fingerprint(remaining(signed, '0:57')), fingerprint(signed), sign);
