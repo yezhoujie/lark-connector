@@ -389,3 +389,12 @@ its own exit code stands; the human sees the outcome on that pane.
   on a prompt all that time, the transcript was found but most likely recorded the line in a form daemon.md §5
   does not list: look at the records after the line's arrival in that transcript
   (`grep -n -F '[lark-connector remote] <first words of the message>' <transcript>`).
+- **🔔 *waiting for you* cards that keep expiring.** Every few seconds the open card turns into
+  `Expired · the prompt changed, see the new card` and a new one arrives, while the terminal still shows the same
+  prompt, and a number sent from the phone is not pressed. Part of the prompt is redrawn on its own and the daemon
+  takes the redraw for a different prompt: `<home>/daemon.log` shows a run of
+  `block.verify … "outcome":"changed-unanswered"` (or `"stale-before-keys"`) and no `block.keys`. The known cause
+  is Claude Code's unattended-session countdown ([daemon.md](daemon.md) §5, *The stuck alert*): it is recognised
+  by the frame of its sentence, and a Claude Code release that rewrites that frame brings the symptom back (0.4.7
+  covers the 2.1.316 rewording). Tell the user to answer at the terminal for now, and capture the screen for a fix
+  with `herdr agent read <pane> --source visible`.
