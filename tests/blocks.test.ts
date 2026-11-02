@@ -728,47 +728,56 @@ test('stopped while waiting on esc: nothing is injected or carded afterwards', a
 
 // ---- a prompt that counts down while it waits ----
 
-/** The auto-deny sample showing `left` as the time remaining. */
-const autodeny = (left: string): string => sample('claude-bash-autodeny').replace('request in 1:22,', `request in ${left},`);
+// Claude Code words the countdown differently across releases (`deny` up to
+// 2.1.312, `block` from 2.1.316); the card flow has to hold for each wording.
+const AUTODENY_SAMPLES: Array<[release: string, fixture: string]> = [
+  ['2.1.312', 'claude-bash-autodeny'],
+  ['2.1.316', 'claude-bash-autodeny-block'],
+];
 
-test('a prompt whose auto-deny countdown ticks between polls keeps its one card', async () => {
-  const s = setup();
-  await s.block(autodeny('1:22'));
-  for (const left of ['1:17', '1:12', '1:07']) {
-    s.setScreen(autodeny(left));
-    await s.relay.onPoll(s.b, s.agent('blocked'));
-  }
-  assert.equal(s.sentCards().length, 1);
-  assert.equal(s.updates().length, 0);
-  assert.equal(s.relay.has('/p'), true);
-});
+for (const [release, fixture] of AUTODENY_SAMPLES) {
+  /** The auto-deny sample showing `left` as the time remaining. */
+  const autodeny = (left: string): string => sample(fixture).replace('request in 1:22,', `request in ${left},`);
 
-test('a number on a prompt whose countdown ticked since its card went out is pressed', async () => {
-  const s = setup();
-  await s.block(autodeny('1:22'));
-  s.setScreen(autodeny('1:09'));
-  s.onKeys(() => s.setStatus('working'));
-  assert.equal(await s.relay.onMessage(s.b, '1', 'om_h'), true);
-  await s.relay.idle();
-  assert.deepEqual(s.herdr.presses, [{ paneId: PANE, keys: ['1'] }]);
-  assert.deepEqual(s.fake.reactions, [{ messageId: 'om_h', emoji: CHOSEN_EMOJI }]);
-  assert.equal(s.sentCards().length, 1);
-  assert.equal(s.updates().length, 1);
-  assert.equal(s.updates()[0]!.card.header.title.content, '✅ [p] waiting for you · Resolved · you picked 1 on the phone');
-});
+  test(`[${release}] a prompt whose auto-deny countdown ticks between polls keeps its one card`, async () => {
+    const s = setup();
+    await s.block(autodeny('1:22'));
+    for (const left of ['1:17', '1:12', '1:07']) {
+      s.setScreen(autodeny(left));
+      await s.relay.onPoll(s.b, s.agent('blocked'));
+    }
+    assert.equal(s.sentCards().length, 1);
+    assert.equal(s.updates().length, 0);
+    assert.equal(s.relay.has('/p'), true);
+  });
 
-test('a key that changes nothing while the countdown keeps ticking is reported as no effect, not as a next step', async () => {
-  const s = setup();
-  await s.block(autodeny('1:22'));
-  s.onKeys(() => s.setScreen(autodeny('1:20')));
-  await s.relay.onMessage(s.b, '1', 'om_1');
-  await s.relay.idle();
-  assert.deepEqual(s.receipts, [T.promptKeysIgnored]);
-  assert.equal(s.sentCards().length, 1);
-  assert.equal(s.updates().length, 0);
-  assert.deepEqual(s.fake.reactions, []);
-  assert.equal(s.relay.has('/p'), true);
-});
+  test(`[${release}] a number on a prompt whose countdown ticked since its card went out is pressed`, async () => {
+    const s = setup();
+    await s.block(autodeny('1:22'));
+    s.setScreen(autodeny('1:09'));
+    s.onKeys(() => s.setStatus('working'));
+    assert.equal(await s.relay.onMessage(s.b, '1', 'om_h'), true);
+    await s.relay.idle();
+    assert.deepEqual(s.herdr.presses, [{ paneId: PANE, keys: ['1'] }]);
+    assert.deepEqual(s.fake.reactions, [{ messageId: 'om_h', emoji: CHOSEN_EMOJI }]);
+    assert.equal(s.sentCards().length, 1);
+    assert.equal(s.updates().length, 1);
+    assert.equal(s.updates()[0]!.card.header.title.content, '✅ [p] waiting for you · Resolved · you picked 1 on the phone');
+  });
+
+  test(`[${release}] a key that changes nothing while the countdown keeps ticking is reported as no effect, not as a next step`, async () => {
+    const s = setup();
+    await s.block(autodeny('1:22'));
+    s.onKeys(() => s.setScreen(autodeny('1:20')));
+    await s.relay.onMessage(s.b, '1', 'om_1');
+    await s.relay.idle();
+    assert.deepEqual(s.receipts, [T.promptKeysIgnored]);
+    assert.equal(s.sentCards().length, 1);
+    assert.equal(s.updates().length, 0);
+    assert.deepEqual(s.fake.reactions, []);
+    assert.equal(s.relay.has('/p'), true);
+  });
+}
 
 // ---- misc ----
 

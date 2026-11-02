@@ -137981,6 +137981,26 @@ var init_cards = __esm({
 });
 
 // src/screen.ts
+function settleCountdown(lines) {
+  const out = [];
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (!AUTO_DENY_START.test(line)) {
+      out.push(line);
+      continue;
+    }
+    let end = i + 1;
+    while (end < lines.length && lines[end] !== "") end++;
+    const notice = lines.slice(i, end).join(" ");
+    if (!AUTO_DENY.test(notice)) {
+      out.push(line);
+      continue;
+    }
+    out.push(notice.replace(AUTO_DENY, "$<frame><left>"));
+    i = end - 1;
+  }
+  return out;
+}
 function parseScreen(text, cli) {
   const lines = text.split("\n").map((l) => l.trimEnd());
   let anchor = -1;
@@ -138053,10 +138073,10 @@ function parseScreen(text, cli) {
   if (options.length < 2) return unknown();
   if (clipped && options[0]?.n !== 1) return unknown();
   const isQuestion = cli === "claude" ? options.some((o) => o.label.trim() === "Chat about this") || block2.some((l) => l.trim() === "Ready to submit your answers?") : block2[0].trim() === "question";
-  const fingerprint = block2.map((l) => l.replace(CURSOR_MARK, "").replace(/\s+/g, " ").trim()).filter((l) => l !== "").join("\n").replace(AUTO_DENY, (notice) => notice.replace(/\n/g, " ").replace(AUTO_DENY_LEFT, "<left>"));
+  const fingerprint = settleCountdown(block2.map((l) => l.replace(CURSOR_MARK, "").replace(/\s+/g, " ").trim())).filter((l) => l !== "").join("\n");
   return { kind: isQuestion ? "question" : "choice", block: block2, options, numbered, fingerprint };
 }
-var RULE, FOOTER, NUMBERED, CURSOR_ONLY, CURSOR_MARK, AUTO_DENY, AUTO_DENY_LEFT, indentOf, unknown;
+var RULE, FOOTER, NUMBERED, CURSOR_ONLY, CURSOR_MARK, AUTO_DENY_START, AUTO_DENY, indentOf, unknown;
 var init_screen = __esm({
   "src/screen.ts"() {
     "use strict";
@@ -138065,8 +138085,8 @@ var init_screen = __esm({
     NUMBERED = /^\s*(?<cur>[❯▶→])?\s*(?:(?<n>\d+)\.|\[(?<m>\d+)\])\s+(?<label>.+?)\s*$/;
     CURSOR_ONLY = /^\s*❯\s+\S/;
     CURSOR_MARK = /^\s*[❯▶→]\s*/;
-    AUTO_DENY = /^[⚠‼]\uFE0F?[ \n]Claude[ \n]Code[ \n]will[ \n]automatically[ \n]deny[ \n]this[ \n]request[ \n]in[ \n](?:\d+:\d{2}|about[ \n]\d+[ \n](?:minute|second)s?)(?![\d:])(?:,[ \n]to[ \n]avoid[ \n]blocking[ \n]progress[ \n]on[ \n]an[ \n]unattended[ \n]session)?/gm;
-    AUTO_DENY_LEFT = /\d+:\d{2}|about \d+ (?:minute|second)s?/;
+    AUTO_DENY_START = /^[⚠‼]\uFE0F? /;
+    AUTO_DENY = /^(?<frame>[⚠‼]\uFE0F? Claude Code will automatically \S+ this request in )(?:\d+:\d{2}|about \d+ (?:minute|second)s?)(?![\d:])/;
     indentOf = (l) => l.length - l.trimStart().length;
     unknown = () => ({ kind: "unknown", block: [], options: [], numbered: false, fingerprint: "" });
   }

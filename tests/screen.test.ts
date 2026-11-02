@@ -330,126 +330,219 @@ test('every claude question sample is still a question', () => {
 });
 
 // Claude Code's unattended-session notice counts down every second while the
-// prompt waits; the prompt is the same one throughout.
-const COUNTDOWN = '⚠ Claude Code will automatically deny this request in 1:22, to avoid blocking progress on an unattended session';
+// prompt waits; the prompt is the same one throughout. Its wording differs
+// between releases, so every test of it runs against each wording seen so far.
+interface Wording {
+  /** The Claude Code release that drew it. */
+  release: string;
+  /** A bash approval waiting on it, at `1:22` left. The 2.1.316 sample is the
+   *  2.1.312 capture with only the notice line reworded. */
+  fixture: string;
+  /** What the notice says will happen to the request. */
+  verb: string;
+  /** Everything after the time, from the comma on. */
+  tail: string;
+}
+const WORDINGS: Wording[] = [
+  { release: '2.1.312', fixture: 'claude-bash-autodeny', verb: 'deny', tail: ', to avoid blocking progress on an unattended session' },
+  { release: '2.1.316', fixture: 'claude-bash-autodeny-block', verb: 'block', tail: ', to avoid holding up an unattended session' },
+];
+const notice = (w: Wording, left: string): string => `⚠ Claude Code will automatically ${w.verb} this request in ${left}${w.tail}`;
 const remaining = (text: string, left: string): string => text.replace('request in 1:22,', `request in ${left},`);
+const fingerprint = (text: string): string => parseScreen(text, 'claude').fingerprint;
+/** `text` with a narrow pane's line break put in front of `word` (which starts with a space). */
+const foldBefore = (text: string, word: string): string => text.replace(word, `\n${word}`);
 
-test('claude bash approval with an auto-deny countdown is a numbered choice that keeps the countdown in its block', () => {
-  const p = parseScreen(load('claude-bash-autodeny'), 'claude');
-  assert.equal(p.kind, 'choice');
-  assert.equal(p.numbered, true);
-  assert.deepEqual(summary(p), [
-    [1, 'Yes', true],
-    [2, 'No', false],
-  ]);
-  assert.equal(first(p), 'Bash command');
-  assert.equal(last(p), 'Esc to cancel · Tab to amend');
-  assert.ok(p.block.some((l) => l.trim() === COUNTDOWN));
-});
+for (const w of WORDINGS) {
+  const text = load(w.fixture);
 
-test('the auto-deny countdown ticking does not change the fingerprint', () => {
-  const text = load('claude-bash-autodeny');
-  const fp = parseScreen(text, 'claude').fingerprint;
-  for (const left of ['1:21', '0:57', '0:00', '10:05']) {
-    const ticked = remaining(text, left);
-    assert.notEqual(ticked, text, left);
-    assert.equal(parseScreen(ticked, 'claude').fingerprint, fp, left);
-  }
-});
+  test(`[${w.release}] claude bash approval with an auto-deny countdown is a numbered choice that keeps the countdown in its block`, () => {
+    const p = parseScreen(text, 'claude');
+    assert.equal(p.kind, 'choice');
+    assert.equal(p.numbered, true);
+    assert.deepEqual(summary(p), [
+      [1, 'Yes', true],
+      [2, 'No', false],
+    ]);
+    assert.equal(first(p), 'Bash command');
+    assert.equal(last(p), 'Esc to cancel · Tab to amend');
+    assert.ok(p.block.some((l) => l.trim() === notice(w, '1:22')));
+  });
 
-test('the countdown is recognised behind each warning sign Claude Code draws for it', () => {
-  const text = load('claude-bash-autodeny');
-  for (const sign of ['‼', '⚠\uFE0F']) {
-    const signed = text.replace('⚠ Claude Code will', `${sign} Claude Code will`);
-    assert.notEqual(signed, text, sign);
-    assert.equal(parseScreen(remaining(signed, '0:57'), 'claude').fingerprint, parseScreen(signed, 'claude').fingerprint, sign);
-  }
-});
-
-test('the screen-reader wording of the countdown does not change the fingerprint as it counts down', () => {
-  const text = load('claude-bash-autodeny');
-  const fp = parseScreen(remaining(text, 'about 2 minutes'), 'claude').fingerprint;
-  for (const left of ['about 1 minute', 'about 45 seconds', 'about 1 second']) {
-    assert.equal(parseScreen(remaining(text, left), 'claude').fingerprint, fp, left);
-  }
-});
-
-test('a countdown folded over two lines by a narrow pane does not change the fingerprint as it ticks', () => {
-  const text = load('claude-bash-autodeny');
-  const folds: Array<[string, string]> = [
-    ['deny this request in 1:22, to', 'deny this request in\n 1:22, to'],
-    ['⚠ Claude Code will automatically deny', '⚠ Claude Code will automatically\n deny'],
-    ['progress on an unattended', 'progress on an\n unattended'],
-  ];
-  for (const [from, to] of folds) {
-    const folded = text.replace(from, to);
-    assert.notEqual(folded, text, to);
-    const fp = parseScreen(folded, 'claude').fingerprint;
-    for (const left of ['0:57', '10:05']) {
-      const ticked = folded.replace(/in(\s+)1:22,/, `in$1${left},`);
-      assert.notEqual(ticked, folded, `${to} / ${left}`);
-      assert.equal(parseScreen(ticked, 'claude').fingerprint, fp, `${to} / ${left}`);
+  test(`[${w.release}] the auto-deny countdown ticking does not change the fingerprint`, () => {
+    const fp = fingerprint(text);
+    for (const left of ['1:21', '0:57', '0:00', '10:05']) {
+      const ticked = remaining(text, left);
+      assert.notEqual(ticked, text, left);
+      assert.equal(fingerprint(ticked), fp, left);
     }
+  });
+
+  test(`[${w.release}] the countdown is recognised behind each warning sign Claude Code draws for it`, () => {
+    for (const sign of ['‼', '⚠\uFE0F']) {
+      const signed = text.replace('⚠ Claude Code will', `${sign} Claude Code will`);
+      assert.notEqual(signed, text, sign);
+      assert.equal(fingerprint(remaining(signed, '0:57')), fingerprint(signed), sign);
+    }
+  });
+
+  test(`[${w.release}] the screen-reader wording of the countdown does not change the fingerprint as it counts down`, () => {
+    const fp = fingerprint(remaining(text, 'about 2 minutes'));
+    for (const left of ['about 1 minute', 'about 45 seconds', 'about 1 second']) {
+      assert.equal(fingerprint(remaining(text, left)), fp, left);
+    }
+  });
+
+  test(`[${w.release}] a countdown folded over two lines by a narrow pane does not change the fingerprint as it ticks`, () => {
+    const folds: Array<[string, string]> = [
+      [`${w.verb} this request in 1:22, to`, `${w.verb} this request in\n 1:22, to`],
+      [`⚠ Claude Code will automatically ${w.verb}`, `⚠ Claude Code will automatically\n ${w.verb}`],
+      ['an unattended', 'an\n unattended'],
+    ];
+    for (const [from, to] of folds) {
+      const folded = text.replace(from, to);
+      assert.notEqual(folded, text, to);
+      const fp = fingerprint(folded);
+      for (const left of ['0:57', '10:05']) {
+        const ticked = folded.replace(/in(\s+)1:22,/, `in$1${left},`);
+        assert.notEqual(ticked, folded, `${to} / ${left}`);
+        assert.equal(fingerprint(ticked), fp, `${to} / ${left}`);
+      }
+    }
+  });
+
+  test(`[${w.release}] a countdown that folds at another word once its time gets shorter keeps the fingerprint`, () => {
+    const at = `in 1:22${w.tail}`;
+    const pairs: Array<[string, string]> = [
+      [`in 10:00${foldBefore(w.tail, ' unattended')}`, `in 9:59${foldBefore(w.tail, ' session')}`],
+      [`in about 1 minute${foldBefore(w.tail, ' an unattended')}`, `in about 59 seconds${foldBefore(w.tail, ' unattended')}`],
+    ];
+    for (const [longer, shorter] of pairs) {
+      const a = text.replace(at, longer);
+      const b = text.replace(at, shorter);
+      assert.notEqual(a, text, longer);
+      assert.notEqual(b, text, shorter);
+      assert.equal(fingerprint(a), fingerprint(b), shorter);
+    }
+  });
+
+  test(`[${w.release}] only the time of the countdown is left out: the rest of its line still counts`, () => {
+    const edited = text.replace('an unattended session', 'an unattended run');
+    assert.notEqual(edited, text);
+    assert.notEqual(fingerprint(edited), fingerprint(text));
+  });
+
+  test(`[${w.release}] with a countdown on screen, a change to the command still changes the fingerprint, numbers included`, () => {
+    const fp = fingerprint(text);
+    const edits: Array<[string, string]> = [
+      ['$(seq 1 15)', '$(seq 1 16)'],
+      ['app:v1.2.3', 'app:v1.2.4'],
+      ['head -c 30', 'head -c 31'],
+      ['runs rm and could not be checked', 'runs rm and was refused'],
+    ];
+    for (const [from, to] of edits) {
+      const edited = text.replace(from, to);
+      assert.notEqual(edited, text, to);
+      assert.notEqual(fingerprint(edited), fp, to);
+    }
+  });
+
+  test(`[${w.release}] the countdown wording quoted inside the command is part of the command, so its time still counts`, () => {
+    const bash = load('claude-bash');
+    const quoting = (left: string): string => bash.replace('   date > stamp2.txt\n', `   grep "${notice(w, left)}" log.txt\n`);
+    assert.notEqual(quoting('1:22'), bash);
+    assert.notEqual(fingerprint(quoting('1:22')), fingerprint(quoting('0:57')));
+  });
+
+  test(`[${w.release}] a line of the prompt that starts with the countdown wording, without its warning sign, is not the countdown`, () => {
+    const wording = (left: string): string => `Claude Code will automatically ${w.verb} this request in ${left}${w.tail}`;
+    // [where, the line it replaces, what the line starts with]
+    const places: Array<[string, string, string]> = [
+      ['a line of the command', ' │ import json,sys,base64\n', ' │ '],
+      ['the description under the title', ' 核对镜像 digest、健康检查与回滚命令序列\n', ' '],
+    ];
+    for (const [where, at, lead] of places) {
+      const quoting = (left: string): string => text.replace(at, `${lead}${wording(left)}\n`);
+      assert.notEqual(quoting('0:30'), text, where);
+      assert.notEqual(fingerprint(quoting('0:30')), fingerprint(quoting('0:31')), where);
+    }
+  });
+}
+
+// Only the frame around the time is relied on: the warning sign, `Claude Code
+// will automatically`, `this request in`, and the time. The verb and the words
+// after the time are free, since Claude Code has reworded exactly those.
+const LATEST = load('claude-bash-autodeny-block');
+const LATEST_AT = 'in 1:22, to avoid holding up an unattended session';
+
+test('a countdown with a verb not seen before does not change the fingerprint as it ticks', () => {
+  const text = LATEST.replace('automatically block this request', 'automatically reject this request');
+  assert.notEqual(text, LATEST);
+  const fp = fingerprint(text);
+  for (const left of ['1:21', '0:05', '12:00']) {
+    assert.equal(fingerprint(remaining(text, left)), fp, left);
   }
 });
 
-test('a countdown that folds at another word once its time gets shorter keeps the fingerprint', () => {
-  const text = load('claude-bash-autodeny');
+test('a countdown with new words after its time does not change the fingerprint as it ticks', () => {
+  const text = LATEST.replace(LATEST_AT, 'in 1:22, so a session left alone does not stall');
+  assert.notEqual(text, LATEST);
+  const fp = fingerprint(text);
+  for (const left of ['1:21', '0:05', '12:00']) {
+    assert.equal(fingerprint(remaining(text, left)), fp, left);
+  }
+  const fpScreenReader = fingerprint(remaining(text, 'about 2 minutes'));
+  for (const left of ['about 1 minute', 'about 9 seconds']) {
+    assert.equal(fingerprint(remaining(text, left)), fpScreenReader, left);
+  }
+});
+
+test('a countdown with new words after its time, folded at a place that moves as the time gets shorter, keeps the fingerprint', () => {
   const pairs: Array<[string, string]> = [
-    ['in 10:00, to avoid blocking progress on an\n unattended session', 'in 9:59, to avoid blocking progress on an unattended\n session'],
-    ['in about 1 minute, to avoid blocking progress on\n an unattended session', 'in about 59 seconds, to avoid blocking progress on an\n unattended session'],
+    ['in 10:00, so a session left\n alone does not stall', 'in 9:59, so a session left alone\n does not stall'],
+    ['in 1:22,\n so a session left alone\n does not stall', 'in 0:57, so\n a session left alone does\n not stall'],
   ];
   for (const [longer, shorter] of pairs) {
-    const a = text.replace('in 1:22, to avoid blocking progress on an unattended session', longer);
-    const b = text.replace('in 1:22, to avoid blocking progress on an unattended session', shorter);
-    assert.notEqual(a, text, longer);
-    assert.notEqual(b, text, shorter);
-    assert.equal(parseScreen(a, 'claude').fingerprint, parseScreen(b, 'claude').fingerprint, shorter);
+    const a = LATEST.replace(LATEST_AT, longer);
+    const b = LATEST.replace(LATEST_AT, shorter);
+    assert.notEqual(a, LATEST, longer);
+    assert.notEqual(b, LATEST, shorter);
+    assert.equal(fingerprint(a), fingerprint(b), shorter);
   }
 });
 
-test('only the time of the countdown is left out: the rest of its line still counts', () => {
-  const text = load('claude-bash-autodeny');
-  const edited = text.replace('on an unattended session', 'on an unattended run');
-  assert.notEqual(edited, text);
-  assert.notEqual(parseScreen(edited, 'claude').fingerprint, parseScreen(text, 'claude').fingerprint);
+test('a countdown with new words after its time still counts those words', () => {
+  const a = LATEST.replace(LATEST_AT, 'in 1:22, so a session left alone does not stall');
+  const b = LATEST.replace(LATEST_AT, 'in 1:22, so a session left alone does not wait');
+  assert.notEqual(fingerprint(a), fingerprint(b));
 });
 
-test('with a countdown on screen, a change to the command still changes the fingerprint, numbers included', () => {
-  const text = load('claude-bash-autodeny');
-  const fp = parseScreen(text, 'claude').fingerprint;
-  const edits: Array<[string, string]> = [
-    ['$(seq 1 15)', '$(seq 1 16)'],
-    ['app:v1.2.3', 'app:v1.2.4'],
-    ['head -c 30', 'head -c 31'],
-    ['runs rm and could not be checked', 'runs rm and was refused'],
+test('a warning line with a time that lacks the frame of the countdown still counts its time', () => {
+  const frame = '⚠ Claude Code will automatically block this request in 1:22,';
+  const broken: Array<[string, (left: string) => string]> = [
+    ['without "automatically"', (left) => `⚠ Claude Code will block this request in ${left},`],
+    ['without "this request in"', (left) => `⚠ Claude Code will automatically block it at ${left},`],
+    ['without "Claude Code"', (left) => `⚠ This tool will automatically block this request in ${left},`],
   ];
-  for (const [from, to] of edits) {
-    const edited = text.replace(from, to);
-    assert.notEqual(edited, text, to);
-    assert.notEqual(parseScreen(edited, 'claude').fingerprint, fp, to);
+  for (const [what, line] of broken) {
+    const at = (left: string): string => LATEST.replace(frame, line(left));
+    assert.notEqual(at('1:22'), LATEST, what);
+    assert.notEqual(fingerprint(at('1:22')), fingerprint(at('0:57')), what);
   }
 });
 
-test('the countdown wording quoted inside the command is part of the command, so its time still counts', () => {
-  const bash = load('claude-bash');
-  const quoting = (left: string): string =>
-    bash.replace('   date > stamp2.txt\n', `   grep "${remaining(COUNTDOWN, left)}" log.txt\n`);
-  assert.notEqual(parseScreen(quoting('1:22'), 'claude').fingerprint, parseScreen(quoting('0:57'), 'claude').fingerprint);
-});
-
-test('a line of the prompt that starts with the countdown wording, without its warning sign, is not the countdown', () => {
-  const text = load('claude-bash-autodeny');
-  const wording = (left: string): string =>
-    `Claude Code will automatically deny this request in ${left}, to avoid blocking progress on an unattended session`;
-  // [where, the line it replaces, what the line starts with]
-  const places: Array<[string, string, string]> = [
-    ['a line of the command', ' │ import json,sys,base64\n', ' │ '],
-    ['the description under the title', ' 核对镜像 digest、健康检查与回滚命令序列\n', ' '],
-  ];
-  for (const [where, at, lead] of places) {
-    const quoting = (left: string): string => text.replace(at, `${lead}${wording(left)}\n`);
-    assert.notEqual(quoting('0:30'), text, where);
-    assert.notEqual(parseScreen(quoting('0:30'), 'claude').fingerprint, parseScreen(quoting('0:31'), 'claude').fingerprint, where);
+test('a warning line right above the countdown, with no blank line between, keeps both counted while only the time is left out', () => {
+  const above = '⚠ This command writes outside the project';
+  const withAbove = (warning: string, text: string): string =>
+    text.replace(' ⚠ Claude Code will automatically block', ` ${warning}\n ⚠ Claude Code will automatically block`);
+  const text = withAbove(above, LATEST);
+  assert.notEqual(text, LATEST);
+  const fp = fingerprint(text);
+  for (const left of ['1:21', '0:05']) {
+    assert.equal(fingerprint(remaining(text, left)), fp, left);
   }
+  assert.notEqual(fingerprint(withAbove('⚠ This command writes inside the project', LATEST)), fp);
+  const countdownEdited = text.replace('an unattended session', 'an unattended run');
+  assert.notEqual(countdownEdited, text);
+  assert.notEqual(fingerprint(countdownEdited), fp);
 });
